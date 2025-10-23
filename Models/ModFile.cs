@@ -1,4 +1,5 @@
 ﻿using System;
+using DragonDen.ModManager.Services;
 
 namespace DragonDen.ModManager.Models;
 
@@ -27,6 +28,33 @@ public sealed class ModFile
             return $"BepInEx/plugins/{p}";
         }
     }
+    
+    public string FullPath
+    {
+        get
+        {
+            var unix = (Path ?? "").Replace('\\', '/');
+
+            if (string.Equals(Target, "server", StringComparison.OrdinalIgnoreCase))
+            {
+                var rel =
+                    TrimPrefix(unix, "SPT/user/mods/") ??
+                    TrimPrefix(unix, "user/mods/") ??
+                    unix;
+
+                return System.IO.Path.Combine(Spt.ServerModsPath, rel.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            }
+            else
+            {
+                var rel =
+                    TrimPrefix(unix, "BepInEx/plugins/") ??
+                    TrimPrefix(unix, "plugins/") ??
+                    unix;
+
+                return System.IO.Path.Combine(Spt.ClientModsPath, rel.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            }
+        }
+    }
 
     public string GetFileLocation(string target, string file)
     {
@@ -34,5 +62,10 @@ public sealed class ModFile
             return App.Config.Paths.ClientModsRelative + "/" + file;
         else 
             return App.Config.Paths.ServerModsRelative + "/" + file;
+    }
+    
+    private static string? TrimPrefix(string text, string prefix)
+    {
+        return text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? text[prefix.Length..] : null;
     }
 }

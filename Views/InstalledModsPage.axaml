@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:svc="clr-namespace:DragonDen.ModManager.Services"
+    xmlns:viewModels="clr-namespace:DragonDen.ModManager.ViewModels"
     xmlns:global="clr-namespace:"
     mc:Ignorable="d"
     d:DesignWidth="1280" d:DesignHeight="800"
@@ -233,7 +234,7 @@
                     </ListBox.ItemsPanel>
 
                     <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="global:InstalledModRow">
+                        <DataTemplate x:DataType="viewModels:InstalledModRow">
                             <Border Classes="card" MinWidth="600" MaxWidth="600">
                                 <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,*,Auto">
                                     <Border Grid.Row="0" Grid.Column="0"
@@ -351,6 +352,8 @@
                                                     Tag="{Binding .}" />
                                             <Button Content="List Files" Margin="8,0,0,0" Classes="btn btn-neutral"
                                                     Tag="{Binding .}" />
+                                            <Button Content="Edit Configs" Margin="8,0,0,0" Classes="btn btn-neutral"
+                                                    Tag="{Binding .}" IsVisible="{Binding HasEditableConfigs}"/>
 
                                             <ItemsControl ItemsSource="{Binding SourceButtons}" IsVisible="{Binding HasSources}">
                                                 <ItemsControl.ItemsPanel>

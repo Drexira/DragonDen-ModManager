@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using DragonDen.ModManager.Services;
 
+namespace DragonDen.ModManager.ViewModels;
+
 public sealed class InstalledModRow
 {
     public List<string> ModIds { get; set; } = new();
@@ -9,6 +11,7 @@ public sealed class InstalledModRow
     public string Guid { get; set; } = "";
     public string InstalledVersion { get; set; } = "0.0.0";
     public int FileCount { get; set; }
+    public bool HasEditableConfigs { get; set; }
     public string Thumbnail { get; set; } = "";
     public string DetailUrl { get; set; } = "";
     public bool HasPage { get; set; }

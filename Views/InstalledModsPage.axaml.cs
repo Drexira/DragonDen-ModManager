@@ -14,6 +14,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DragonDen.ModManager.Services;
+using DragonDen.ModManager.ViewModels;
 
 namespace DragonDen.ModManager.Views;
 
@@ -261,6 +262,13 @@ public partial class InstalledModsPage : UserControl
         if (b.Content?.ToString()?.Equals("List Files", StringComparison.OrdinalIgnoreCase) == true)
             if (b.Tag is InstalledModRow row4)
                 await ShowFilesDialog(row4);
+        
+        if (b.Content?.ToString()?.Equals("Edit Configs", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            if (b.Tag is InstalledModRow row5)
+                await ShowConfigDialog(row5);
+            return;
+        }
     }
     
     public async Task RefreshFromSettingsAsync()
@@ -294,6 +302,76 @@ public partial class InstalledModsPage : UserControl
 
         var owner = (Window?)TopLevel.GetTopLevel(this);
         var dlg = new FilesDialog(row.Name, files)
+        {
+            ShowInTaskbar = false,
+            CanResize = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        if (owner is not null)
+            await dlg.ShowDialog(owner);
+        else
+            dlg.Show();
+    }
+    
+    private static bool IsEditablePath(string p)
+    {
+        var ext = Path.GetExtension(p ?? "");
+        return ext.Equals(".txt", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".json", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".json5", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".jsonc", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".cfg", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".ini", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".toml", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".yml", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".yaml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ShowConfigDialog(InstalledModRow row)
+    {
+        if (row.ModIds is null || row.ModIds.Count == 0) return;
+
+        var merged = new List<(string path, string target)>();
+        foreach (var id in row.ModIds)
+        {
+            try
+            {
+                var part = App.Db.ListFilesForModId(id);
+                if (part is { Count: > 0 }) merged.AddRange(part);
+            }
+            catch
+            {
+                // good girl action
+            }
+        }
+
+        var items = new List<ConfigDialog.ConfigItem>();
+        foreach (var (rel, target) in merged)
+        {
+            var unixRel = (rel ?? "").Replace('\\', '/');
+            if (!IsEditablePath(unixRel)) continue;
+
+            var baseRoot = (target ?? "client").Equals("server", StringComparison.OrdinalIgnoreCase)
+                ? Spt.ServerModsPath
+                : Spt.ClientModsPath;
+
+            var full = Path.Combine(baseRoot, unixRel.Replace('/', Path.DirectorySeparatorChar));
+            items.Add(new ConfigDialog.ConfigItem
+            {
+                DisplayPath = $"{target ?? "client"} • {unixRel}",
+                FullPath = full
+            });
+        }
+
+        if (items.Count == 0)
+        {
+            App.Toasts.Show("No editable config files found.");
+            return;
+        }
+
+        var owner = (Window?)TopLevel.GetTopLevel(this);
+        var dlg = new ConfigDialog(row.Name, items)
         {
             ShowInTaskbar = false,
             CanResize = true,
@@ -356,7 +434,6 @@ public partial class InstalledModsPage : UserControl
         var updatesFirst = (UpdatesFirstChk?.IsChecked ?? false);
 
         var (allRows, statusText) = await BuildRowsAsync(sortTag, updatesFirst);
-
         var filtered = ApplySearchFilter(allRows, _searchText).ToList();
 
         ModsList.ItemsSource = filtered;
@@ -509,9 +586,34 @@ public partial class InstalledModsPage : UserControl
 
                 var latestForAB = filtered.FirstOrDefault();
                 var latestVerText = latestForAB?.Version ?? "";
-                var canUpdate = latestForAB != null &&
-                                !string.IsNullOrWhiteSpace(latestForAB.Version) &&
-                                IsUpdate(installedVersion, latestForAB.Version!);
+                var canUpdate = latestForAB != null && !string.IsNullOrWhiteSpace(latestForAB.Version) && IsUpdate(installedVersion, latestForAB.Version!);
+
+                bool hasEditableConfigs = false;
+                try
+                {
+                    var modIds = g.Select(x => x.mod_id).Distinct().ToList();
+                    foreach (var mid in modIds)
+                    {
+                        var files = App.Db.ListFilesForModId(mid);
+                        if (files is { Count: > 0 })
+                        {
+                            foreach (var (path, _) in files)
+                            {
+                                if (IsEditablePath(path))
+                                {
+                                    hasEditableConfigs = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (hasEditableConfigs) break;
+                    }
+                }
+                catch
+                {
+                    // good girl action
+                }
 
                 rows.Add(new InstalledModRow
                 {
@@ -534,9 +636,8 @@ public partial class InstalledModsPage : UserControl
                     Category = string.IsNullOrWhiteSpace(category) ? "(Uncategorized)" : category,
                     InstalledAt = installedAt,
                     InstalledAtText = installedAt.HasValue ? installedAt.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm") : "",
-                    LatestPublishedText = latestForAB?.PublishedAt.HasValue == true
-                        ? latestForAB!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd")
-                        : ""
+                    LatestPublishedText = latestForAB?.PublishedAt.HasValue == true ? latestForAB!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd") : "",
+                    HasEditableConfigs = hasEditableConfigs
                 });
             }
             finally
@@ -561,7 +662,7 @@ public partial class InstalledModsPage : UserControl
         var statusText = final.Count == 0 ? "No installed mods." : $"{final.Count} installed mods";
         return (final, statusText);
     }
-    
+
     private static IEnumerable<InstalledModRow> ApplySearchFilter(IEnumerable<InstalledModRow> rows, string query)
     {
         if (rows is null) return Array.Empty<InstalledModRow>();
