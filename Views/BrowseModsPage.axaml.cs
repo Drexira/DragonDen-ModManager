@@ -1,0 +1,1395 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using DragonDen.ModManager.Services;
+using DragonDen.ModManager.ViewModels;
+using CacheDb = DragonDen.ModManager.Storage.CacheDb;
+
+namespace DragonDen.ModManager.Views;
+
+public partial class BrowseModsPage : UserControl
+{
+    private static readonly string[] LoadingTips =
+    {
+        "Warming up the den...",
+        "Syncing with Euphoria's trader backend...",
+        "Verifying quest chains (Therapist → Euphoria)...",
+        "Packing LooseLoot crates...",
+        "Calibrating Zone Maker gizmos...",
+        "Compiling VCQL zones...",
+        "Scanning map locations for Quest Immersion...",
+        "Sharpening mods & tools...",
+        "Optimizing raid timers and stash weights...",
+        "Taming search gremlins...",
+        "Counting ammo boxes (twice)...",
+        "Sealing SICC pouches...",
+        "Dusting the hideout workbench...",
+        "Negotiating with PMCs at extract...",
+        "Despawning rogue scavs from staging...",
+        "Polishing Dragon Den optics & sights...",
+        "Fetching scrolls from Forge...",
+        "Hydrating Neon Signs shaders...",
+        "Pinging Lighthouse rogues...",
+        "Feeding the dragons...",
+        "Praying to Nikita for netcode mercy...",
+        "Bartering a LedX for two bolts and a dream...",
+        "Insuring that ratty wallet you swear you'll keep...",
+        "Wiping blood off the Slick, totally factory new...",
+        "Teaching scavs the sacred words: “Hold your fire!”",
+        "Assembling a budget Chad kit (oxymoron detected)...",
+        "Camping the marked room (for science)...",
+        "Staring at a Red Rebel like it's affordable...",
+        "Injecting SJ6 and regretting life choices...",
+        "Rebinding VoIP to 'Apologize to Killa'...",
+        "Consulting Therapist: “Can Propital fix desync?”",
+        "Turning bush mode ON (invisible +10 charisma)...",
+        "Feeding Flea Tax: 35% for 'health'...",
+        "Rolling M62s like they're rubles...",
+        "Begging Fence for scav karma forgiveness...",
+        "Asking Tagilla to chill with the hammer...",
+        "Explaining to Sanitar why CMS is not surgery...",
+        "Mining Reserve for bitcoin, GPU screams in pain...",
+        "Sacrificing a Tetriz to RNGesus...",
+        "Extract camping awareness seminar: eyes behind head...",
+        "Teaching AI scavs to use indoor voices...",
+        "Recalibrating footstep volume to 'panic'...",
+        "Printing toilets on Interchange (art installation)...",
+        "Negotiating with a bush that just shot me...",
+        "Installing extra pockets into your pockets...",
+        "Microwaving moonshine for performance gains...",
+        "Whispering sweet nothings to the loot pool...",
+        "Polishing your dogtag for posthumous glam...",
+        "Turning one duct tape into four somehow...",
+        "Consulting the Oracle of Jaeger (he grunted)...",
+        "Spawning a GPU then losing it to Alt+F4...",
+        "Reinforcing your rat license with glitter...",
+        "Refactoring spaghetti to linguine code...",
+        "Replacing if statements with cope statements...",
+        "De-squeaking Killa's Adidas...",
+        "Rewiring Shoreline's power to a potato...",
+        "Giving Sanitar a Nerf kit for safety...",
+        "Teaching Reshala to tip 15% at Dorms...",
+        "Hiring Rogues as QA (they shot the bug report)...",
+        "Balancing bosses by giving them feelings...",
+        "Adding a 'No Bushes' graphics preset...",
+        "Applying thermal paste to your legs for speed...",
+        "Crossfading gunfire with whale songs...",
+        "Deploying decoy PMC that screams 'Friendly!'",
+        "Enchanting Slick with 'Attract Bullets +3'...",
+        "Repacking rounds alphabetically...",
+        "Converting the hideout into an AirBnB...",
+        "Taping a flashlight to a flashlight...",
+        "Trying to pet a stray grenade...",
+        "Haggling with Therapist using dad jokes...",
+        "Teaching grenades to ask consent before bouncing...",
+        "Installing recoil dampeners on your eyebrows...",
+        "Upgrading VoIP to include sighs in Dolby Atmos...",
+        "Replacing Interchange lighting with candles...",
+        "Bundling painkillers with existential advice...",
+        "Adding a 'No Fall Damage' sticker to reality...",
+        "Kicking Factory's door until it opens emotionally...",
+        "Convincing Gluhar to start a book club...",
+        "Wiring customs extract to a mood ring...",
+        "Replacing errors with 'skill issue' popups...",
+        "Capping frame drops with duct tape...",
+        "Porting scavs to turn-based mode...",
+        "Infusing loot crates with Schrödinger's GPU...",
+        "Upgrading your stash to a black hole...",
+        "Teaching bullets basic conflict resolution...",
+        "Summoning a friendly cultist (they waved)...",
+        "Burying bitcoins for the winter migration...",
+        "Jiggle-peeking imposter syndrome...",
+        "Rolling back the wipe you dreamed about...",
+        "Compressing mods with dragon breath...",
+        "Installing RTX on your soul...",
+        "Defragging your backpack in Morse code...",
+        "Adding a tooltip: 'Don't stand there.'",
+        "Sanitizing shoreline water with hope...",
+        "Training AI to miss on purpose (you're welcome)...",
+        "Converting ricochets to jazz notes...",
+        "Aligning scopes with astrology...",
+        "Upgrading the flea to farmer's market status...",
+        "Teaching pockets to say “I'm full.”",
+        "Bundling stash tabs with therapy sessions...",
+        "Rebinding 'Alt+F4' to 'Self Care'...",
+        "Replacing shoreline fog with vibes...",
+        "Awarding +1 charisma for saying 'Howdy' in Labs...",
+        "Installing anti-mosquito suppressors on legs...",
+        "Introducing sprint cooldown: 'Out of Cope'",
+        "Filing insurance claim under 'bear attack'...",
+        "Polishing keys so they feel important...",
+        "Turning GPU fans into tiny helicopters...",
+        "Rewriting AI pathing to 'anywhere but you'...",
+        "Adding a ping counter for your emotions...",
+        "Cooking lunch on a barrel at Factory...",
+        "Teaching flashbangs to use their indoor light...",
+        "Putting wheels on the stash (mobile hoarder)...",
+        "Adding ambient noise: 'Anxiety Hum v2'",
+        "Consulting Jaeger about salad buffs...",
+        "Refitting backpacks with clown car tech...",
+        "Replacing ricochet sounds with 'boop'",
+        "Granting invisibility when you sneeze IRL...",
+        "Offloading recoil to your credit score...",
+        "Patching shoreline bugs with beach towels...",
+        "Rebalancing hatchets with dad strength...",
+        "Teaching lasers to draw smiley faces...",
+        "Refactoring code that refactors you back...",
+        "Deploying loot that screams when picked up...",
+        "Syncing extracts to your horoscope...",
+        "Reducing desync by asking nicely...",
+        "Replacing stamina with spite...",
+        "Looting your own dignity (found 0.001 kg)...",
+        "Rerolling AI: now with midlife crisis...",
+        "Enabling friendly fire for bad vibes...",
+        "Installing NVGs with night light mode...",
+        "Auto-sorting stash by chaos theory...",
+        "Rewriting pathfinding in crayon...",
+        "Applying bugfix: 'Bullets are now polite.'",
+        "Spawning a GPU inside another GPU (yo dawg)...",
+        "Caffeinating scavs, now they jitter-peek...",
+        "Attaching suppressors to your feelings...",
+        "Rolling a charisma check on Killa's drip...",
+        "Filling your mag with compliments...",
+        "Giving Rashala a calendar, to stop double booking Dorms...",
+        "Tuning footstep audio to 'paranoia major'...",
+        "Adding quest: 'Find Peace (0/1)'",
+        "Buffing bandages with glitter healing...",
+        "Consulting Therapist: diagnosis 'tarkovitis'...",
+        "Importing dragons to balance Labs...",
+        "Checking if the wipe wiped your memory...",
+        "Deploying a cache that caches caches...",
+        "Installing ray tracing on shoreline fog (more fog)...",
+        "Rebinding 'Push To Talk' to 'Beg For Mercy'...",
+        "Enabling loot to loot you back...",
+        "Giving PMCs tiny top hats for accuracy +2...",
+        "Embedding patch notes into a matryoshka doll...",
+        "Teaching backpacks to say 'one more slot, bro'...",
+        "Assigning your stash a union rep...",
+        "Patching pain sounds with motivational quotes...",
+        "Adding achievement: 'Died With Dignity' (secret)...",
+        "Rolling back your last bad decision (fail)..."
+    };
+
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly object _indexGate = new();
+    private readonly Random _rng = new();
+
+    private readonly DispatcherTimer _tipsTimer = new() { Interval = TimeSpan.FromSeconds(7) };
+    private CancellationTokenSource? _indexCts;
+    private int _indexRunId;
+    private bool _isIndexing;
+
+    private DateTime _modalStart;
+
+    private int _page = 1, _lastPage = 1;
+
+    private string? _pendingSptMajor;
+    private int _totalMatches;
+    private bool _updatingSptFilter;
+    private bool _ignoreNextReset;
+    private bool _isSearching;
+    private int _searchRunId;
+
+    public BrowseModsPage()
+    {
+        InitializeComponent();
+
+        RefreshBtn.Click += async (_, __) => await StartIndexingAsync(true);
+        ClearBtn.Click += OnClear;
+
+        CategoryBox.SelectionChanged += async (_, __) =>
+        {
+            SaveUiPrefs();
+            await PerformSearch(true);
+        };
+        SortBox.SelectionChanged += async (_, __) =>
+        {
+            SaveUiPrefs();
+            await PerformSearch(true);
+        };
+        PageSizeBox.SelectionChanged += async (_, __) =>
+        {
+            SaveUiPrefs();
+            await PerformSearch(true);
+        };
+
+        FeaturedChk.IsCheckedChanged += OnHideTogglesChanged;
+        AdsChk.IsCheckedChanged += OnHideTogglesChanged;
+        AiChk.IsCheckedChanged += OnHideTogglesChanged;
+
+        PrevBtn.Click += async (_, __) =>
+        {
+            if (_lastPage > 1 && _page > 1)
+            {
+                _debounce.Stop();
+                _ignoreNextReset = true;
+                _page--;
+                await PerformSearch(false);
+            }
+        };
+        NextBtn.Click += async (_, __) =>
+        {
+            if (_page < _lastPage)
+            {
+                _debounce.Stop();
+                _ignoreNextReset = true;
+                _page++;
+                await PerformSearch(false);
+            }
+        };
+
+        _debounce.Tick += async (_, __) =>
+        {
+            _debounce.Stop();
+            await PerformSearch(true);
+        };
+        SearchBox.PropertyChanged += async (_, e) =>
+        {
+            if (e.Property == TextBox.TextProperty)
+            {
+                _debounce.Stop();
+                _debounce.Start();
+            }
+        };
+        SearchBox.KeyDown += OnSearchKeyDown;
+
+        _page = 1;
+        _lastPage = 0;
+        UpdatePagingUi();
+
+        App.SearchByAuthorRequested = authorName =>
+        {
+            try
+            {
+                SearchBox.Text = "@" + (authorName ?? "").Trim();
+                _ = PerformSearch(true);
+            }
+            catch
+            {
+                // good girl action
+            }
+        };
+
+        AddHandler(PointerPressedEvent, OnRootPointerPressed, RoutingStrategies.Tunnel);
+
+        SelectSort(App.Config.UI.SearchSort);
+        SelectPageSize(App.Config.UI.SearchPageSize);
+
+        AttachedToVisualTree += (_, __) =>
+        {
+            _page = 1;
+            _lastPage = 0;
+            UpdatePagingUi();
+        };
+
+        _ = LoadCategoriesThenSearch();
+        App.ConfigChanged += OnAppConfigChanged;
+    }
+
+    private async void OnAppConfigChanged()
+    {
+        var detected = DetectSptMajorFromConfig();
+        if (string.IsNullOrWhiteSpace(detected)) return;
+
+        await LoadAllSptFiltersAsync();
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            _pendingSptMajor = detected;
+            TryApplyPendingSptFilter();
+        });
+    }
+
+    private async void OnHideTogglesChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_isIndexing) return;
+
+        await PerformSearch(true);
+    }
+
+    private static bool TryFindSptExeForRoot(string root, out string exePath)
+    {
+        var p1 = Path.Combine(root, "SPT.Server.exe");
+        var p2 = Path.Combine(root, "SPT", "SPT.Server.exe");
+        if (File.Exists(p1))
+        {
+            exePath = p1;
+            return true;
+        }
+
+        if (File.Exists(p2))
+        {
+            exePath = p2;
+            return true;
+        }
+
+        exePath = "";
+        return false;
+    }
+
+    private static string DetectSptMajorFromConfig()
+    {
+        try
+        {
+            var root = App.Config.Paths.SptRoot ?? "";
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+                return "";
+
+            if (!TryFindSptExeForRoot(root, out var exe)) return "";
+
+            var info = FileVersionInfo.GetVersionInfo(exe);
+            var fv = info?.FileVersion ?? "";
+            var parts = fv.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) return "";
+            return $"{parts[0]}.{parts[1]}";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    public Task TriggerRefresh(bool showModal = true)
+    {
+        return StartIndexingAsync(showModal);
+    }
+
+    public void SelectSptMajor(string majorTag)
+    {
+        _pendingSptMajor = majorTag;
+        TryApplyPendingSptFilter();
+    }
+
+    public async void SearchByAuthor(string authorName)
+    {
+        if (string.IsNullOrWhiteSpace(authorName)) return;
+        SearchBox.Text = "@" + authorName.Trim();
+        await PerformSearch(true);
+        Focus();
+    }
+
+    private void TryApplyPendingSptFilter()
+    {
+        if (string.IsNullOrWhiteSpace(_pendingSptMajor)) return;
+        if (SptFilterBox.Items is null) return;
+
+        var match = SptFilterBox.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), _pendingSptMajor, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+        {
+            _updatingSptFilter = true;
+            SptFilterBox.SelectedItem = match;
+            _updatingSptFilter = false;
+            _ = PerformSearch(true);
+            _pendingSptMajor = null;
+        }
+    }
+
+    private void ShowModal(string title, string line1 = "", string line2 = "", double pct = -1)
+    {
+        ModalTitle.Text = title;
+        ModalLine1.Text = line1;
+        ModalLine2.Text = line2;
+        ModalEta.Text = "";
+        ModalBar.IsIndeterminate = pct < 0;
+        if (pct >= 0) ModalBar.Value = pct;
+
+        _modalStart = DateTime.UtcNow;
+
+        StartTips();
+
+        DimOverlay.IsVisible = true;
+        LoadingModal.IsVisible = true;
+        MainContent.IsEnabled = false;
+        BusyBar.IsVisible = true;
+    }
+
+    private void UpdateModal(string title, string line1, double pct = -1, int current = 0, int total = 0)
+    {
+        ModalTitle.Text = title;
+        ModalLine1.Text = line1;
+
+        if (pct >= 0 && double.IsFinite(pct))
+        {
+            ModalBar.IsIndeterminate = false;
+            ModalBar.Value = Math.Clamp(pct, 0, 100);
+        }
+        else
+        {
+            ModalBar.IsIndeterminate = true;
+        }
+
+        if (current > 0 && total > 0) ModalLine2.Text = $"Page {current} / {total}";
+        else ModalLine2.Text = "";
+
+        var elapsed = DateTime.UtcNow - _modalStart;
+        if (double.IsFinite(pct) && pct >= 0.5 && pct <= 99.9 && elapsed.TotalSeconds >= 0)
+        {
+            var denom = Math.Max(0.001, pct);
+            var fractionRemaining = (100.0 - Math.Clamp(pct, 0.5, 99.9)) / denom;
+            var estSeconds = Math.Clamp(elapsed.TotalSeconds * fractionRemaining, 1, 86400 * 7);
+            ModalEta.Text = $"~{(int)Math.Ceiling(estSeconds)}s remaining";
+        }
+        else
+        {
+            ModalEta.Text = "";
+        }
+    }
+
+    private void UpdatePagingUi()
+    {
+        PageInfo.Text = _lastPage > 0 ? $"{_page} / {_lastPage}" : "— / —";
+        PrevBtn.IsEnabled = !_isIndexing && !_isSearching && _page > 1;
+        NextBtn.IsEnabled = !_isIndexing && !_isSearching && _page < Math.Max(1, _lastPage);
+    }
+    
+    private void ShowSearchOverlay()
+    {
+        _isSearching = true;
+        BusyBar.IsVisible = true;
+        try
+        {
+            SearchOverlayTip.Text = LoadingTips[_rng.Next(LoadingTips.Length)];
+        }
+        catch
+        {
+            // good girl action
+        }
+
+        SearchOverlay.IsVisible = true;
+        SearchBox.IsEnabled = false;
+        ClearBtn.IsEnabled = false;
+        RefreshBtn.IsEnabled = false;
+        CategoryBox.IsEnabled = false;
+        SptFilterBox.IsEnabled = false;
+        SortBox.IsEnabled = false;
+        PageSizeBox.IsEnabled = false;
+        FeaturedChk.IsEnabled = false;
+        AdsChk.IsEnabled = false;
+        AiChk.IsEnabled = false;
+
+        try
+        {
+            SearchOverlayTip.Text = LoadingTips[_rng.Next(LoadingTips.Length)];
+        }
+        catch
+        {
+            // good girl action
+        }
+
+        SearchOverlay.IsVisible = true;
+        UpdatePagingUi();
+        Cursor = new Cursor(StandardCursorType.Wait);
+    }
+
+    private void HideSearchOverlay()
+    {
+        _isSearching = false;
+        BusyBar.IsVisible = false;
+        SearchOverlay.IsVisible = false;
+        SearchBox.IsEnabled = true;
+        ClearBtn.IsEnabled = true;
+        RefreshBtn.IsEnabled = true;
+        CategoryBox.IsEnabled = true;
+        SptFilterBox.IsEnabled = true;
+        SortBox.IsEnabled = true;
+        PageSizeBox.IsEnabled = true;
+        FeaturedChk.IsEnabled = true;
+        AdsChk.IsEnabled = true;
+        AiChk.IsEnabled = true;
+
+        UpdatePagingUi();
+        Cursor = new Cursor(StandardCursorType.Arrow);
+    }
+
+    private void HideModal()
+    {
+        StopTips();
+
+        LoadingModal.IsVisible = false;
+        DimOverlay.IsVisible = false;
+        MainContent.IsEnabled = true;
+        BusyBar.IsVisible = false;
+    }
+
+    private void StartTips()
+    {
+        _tipsTimer.Tick -= OnTipTick;
+        _tipsTimer.Tick += OnTipTick;
+        SetRandomTip();
+        _tipsTimer.Start();
+    }
+
+    private void StopTips()
+    {
+        _tipsTimer.Stop();
+        _tipsTimer.Tick -= OnTipTick;
+    }
+
+    private void OnTipTick(object? s, EventArgs e)
+    {
+        SetRandomTip();
+    }
+
+    private void SetRandomTip()
+    {
+        if (LoadingTips.Length == 0) return;
+        var tip = LoadingTips[_rng.Next(LoadingTips.Length)];
+        ModalTip.Text = tip;
+    }
+
+    private async void OnCancelIndexing(object? s, RoutedEventArgs e)
+    {
+        lock (_indexGate)
+        {
+            _indexCts?.Cancel();
+        }
+
+        await Task.Delay(50);
+        StopTips();
+        HideModal();
+        SearchStatusText.Text = "Indexing cancelled.";
+    }
+
+    private async Task LoadCategoriesThenSearch()
+    {
+        try
+        {
+            var cachedItems = await FetchCategoriesFromCache();
+            SetCategories(cachedItems);
+
+            _ = RefreshCategoriesInBackgroundAsync();
+
+            await LoadAllSptFiltersAsync();
+
+            SptFilterBox.SelectionChanged += async (_, __) =>
+            {
+                if (!_updatingSptFilter) await PerformSearch(true);
+            };
+
+            TryApplyPendingSptFilter();
+        }
+        catch (Exception ex)
+        {
+            App.Toasts.Show($"Categories failed: {ex.Message}");
+        }
+
+        await StartIndexingAsync(true);
+    }
+
+    private async Task<List<UiCategory>> FetchCategoriesFromCache()
+    {
+        await CacheDb.EnsureInitializedAsync();
+        var cats = await CacheDb.GetCategoriesAsync();
+
+        var items = new List<UiCategory> { new() { Title = "All categories", Slug = "", ColorClass = "" } };
+        items.AddRange(cats.Select(c =>
+        {
+            var title = string.IsNullOrWhiteSpace(c.title)
+                ? string.IsNullOrWhiteSpace(c.slug) ? "(Uncategorized)" : c.slug
+                : c.title;
+            return new UiCategory { Title = title, Slug = c.slug, ColorClass = "" };
+        }).OrderBy(x => x.Title, StringComparer.OrdinalIgnoreCase));
+        return items;
+    }
+
+    private async Task<List<UiCategory>?> FetchCategoriesFromApi(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(App.Config.Forge.Token)) return null;
+
+        using var http = BuildApiClient(3);
+        var url = "https://forge.sp-tarkov.com/api/v0/mod-categories?per_page=100&fields=id,slug,title";
+        try
+        {
+            using var resp = await http.GetAsync(url, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            var parsed = JsonSerializer.Deserialize<ApiListResponse<CategoryDto>>(json, JsonOpts);
+            if (parsed?.Success != true || parsed.Data is null) return null;
+
+            var items = new List<UiCategory> { new() { Title = "All categories", Slug = "", ColorClass = "" } };
+            items.AddRange(parsed.Data
+                .Select(c => new UiCategory
+                {
+                    Title = string.IsNullOrWhiteSpace(c.Title) ? c.Slug ?? "(Uncategorized)" : c.Title,
+                    Slug = c.Slug ?? "",
+                    ColorClass = ""
+                })
+                .OrderBy(x => x.Title, StringComparer.OrdinalIgnoreCase));
+
+            return items;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task RefreshCategoriesInBackgroundAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            var fresh = await FetchCategoriesFromApi(cts.Token);
+            if (fresh is null || fresh.Count == 0) return;
+
+            var current = CategoryBox.ItemsSource as IEnumerable<UiCategory>;
+            var same = current != null &&
+                       current.Count() == fresh.Count &&
+                       current.Zip(fresh).All(x => string.Equals(x.First.Title, x.Second.Title, StringComparison.Ordinal)
+                                                   && string.Equals(x.First.Slug, x.Second.Slug, StringComparison.OrdinalIgnoreCase));
+            if (!same) SetCategories(fresh);
+        }
+        catch
+        {
+            // good girl action
+        }
+    }
+
+    private void SetCategories(List<UiCategory> items)
+    {
+        var prevSlug = (CategoryBox.SelectedItem as UiCategory)?.Slug ?? "";
+        CategoryBox.ItemsSource = items;
+        var match = items.FirstOrDefault(i => string.Equals(i.Slug, prevSlug, StringComparison.OrdinalIgnoreCase))
+                    ?? items.FirstOrDefault()
+                    ?? new UiCategory { Title = "All categories", Slug = "" };
+        CategoryBox.SelectedItem = match;
+    }
+
+    private HttpClient BuildApiClient(int timeoutSeconds = 12)
+    {
+        var h = new HttpClient();
+        h.Timeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 1, 30));
+        h.DefaultRequestHeaders.Accept.Clear();
+        h.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+        if (!string.IsNullOrWhiteSpace(App.Config.Forge.Token))
+            h.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " + App.Config.Forge.Token);
+        return h;
+    }
+
+    private async Task LoadAllSptFiltersAsync()
+    {
+        var (majors, fulls) = await CacheDb.GetAllSptTagsAsync();
+
+        var semverDesc = Comparer<string>.Create((a, b) => SemverUtil.CompareTagsDesc(a, b));
+
+        var byMajor = fulls
+            .GroupBy(s =>
+            {
+                var parts = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
+                return parts.Length >= 2 ? $"{parts[0]}.{parts[1]}" : "";
+            }, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(x => x, semverDesc).ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
+        var items = new List<ComboBoxItem>
+        {
+            new() { Content = "All SPT", Tag = "" }
+        };
+
+        foreach (var maj in majors.OrderBy(x => x, semverDesc))
+        {
+            if (maj.StartsWith($"0") || maj.Contains("3.12")) continue;
+            items.Add(new ComboBoxItem { Content = $"SPT {maj}", Tag = maj });
+
+            if (byMajor.TryGetValue(maj, out var patchList))
+                foreach (var f in patchList)
+                    items.Add(new ComboBoxItem { Content = $"SPT {f}", Tag = f });
+        }
+
+        var knownMajors = new HashSet<string>(majors, StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in byMajor)
+            if (!knownMajors.Contains(kv.Key))
+                foreach (var f in kv.Value)
+                    items.Add(new ComboBoxItem { Content = $"SPT {f}", Tag = f });
+
+        _updatingSptFilter = true;
+        try
+        {
+            var keepTag = (SptFilterBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
+            SptFilterBox.ItemsSource = items;
+            var keep = items.FirstOrDefault(i =>
+                string.Equals((string?)i.Tag ?? "", keepTag, StringComparison.OrdinalIgnoreCase));
+            SptFilterBox.SelectedItem = keep ?? items[0];
+        }
+        finally
+        {
+            _updatingSptFilter = false;
+        }
+    }
+
+    private void SelectSort(string sort)
+    {
+        foreach (var item in SortBox.Items)
+            if (item is ComboBoxItem c && (string?)c.Tag == sort)
+            {
+                SortBox.SelectedItem = c;
+                return;
+            }
+
+        SortBox.SelectedIndex = 0;
+    }
+
+    private void SelectPageSize(int size)
+    {
+        foreach (var item in PageSizeBox.Items)
+            if (item is ComboBoxItem c && int.TryParse(c.Content?.ToString(), out var v) && v == size)
+            {
+                PageSizeBox.SelectedItem = c;
+                return;
+            }
+
+        PageSizeBox.SelectedIndex = 1;
+    }
+
+    private void SaveUiPrefs()
+    {
+        var sortTag = (SortBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "recent";
+        var ps = int.TryParse((PageSizeBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out var v) ? v : 12;
+        App.Config.UI.SearchSort = sortTag;
+        App.Config.UI.SearchPageSize = ps;
+        App.SaveConfig();
+    }
+
+    private static string ApiSortFromUi(string ui)
+    {
+        return ui switch
+        {
+            "recent" => "recent",
+            "newest" => "newest",
+            "downloads" => "downloads",
+            _ => "recent"
+        };
+    }
+
+    private void OnClear(object? s, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(SearchBox.Text)) SearchBox.Text = "";
+        _ = PerformSearch(true);
+        BlurSearch();
+    }
+
+    private void OnSearchKeyDown(object? s, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            _debounce.Stop();
+            _ = PerformSearch(true);
+            BlurSearch();
+            e.Handled = true;
+        }
+    }
+
+    private void OnRootPointerPressed(object? s, PointerPressedEventArgs e)
+    {
+        if (SearchBox.IsFocused)
+        {
+            var pos = e.GetPosition(SearchBox);
+            var inside = new Rect(SearchBox.Bounds.Size).Contains(pos);
+            if (!inside) BlurSearch();
+        }
+    }
+
+    private void BlurSearch()
+    {
+        Focus();
+    }
+
+    private async Task StartIndexingAsync(bool showModal)
+    {
+        CancellationToken ct;
+        int runId;
+        lock (_indexGate)
+        {
+            _indexCts?.Cancel();
+            _indexCts = new CancellationTokenSource();
+            runId = ++_indexRunId;
+            ct = _indexCts!.Token;
+        }
+
+        RefreshBtn.IsEnabled = false;
+
+        _isIndexing = true;
+        _page = 1;
+        _lastPage = 0;
+        UpdatePagingUi();
+        SearchStatusText.Text = "Refreshing cache…";
+        if (showModal) ShowModal("Refreshing", "Syncing with Forge…");
+
+        try
+        {
+            var progress = new Progress<(string phase, int current, int total)>(p =>
+            {
+                var pct = p.total <= 0 ? -1 : p.current * 100.0 / p.total;
+                UpdateModal("Refreshing", $"{p.phase}…", pct, p.current, p.total);
+            });
+
+            await CacheDb.RefreshModsIncrementalAsync(progress, ct);
+            if (runId != _indexRunId || ct.IsCancellationRequested) return;
+
+            HideModal();
+            _isIndexing = false;
+            UpdatePagingUi();
+            SearchStatusText.Text = "Up to date.";
+
+            await LoadAllSptFiltersAsync();
+            await PerformSearch(true);
+        }
+        catch (OperationCanceledException)
+        {
+            HideModal();
+            _isIndexing = false;
+            UpdatePagingUi();
+            SearchStatusText.Text = "Indexing cancelled.";
+        }
+        catch (Exception ex)
+        {
+            HideModal();
+            _isIndexing = false;
+            UpdatePagingUi();
+            App.Toasts.Show($"Refresh failed: {ex.Message}");
+        }
+        finally
+        {
+            RefreshBtn.IsEnabled = true;
+        }
+    }
+
+    private async Task PerformSearch(bool resetPage)
+    {
+        if (resetPage && !_ignoreNextReset)
+            _page = 1;
+
+        _ignoreNextReset = false;
+        var myRunId = ++_searchRunId;
+        ShowSearchOverlay();
+
+        var raw = (SearchBox.Text ?? "").Trim();
+        var isAuthorQuery = raw.StartsWith("@");
+        var author = isAuthorQuery ? raw.TrimStart('@').Trim() : "";
+        var query = isAuthorQuery ? "" : raw;
+
+        var catSlug = (CategoryBox.SelectedItem as UiCategory)?.Slug ?? "";
+        var sptTag = (SptFilterBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
+        var sortUi = (SortBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "recent";
+        var sortKey = ApiSortFromUi(sortUi);
+
+        var pageSize = int.TryParse((PageSizeBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out var v) ? v : 12;
+
+        var hideFeatured = (FeaturedChk?.IsChecked ?? false);
+        var hideAds = (AdsChk?.IsChecked ?? false);
+        var hideAi = (AiChk?.IsChecked ?? false);
+
+        _lastPage = Math.Max(0, _lastPage);
+        UpdatePagingUi();
+
+        try
+        {
+            var res = await CacheDb.QueryModsAsync(
+                new CacheDb.Query
+                {
+                    Text = query,
+                    Author = author,
+                    CategorySlug = catSlug,
+                    SptConstraint = sptTag,
+                    Sort = sortKey,
+                    Page = _page,
+                    PageSize = pageSize
+                },
+                hideFeatured,
+                hideAds,
+                hideAi);
+
+            _totalMatches = res.total;
+            _lastPage = Math.Max(1, (int)Math.Ceiling(_totalMatches / (double)pageSize));
+            _page = Math.Clamp(_page, 1, _lastPage);
+            UpdatePagingUi();
+
+            var rows = new List<SearchResultRow>();
+            foreach (var m in res.items)
+            {
+                if (m.guid == "net.drexira.modmanager") continue;
+                var row = new SearchResultRow
+                {
+                    ModId = m.id,
+                    Guid = m.guid ?? "",
+                    Name = m.name ?? "",
+                    Teaser = m.teaser ?? "",
+                    OwnerNames = BuildOwnerNames(m).ToList(),
+                    Thumbnail = string.IsNullOrWhiteSpace(m.thumbnail)
+                        ? $"https://placehold.co/165x165/171717/EEE.png?text={Uri.EscapeDataString(m.name ?? "")}&font=source-sans-pro"
+                        : ForgeClient.ResolveImageUrl(m.thumbnail),
+                    Slug = m.slug ?? "",
+                    ModPageUrl = m.detail_url ?? "",
+                    Downloads = m.downloads
+                };
+
+                var catText = m.category?.name;
+                if (string.IsNullOrWhiteSpace(catText)) catText = m.category?.title;
+                if (string.IsNullOrWhiteSpace(catText)) catText = m.category?.slug;
+                row.Category = string.IsNullOrWhiteSpace(catText) ? "(Uncategorized)" : catText;
+
+                var versions = await CacheDb.GetVersionsAsync(m.id);
+                row.Versions = versions;
+                
+                row.IsInstalled = App.Db.HasRealInstall(row.Name);
+
+                var cachedSources = await CacheDb.GetSourcesForModAsync(m.id);
+                if (cachedSources is { Count: > 0 })
+                    foreach (var s in cachedSources)
+                    {
+                        if (string.IsNullOrWhiteSpace(s.url)) continue;
+                        row.SourceButtons.Add(new SearchResultRow.SourceButton
+                        {
+                            Url = s.url,
+                            Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label!.Trim()
+                        });
+                    }
+
+                var displays = new List<SearchResultRow.VersionDisplay>();
+                foreach (var ver in versions)
+                {
+                    var spt = SemverUtil.NormalizeToThreeParts(ver.SptVersionConstraint);
+                    var label = string.IsNullOrWhiteSpace(spt)
+                        ? $"v{ver.Version ?? "n/a"}"
+                        : $"v{ver.Version ?? "n/a"} • SPT {spt}";
+                    displays.Add(new SearchResultRow.VersionDisplay
+                    {
+                        Model = ver,
+                        Label = label,
+                        SptNormalized = spt
+                    });
+                }
+
+                ApplySptPriority(displays, sptTag);
+                row.VersionsDisplay = displays;
+
+                var latest = versions.FirstOrDefault();
+                row.LatestVersionText = latest?.Version is string lv && !string.IsNullOrWhiteSpace(lv) ? $"Latest v{lv}" : "Latest v—";
+                row.SptConstraintText = SemverUtil.NormalizeToThreeParts(latest?.SptVersionConstraint) is string txt && !string.IsNullOrWhiteSpace(txt) ? txt : "-";
+
+                var latestModSPTVersion = SemverUtil.NormalizeToThreeParts(latest?.SptVersionConstraint);
+                var latestSPTVersion = App.Cache.GetLatestSPTVersion();
+                
+                if (string.Equals(latestModSPTVersion, latestSPTVersion, StringComparison.OrdinalIgnoreCase))
+                    row.IsLatestVersion = true;
+                
+                if (m.source_code_links is { Length: > 0 })
+                    foreach (var s in m.source_code_links)
+                    {
+                        if (s is null || string.IsNullOrWhiteSpace(s.url)) continue;
+                        row.SourceButtons.Add(new SearchResultRow.SourceButton
+                        {
+                            Url = s.url,
+                            Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label.Trim()
+                        });
+                    }
+
+                rows.Add(row);
+            }
+
+            await EnsureSourcesFromApiAsync(rows.Where(r => r.SourceButtons.Count == 0).ToList());
+
+            ResultsList.ItemsSource = rows;
+            PageInfo.Text = $"{_page} / {_lastPage}";
+            LoadedModsLabel.Text = "Loaded Mods: " + _totalMatches.ToString("N0", CultureInfo.InvariantCulture);
+            SearchStatusText.Text = rows.Count == 0 ? "No results" : $"Showing {rows.Count} of {_totalMatches:N0}";
+
+            ScrollResultsToTop();
+        }
+        catch (Exception ex)
+        {
+            App.Toasts.Show($"Search failed: {ex.Message}");
+            UpdatePagingUi();
+        }
+        finally
+        {
+            if (myRunId == _searchRunId)
+                HideSearchOverlay();
+        }
+    }
+    
+    private void OnUninstallSelected(object? sender, RoutedEventArgs e)
+    {
+        var row =
+            (sender as Control)?.DataContext as SearchResultRow
+            ?? ResultsList.SelectedItem as SearchResultRow;
+
+        if (row is null || string.IsNullOrWhiteSpace(row.Name)) return;
+
+        App.Db.Uninstall(row.Name);
+        App.NotifyInstallsChanged();
+        row.IsInstalled = false;
+
+        var list = ResultsList.ItemsSource as IList<SearchResultRow>;
+        var total = list?.Count ?? 0;
+        SearchStatusText.Text = total == 0 ? "No results" : $"Showing {total:N0}";
+    
+        App.Toasts.Show($"Uninstalled {row.Name}");
+    }
+
+    private void OnAuthorsWheel(object? sender, PointerWheelEventArgs e)
+    {
+        if (sender is ScrollViewer sv)
+        {
+            var dx = (e.Delta.Y != 0 ? -e.Delta.Y : -e.Delta.X) * 40;
+            var extentX = Math.Max(0, sv.Extent.Width - sv.Viewport.Width);
+            var newX = Math.Clamp(sv.Offset.X + dx, 0, extentX);
+            sv.Offset = new Vector(newX, sv.Offset.Y);
+            e.Handled = true;
+        }
+    }
+
+    private static void ApplySptPriority(List<SearchResultRow.VersionDisplay> list, string selectedTag)
+    {
+        if (list is null || list.Count == 0 || string.IsNullOrWhiteSpace(selectedTag)) return;
+
+        static string MajorAB(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+            var p = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            return p.Length >= 2 ? $"{p[0]}.{p[1]}" : "";
+        }
+
+        int Score(SearchResultRow.VersionDisplay vd)
+        {
+            var spt = vd.SptNormalized ?? "";
+            if (string.Equals(spt, selectedTag, StringComparison.OrdinalIgnoreCase)) return 2;
+            var selMaj = MajorAB(selectedTag);
+            var sptMaj = MajorAB(spt);
+            if (!string.IsNullOrWhiteSpace(selMaj) &&
+                string.Equals(selMaj, sptMaj, StringComparison.OrdinalIgnoreCase)) return 1;
+            return 0;
+        }
+
+        static int CompareSemverDesc(string? a, string? b)
+        {
+            var sa = a ?? "";
+            var sb = b ?? "";
+            var okA = SemverUtil.TryParseStrict(sa, out var sva);
+            var okB = SemverUtil.TryParseStrict(sb, out var svb);
+            if (okA && okB) return svb.CompareSortOrderTo(sva);
+            return string.Compare(sb, sa, StringComparison.OrdinalIgnoreCase);
+        }
+
+        list.Sort((x, y) =>
+        {
+            var sx = Score(x);
+            var sy = Score(y);
+            if (sx != sy) return sy.CompareTo(sx);
+            return CompareSemverDesc(x?.Model?.Version, y?.Model?.Version);
+        });
+    }
+
+    private async Task EnsureSourcesFromApiAsync(List<SearchResultRow> rows)
+    {
+        if (string.IsNullOrWhiteSpace(App.Config.Forge.Token)) return;
+        var needs = rows.Where(r => !(r.SourceButtons?.Count > 0)).ToList();
+        if (needs.Count == 0) return;
+
+        using var http = BuildApiClient();
+
+        foreach (var r in needs)
+        {
+            try
+            {
+                var url = $"https://forge.sp-tarkov.com/api/v0/mod/{r.ModId}?fields=source_code_links&include=source_code_links";
+                using var resp = await http.GetAsync(url);
+                if (!resp.IsSuccessStatusCode) continue;
+
+                var json = await resp.Content.ReadAsStringAsync();
+                var parsed = JsonSerializer.Deserialize<ApiSingleResponse<ModDetailsDto>>(json, JsonOpts);
+                var links = parsed?.Data?.SourceCodeLinks;
+                if (links is { Count: > 0 })
+                    foreach (var s in links)
+                    {
+                        if (string.IsNullOrWhiteSpace(s.Url)) continue;
+                        r.SourceButtons.Add(new SearchResultRow.SourceButton
+                        {
+                            Url = s.Url!,
+                            Label = string.IsNullOrWhiteSpace(s.Label) ? "Source" : s.Label!.Trim()
+                        });
+                    }
+            }
+            catch
+            {
+                // good girl action
+            }
+
+            await Task.Delay(35);
+        }
+    }
+
+    private void ScrollResultsToTop()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                if (ResultsScroll != null)
+                {
+                    ResultsScroll.ScrollToHome();
+                    ResultsScroll.Offset = new Vector(0, 0);
+                }
+            }
+            catch
+            {
+                // good girl action
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    private void OnOpenSource(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b || b.Tag is not string url || string.IsNullOrWhiteSpace(url)) return;
+        
+        try
+        {
+            _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch
+        {
+            App.Toasts.Show("Could not open source link.");
+        }
+    }
+
+    private void OnOpenModPage(object? sender, RoutedEventArgs e)
+    {
+        var url = "";
+        if (sender is Button b && b.Tag is SearchResultRow row) url = row.ModPageUrl ?? "";
+        else if (sender is MenuItem mi && mi.Tag is SearchResultRow row2) url = row2.ModPageUrl ?? "";
+
+        if (!string.IsNullOrWhiteSpace(url))
+            try
+            {
+                _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            }
+            catch
+            {
+                App.Toasts.Show("Could not open browser.");
+            }
+        else App.Toasts.Show("No page URL for this mod.");
+    }
+
+    private async void OnCopyLink(object? sender, RoutedEventArgs e)
+    {
+        var url = (sender as Control)?.Tag?.ToString();
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            App.Toasts.Show("No link to copy.");
+            return;
+        }
+
+        try
+        {
+            var tl = TopLevel.GetTopLevel(this);
+            if (tl?.Clipboard is not null)
+            {
+                await tl.Clipboard.SetTextAsync(url);
+                App.Toasts.Show("Link copied.");
+            }
+            else
+            {
+                App.Toasts.Show(url);
+            }
+        }
+        catch
+        {
+            App.Toasts.Show("Could not copy to clipboard.");
+        }
+    }
+
+    private async void OnCopyName(object? sender, RoutedEventArgs e)
+    {
+        var name = (sender as Control)?.Tag?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(name)) return;
+        try
+        {
+            var tl = TopLevel.GetTopLevel(this);
+            if (tl?.Clipboard != null)
+            {
+                await tl.Clipboard.SetTextAsync(name);
+                App.Toasts.Show("Name copied.");
+            }
+        }
+        catch
+        {
+            App.Toasts.Show("Could not copy name.");
+        }
+    }
+
+    private async void OnCopyGuid(object? sender, RoutedEventArgs e)
+    {
+        var guid = (sender as Control)?.Tag?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(guid)) return;
+
+        try
+        {
+            var tl = TopLevel.GetTopLevel(this);
+            if (tl?.Clipboard != null)
+            {
+                await tl.Clipboard.SetTextAsync(guid);
+                App.Toasts.Show("GUID copied.");
+            }
+        }
+        catch
+        {
+            App.Toasts.Show("Could not copy GUID.");
+        }
+    }
+
+    private void OnOpenThumb(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi) return;
+        var url = mi.Tag?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(url)) return;
+
+        try
+        {
+            _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch
+        {
+            App.Toasts.Show("Could not open image.");
+        }
+    }
+
+    private void OnResultsSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        // Just to prevent selection ui ugliness
+    }
+
+    private async void OnOwnerPillClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button b && b.Tag is string name && !string.IsNullOrWhiteSpace(name))
+        {
+            SearchBox.Text = "@" + name;
+            await PerformSearch(true);
+        }
+    }
+
+    private void OnInstallSelected(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn) return;
+        if (btn.Tag is not SearchResultRow.VersionDisplay vd)
+        {
+            App.Toasts.Show("Pick a version first.");
+            return;
+        }
+
+        var model = vd.Model;
+        if (string.IsNullOrWhiteSpace(model.Link))
+        {
+            App.Toasts.Show("This version has no download link.");
+            return;
+        }
+
+        var detectedAB = App.GetDetectedSptAB();
+        var verSpt = vd.SptNormalized ?? "";
+
+        static string MajorAB(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+            var p = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            return p.Length >= 2 ? $"{p[0]}.{p[1]}" : "";
+        }
+
+        if (!string.IsNullOrWhiteSpace(detectedAB))
+        {
+            var selTag = (SptFilterBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
+            var needFullMatch = !string.IsNullOrWhiteSpace(selTag) && selTag.Count(c => c == '.') >= 2;
+            var ok =
+                (!needFullMatch && string.Equals(MajorAB(verSpt), detectedAB, StringComparison.OrdinalIgnoreCase)) ||
+                (needFullMatch && string.Equals(verSpt, selTag, StringComparison.OrdinalIgnoreCase));
+
+            if (!ok)
+            {
+                var exp = string.IsNullOrWhiteSpace(selTag) ? detectedAB : selTag;
+                App.Toasts.Show($"This version targets SPT {(string.IsNullOrWhiteSpace(verSpt) ? "—" : verSpt)}, expected {exp}.");
+                return;
+            }
+        }
+
+        SearchResultRow rowCtx;
+        if (btn.Parent is Panel p && p.DataContext is SearchResultRow rdc) rowCtx = rdc;
+        else rowCtx = ResultsList.SelectedItem as SearchResultRow ?? new SearchResultRow { Name = "Mod", Guid = "" };
+
+        var name = rowCtx.Name;
+        var guid = rowCtx.Guid ?? "";
+        var version = model.Version ?? "0.0.0";
+        
+        var row = (btn.DataContext as SearchResultRow) 
+                  ?? (ResultsList.SelectedItem as SearchResultRow);
+        if (row is null) return;
+
+        App.Queue.EnqueueRemote(name, model.Link!, version, guid);
+        row.IsInstalled = true;
+        App.Toasts.Show("Queued download.");
+    }
+
+    private static IEnumerable<string> BuildOwnerNames(ForgeClient.ModSummary m)
+    {
+        var owners = new List<string>();
+        if (!string.IsNullOrWhiteSpace(m.owner?.name)) owners.Add(m.owner!.name);
+        if (m.authors is { Length: > 0 })
+            foreach (var a in m.authors)
+                if (!string.IsNullOrWhiteSpace(a?.name))
+                    owners.Add(a!.name);
+        return owners.Distinct();
+    }
+
+    private sealed class ApiListResponse<T>
+    {
+        [JsonPropertyName("success")] public bool Success { get; set; }
+        [JsonPropertyName("data")] public List<T>? Data { get; set; }
+    }
+
+    private sealed class ApiSingleResponse<T>
+    {
+        [JsonPropertyName("success")] public bool Success { get; set; }
+        [JsonPropertyName("data")] public T? Data { get; set; }
+    }
+
+    private sealed class CategoryDto
+    {
+        [JsonPropertyName("id")] public int Id { get; set; }
+        [JsonPropertyName("title")] public string? Title { get; set; }
+        [JsonPropertyName("slug")] public string? Slug { get; set; }
+    }
+
+    private sealed class SourceLinkDto
+    {
+        [JsonPropertyName("url")] public string? Url { get; set; }
+        [JsonPropertyName("label")] public string? Label { get; set; }
+    }
+
+    private sealed class ModDetailsDto
+    {
+        [JsonPropertyName("id")] public int Id { get; set; }
+
+        [JsonPropertyName("source_code_links")]
+        public List<SourceLinkDto>? SourceCodeLinks { get; set; }
+    }
+}

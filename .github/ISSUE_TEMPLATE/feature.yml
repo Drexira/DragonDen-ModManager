@@ -1,0 +1,35 @@
+﻿name: Feature Request
+description: Request a new feature
+labels: ["feature"]
+body:
+  - type: input
+    id: problem
+    attributes:
+      label: Problem
+      placeholder: One line
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      placeholder: What you want
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: How it works
+      description: Short step by step
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options: ["Nice to have", "Important", "Critical"]
+    validations:
+      required: true
+  - type: input
+    id: example
+    attributes:
+      label: Simple example
+      placeholder: One sentence

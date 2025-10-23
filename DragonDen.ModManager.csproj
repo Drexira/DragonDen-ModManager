@@ -1,0 +1,72 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+        <Version>0.0.1</Version>
+        <Authors>Drexira</Authors>
+        <Copyright>Drexira</Copyright>
+        <Title>Dragon Den Mod Manager</Title>
+        <Description>A mod manager for SPT</Description>
+        <PackageProjectUrl>https://github.com/Drexira/DragonDen-ModManager</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/Drexira/DragonDen-ModManager/blob/Public/LICENSE</PackageLicenseUrl>
+        <PackageIcon>Assets\icon.png</PackageIcon>
+        <RepositoryUrl>https://github.com/Drexira/DragonDen-ModManager</RepositoryUrl>
+        <RepositoryType>Github</RepositoryType>
+        <Company>Dragon Den</Company>
+        <Product>ModManager</Product>
+        <NeutralLanguage>en</NeutralLanguage>
+        <PublishTrimmed>false</PublishTrimmed>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <PublishTrimmed>true</PublishTrimmed>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\**"/>
+
+        <Content Include="tools\**\*">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+        </Content>
+
+        <Content Include="data\**\*">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" Version="11.3.6"/>
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.6"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.6"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.6"/>
+        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.6">
+            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1"/>
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.7"/>
+        <PackageReference Include="Mono.Cecil" Version="0.11.6"/>
+        <PackageReference Include="Semver" Version="3.0.0"/>
+        <PackageReference Include="System.Net.Http.Json" Version="9.0.0"/>
+    </ItemGroup>
+
+    <Target Name="CreateDataOnBuild" AfterTargets="Build">
+        <MakeDir Directories="$(OutDir)data"/>
+    </Target>
+    <Target Name="CreateDataOnPublish" AfterTargets="Publish">
+        <MakeDir Directories="$(PublishDir)data"/>
+    </Target>
+</Project>

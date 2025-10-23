@@ -1,0 +1,72 @@
+<Application
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="DragonDen.ModManager.App"
+    RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <Color x:Key="SystemAccentColor">#FF8A00</Color>
+        <SolidColorBrush x:Key="BrandAccentBrush" Color="{DynamicResource SystemAccentColor}" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#141414" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#1B1B1B" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="TextBrush" Color="#EDEDED" />
+        <SolidColorBrush x:Key="SubTextBrush" Color="#BDBDBD" />
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrandAccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandAccentBrush}" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+
+        <Style Selector="ProgressBar">
+            <Setter Property="Foreground" Value="{DynamicResource BrandAccentBrush}" />
+        </Style>
+
+        <Style Selector="Border.pill">
+            <Setter Property="Background" Value="#262626" />
+            <Setter Property="CornerRadius" Value="100" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="BorderBrush" Value="#2A2A2A" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+    </Application.Styles>
+</Application>

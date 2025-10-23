@@ -1,0 +1,558 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace DragonDen.ModManager.Services;
+
+public static class ForgeClient
+{
+    private static readonly HttpClient http = new()
+    {
+        Timeout = TimeSpan.FromSeconds(100)
+    };
+
+    private static string BaseUrl => App.Config.Forge.BaseUrl?.TrimEnd('/') ?? "https://forge.sp-tarkov.com";
+
+    private static HttpRequestMessage NewGet(string url)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, url);
+        if (!string.IsNullOrWhiteSpace(App.Config.Forge.Token))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", App.Config.Forge.Token);
+        req.Headers.Accept.ParseAdd("application/json");
+        return req;
+    }
+
+    public static string ResolveImageUrl(string? pathOrUrl)
+    {
+        if (string.IsNullOrWhiteSpace(pathOrUrl)) return "";
+        if (Uri.TryCreate(pathOrUrl, UriKind.Absolute, out _)) return pathOrUrl!;
+        return $"{BaseUrl}/{pathOrUrl!.TrimStart('/')}";
+    }
+
+    private static async Task<JsonDocument> FetchJsonWithRetries(string url, CancellationToken ct)
+    {
+        const int maxRetries = 10;
+        var attempt = 0;
+        Exception? last = null;
+
+        while (attempt < maxRetries)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                using var res = await http.SendAsync(NewGet(url), HttpCompletionOption.ResponseHeadersRead, ct);
+                if ((int)res.StatusCode == 1015)
+                {
+                    var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(4 * Math.Pow(2, attempt));
+                    await Task.Delay(retry, ct);
+                    attempt++;
+                    continue;
+                }
+
+                if (res.StatusCode == (HttpStatusCode)429)
+                {
+                    var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
+                    await Task.Delay(retry, ct);
+                    attempt++;
+                    continue;
+                }
+
+                if ((int)res.StatusCode >= 500 && (int)res.StatusCode < 600)
+                {
+                    var retry = TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt));
+                    await Task.Delay(retry, ct);
+                    attempt++;
+                    continue;
+                }
+
+                if (!res.IsSuccessStatusCode)
+                {
+                    var body = await res.Content.ReadAsStringAsync(ct);
+                    throw new HttpRequestException($"HTTP {(int)res.StatusCode} while GET {url}\n{body}");
+                }
+
+                using var s = await res.Content.ReadAsStreamAsync(ct);
+                return await JsonDocument.ParseAsync(s, cancellationToken: ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                last = ex;
+                var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt));
+                await Task.Delay(retry, ct);
+                attempt++;
+            }
+        }
+
+        throw new HttpRequestException($"Failed to GET {url} after {maxRetries} attempts", last);
+    }
+
+    private static TimeSpan? TryGetRetryAfter(HttpResponseMessage res)
+    {
+        if (res.Headers.RetryAfter?.Delta is TimeSpan d) return d;
+        if (res.Headers.RetryAfter?.Date is DateTimeOffset when)
+        {
+            var delta = when - DateTimeOffset.UtcNow;
+            if (delta > TimeSpan.Zero && delta < TimeSpan.FromMinutes(5)) return delta;
+        }
+
+        return null;
+    }
+
+    public static async Task<List<Category>> GetCategoriesAsync(CancellationToken ct = default)
+    {
+        var url = $"{BaseUrl}/api/v0/mod-categories";
+        using var doc = await FetchJsonWithRetries(url, ct);
+        var list = new List<Category>();
+        if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            foreach (var c in data.EnumerateArray())
+            {
+                ct.ThrowIfCancellationRequested();
+                list.Add(new Category
+                {
+                    id = c.GetPropertyOrDefault("id", 0),
+                    title = c.GetPropertyOrDefault("title", ""),
+                    slug = c.GetPropertyOrDefault("slug", ""),
+                    color_class = c.GetPropertyOrDefault("color_class", "")
+                });
+            }
+
+        return list;
+    }
+
+    public static async Task<ModSummary?> GetModAsync(int modId, bool includeOwner = false, bool includeAuthors = false, bool includeCategory = true,
+        bool includeVersions = false, bool includeSourceLinks = false, CancellationToken ct = default)
+    {
+        var includes = new List<string>();
+        if (includeOwner) includes.Add("owner");
+        if (includeAuthors) includes.Add("authors");
+        if (includeCategory) includes.Add("category");
+        if (includeVersions) includes.Add("versions");
+        if (includeSourceLinks) includes.Add("source_code_links");
+        var inc = includes.Count > 0 ? "?include=" + string.Join(",", includes) : "";
+
+        var url = $"{BaseUrl}/api/v0/mod/{modId}{inc}";
+        using var doc = await FetchJsonWithRetries(url, ct);
+
+        var root = doc.RootElement;
+        var el = root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object
+            ? data
+            : root;
+
+        if (el.ValueKind != JsonValueKind.Object) return null;
+
+        DateTimeOffset? upd = null;
+        if (el.TryGetProperty("updated_at", out var updEl) && updEl.ValueKind == JsonValueKind.String)
+            if (DateTimeOffset.TryParse(updEl.GetString(), out var u))
+                upd = u;
+
+        DateTimeOffset? pub = null;
+        if (el.TryGetProperty("published_at", out var pubEl) && pubEl.ValueKind == JsonValueKind.String)
+            if (DateTimeOffset.TryParse(pubEl.GetString(), out var p))
+                pub = p;
+
+        return new ModSummary
+        {
+            id = el.GetPropertyOrDefault("id", 0),
+            name = el.GetPropertyOrDefault("name", ""),
+            guid = el.GetPropertyOrDefault("guid", (string?)null),
+            teaser = el.GetPropertyOrDefault("teaser", (string?)null),
+            slug = el.GetPropertyOrDefault("slug", (string?)null),
+            downloads = el.GetPropertyOrDefault("downloads", 0L),
+            thumbnail = ResolveImageUrl(el.GetPropertyOrDefault("thumbnail", (string?)null)),
+            detail_url = el.GetPropertyOrDefault("detail_url", (string?)null),
+            featured = el.GetPropertyOrDefault("featured", 0) == 1 || el.GetPropertyOrDefault("featured", false),
+            contains_ads = el.GetPropertyOrDefault("contains_ads", 0) == 1 || el.GetPropertyOrDefault("contains_ads", false),
+            contains_ai_content = el.GetPropertyOrDefault("contains_ai_content", 0) == 1 || el.GetPropertyOrDefault("contains_ai_content", false),
+            versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
+            owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
+            authors = ParsePersons(el.TryGetProperty("authors", out var au) ? au : default),
+            category = ParseCategory(el.TryGetProperty("category", out var cat) ? cat : default),
+            updated_at = upd,
+            published_at = pub,
+            source_code_links = ParseSourceLinks(el.TryGetProperty("source_code_links", out var src) ? src : default)
+        };
+    }
+
+    public static async Task<PagedMods> GetModsPageAsync(int page, int perPage, bool includeVersions, bool includeOwner, bool includeAuthors, bool includeCategory,
+        string query, string sortApi, bool includeSourceLinks = false, CancellationToken ct = default)
+    {
+        var includes = new List<string>();
+        if (includeOwner) includes.Add("owner");
+        if (includeAuthors) includes.Add("authors");
+        if (includeCategory) includes.Add("category");
+        if (includeVersions) includes.Add("versions");
+        if (includeSourceLinks) includes.Add("source_code_links");
+        var inc = includes.Count > 0 ? "&include=" + string.Join(",", includes) : "";
+
+        var q = string.IsNullOrWhiteSpace(query) ? "" : "&query=" + Uri.EscapeDataString(query);
+        var fields = includeSourceLinks ? "&fields=source_code_links" : "";
+        var url = $"{BaseUrl}/api/v0/mods?per_page={perPage}&page={page}&sort={Uri.EscapeDataString(sortApi)}{inc}{q}";
+        using var doc = await FetchJsonWithRetries(url, ct);
+
+        var list = new List<ModSummary>();
+        int currentPage = 1, lastPage = 1, total = 0;
+
+        if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            foreach (var el in data.EnumerateArray())
+            {
+                ct.ThrowIfCancellationRequested();
+
+                DateTimeOffset? upd = null;
+                if (el.TryGetProperty("updated_at", out var updEl) && updEl.ValueKind == JsonValueKind.String)
+                    if (DateTimeOffset.TryParse(updEl.GetString(), out var u))
+                        upd = u;
+
+                DateTimeOffset? pub = null;
+                if (el.TryGetProperty("published_at", out var pubEl) && pubEl.ValueKind == JsonValueKind.String)
+                    if (DateTimeOffset.TryParse(pubEl.GetString(), out var p))
+                        pub = p;
+
+                var mod = new ModSummary
+                {
+                    id = el.GetPropertyOrDefault("id", 0),
+                    name = el.GetPropertyOrDefault("name", ""),
+                    guid = el.GetPropertyOrDefault("guid", (string?)null),
+                    teaser = el.GetPropertyOrDefault("teaser", (string?)null),
+                    slug = el.GetPropertyOrDefault("slug", (string?)null),
+                    downloads = el.GetPropertyOrDefault("downloads", 0L),
+                    thumbnail = ResolveImageUrl(el.GetPropertyOrDefault("thumbnail", (string?)null)),
+                    detail_url = el.GetPropertyOrDefault("detail_url", (string?)null),
+                    featured = el.GetPropertyOrDefault("featured", 0) == 1 || el.GetPropertyOrDefault("featured", false),
+                    contains_ads = el.GetPropertyOrDefault("contains_ads", 0) == 1 || el.GetPropertyOrDefault("contains_ads", false),
+                    contains_ai_content = el.GetPropertyOrDefault("contains_ai_content", 0) == 1 || el.GetPropertyOrDefault("contains_ai_content", false),
+                    versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
+                    owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
+                    authors = ParsePersons(el.TryGetProperty("authors", out var au) ? au : default),
+                    category = ParseCategory(el.TryGetProperty("category", out var cat) ? cat : default),
+                    updated_at = upd,
+                    published_at = pub,
+                    source_code_links = ParseSourceLinks(el.TryGetProperty("source_code_links", out var src) ? src : default)
+                };
+                list.Add(mod);
+            }
+
+        if (doc.RootElement.TryGetProperty("meta", out var meta) && meta.ValueKind == JsonValueKind.Object)
+        {
+            currentPage = meta.GetPropertyOrDefault("current_page", 1);
+            lastPage = meta.GetPropertyOrDefault("last_page", currentPage);
+            total = meta.GetPropertyOrDefault("total", 0);
+        }
+
+        return new PagedMods { Items = list, CurrentPage = currentPage, LastPage = lastPage, Total = total };
+    }
+
+    public static async Task<List<ModVersion>> GetAllVersionsAsync(int modId, CancellationToken ct = default)
+    {
+        var url = $"{BaseUrl}/api/v0/mod/{modId}/versions?per_page=50&sort=-published_at";
+        using var doc = await FetchJsonWithRetries(url, ct);
+        var list = new List<ModVersion>();
+        if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            foreach (var v in data.EnumerateArray())
+            {
+                ct.ThrowIfCancellationRequested();
+
+                DateTimeOffset? dto = null;
+                if (v.TryGetProperty("published_at", out var pe) && pe.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(pe.GetString(), out var p))
+                    dto = p;
+
+                list.Add(new ModVersion
+                {
+                    Id = v.GetPropertyOrDefault("id", 0),
+                    Version = v.GetPropertyOrDefault("version", (string?)null),
+                    Link = v.GetPropertyOrDefault("link", (string?)null),
+                    SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null),
+                    Downloads = v.GetPropertyOrDefault("downloads", 0L),
+                    PublishedAt = dto
+                });
+            }
+
+        return list;
+    }
+
+    public static async Task<string> DownloadToTempAsync(string url, IProgress<int>? progress = null, CancellationToken ct = default)
+    {
+        var baseDir = string.IsNullOrWhiteSpace(App.Config.Paths.DataFolder) ? Paths.DataDir : App.Config.Paths.DataFolder;
+        var tempDir = Path.Combine(baseDir, "downloads");
+        Directory.CreateDirectory(tempDir);
+        var fileName = GetFileNameFromUrl(url);
+        var dst = Path.Combine(tempDir, fileName);
+
+        const int maxRetries = 5;
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                if ((int)res.StatusCode == 1015 || res.StatusCode == (HttpStatusCode)429)
+                {
+                    var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
+                    await Task.Delay(retry, ct);
+                    continue;
+                }
+
+                if (!res.IsSuccessStatusCode)
+                {
+                    if ((int)res.StatusCode >= 500 && (int)res.StatusCode < 600)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt)), ct);
+                        continue;
+                    }
+
+                    var bodyText = await res.Content.ReadAsStringAsync(ct);
+                    throw new HttpRequestException($"HTTP {(int)res.StatusCode} while downloading {url}\n{bodyText}");
+                }
+
+                var total = res.Content.Headers.ContentLength ?? -1L;
+                var canReport = total > 0 && progress != null;
+
+                using var src = await res.Content.ReadAsStreamAsync(ct);
+                using var dstFs = File.Create(dst);
+                var buffer = new byte[81920];
+                long read = 0;
+                int n;
+                while ((n = await src.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+                {
+                    await dstFs.WriteAsync(buffer.AsMemory(0, n), ct);
+                    read += n;
+                    if (canReport)
+                    {
+                        var pct = (int)Math.Clamp(read * 100.0 / total, 0, 100);
+                        progress!.Report(pct);
+                    }
+                }
+
+                progress?.Report(100);
+                return dst;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt)), ct);
+            }
+        }
+
+        throw new IOException("Failed to download after multiple attempts: " + url);
+    }
+
+    private static SourceLink[]? ParseSourceLinks(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<SourceLink>();
+        foreach (var s in el.EnumerateArray())
+        {
+            if (s.ValueKind != JsonValueKind.Object) continue;
+            var url = s.GetPropertyOrDefault("url", "");
+            if (string.IsNullOrWhiteSpace(url)) continue;
+            list.Add(new SourceLink
+            {
+                url = url,
+                label = s.GetPropertyOrDefault("label", (string?)null)
+            });
+        }
+
+        return list.Count == 0 ? null : list.ToArray();
+    }
+
+    private static string GetFileNameFromUrl(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            var last = Path.GetFileName(uri.LocalPath);
+            return string.IsNullOrWhiteSpace(last) ? "download" : last;
+        }
+        catch
+        {
+            return "download";
+        }
+    }
+
+    private static ModVersion[]? ParseVersions(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<ModVersion>();
+        foreach (var v in el.EnumerateArray())
+        {
+            DateTimeOffset? dto = null;
+            if (v.TryGetProperty("published_at", out var pe) && pe.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(pe.GetString(), out var p))
+                dto = p;
+
+            list.Add(new ModVersion
+            {
+                Id = v.GetPropertyOrDefault("id", 0),
+                Version = v.GetPropertyOrDefault("version", (string?)null),
+                Link = v.GetPropertyOrDefault("link", (string?)null),
+                SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null),
+                Downloads = v.GetPropertyOrDefault("downloads", 0L),
+                PublishedAt = dto
+            });
+        }
+
+        return list.ToArray();
+    }
+
+    private static Person? ParsePerson(JsonElement el)
+    {
+        return el.ValueKind == JsonValueKind.Object
+            ? new Person
+            {
+                id = el.GetPropertyOrDefault("id", 0),
+                name = el.GetPropertyOrDefault("name", ""),
+                profile_photo_url = el.GetPropertyOrDefault("profile_photo_url", (string?)null),
+                cover_photo_url = el.GetPropertyOrDefault("cover_photo_url", (string?)null)
+            }
+            : null;
+    }
+
+    private static Person[]? ParsePersons(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<Person>();
+        foreach (var c in el.EnumerateArray())
+            if (c.ValueKind == JsonValueKind.Object)
+                list.Add(new Person
+                {
+                    id = c.GetPropertyOrDefault("id", 0),
+                    name = c.GetPropertyOrDefault("name", ""),
+                    profile_photo_url = c.GetPropertyOrDefault("profile_photo_url", (string?)null),
+                    cover_photo_url = c.GetPropertyOrDefault("cover_photo_url", (string?)null)
+                });
+
+        return list.ToArray();
+    }
+
+    private static CategoryInfo? ParseCategory(JsonElement el)
+    {
+        return el.ValueKind == JsonValueKind.Object
+            ? new CategoryInfo
+            {
+                id = el.GetPropertyOrDefault("id", 0),
+                name = el.GetPropertyOrDefault("name", ""),
+                title = el.GetPropertyOrDefault("title", ""),
+                slug = el.GetPropertyOrDefault("slug", ""),
+                color_class = el.GetPropertyOrDefault("color_class", "")
+            }
+            : null;
+    }
+
+    private static T GetPropertyOrDefault<T>(this JsonElement el, string name, T def)
+    {
+        if (!el.TryGetProperty(name, out var v)) return def;
+        try
+        {
+            if (typeof(T) == typeof(int))
+                if (v.TryGetInt32(out var i))
+                    return (T)(object)i;
+
+            if (typeof(T) == typeof(long))
+                if (v.TryGetInt64(out var l))
+                    return (T)(object)l;
+
+            if (typeof(T) == typeof(bool))
+            {
+                if (v.ValueKind == JsonValueKind.True) return (T)(object)true;
+                if (v.ValueKind == JsonValueKind.False) return (T)(object)false;
+                if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var bnum)) return (T)(object)(bnum != 0);
+            }
+
+            if (typeof(T) == typeof(string))
+            {
+                if (v.ValueKind == JsonValueKind.String) return (T)(object)(v.GetString() ?? "");
+                if (v.ValueKind == JsonValueKind.Null) return def;
+            }
+        }
+        catch
+        {
+            // good girl action
+        }
+
+        return def;
+    }
+
+    public sealed class ModVersion
+    {
+        public int Id { get; set; }
+        public string? Version { get; set; }
+        public string? Link { get; set; }
+        public string? SptVersionConstraint { get; set; }
+        public DateTimeOffset? PublishedAt { get; set; }
+        public long Downloads { get; set; }
+    }
+
+    public sealed class Person
+    {
+        public int id { get; set; }
+        public string name { get; set; } = "";
+        public string? profile_photo_url { get; set; }
+        public string? cover_photo_url { get; set; }
+    }
+
+    public sealed class CategoryInfo
+    {
+        public int id { get; set; }
+        public string? name { get; set; }
+        public string? title { get; set; }
+        public string? slug { get; set; }
+        public string? color_class { get; set; }
+    }
+
+    public sealed class ModSummary
+    {
+        public int id { get; set; }
+        public string name { get; set; } = "";
+        public string? guid { get; set; }
+        public string? teaser { get; set; }
+        public string? slug { get; set; }
+        public string? thumbnail { get; set; }
+        public long downloads { get; set; }
+        public string? detail_url { get; set; }
+        public bool featured { get; set; }
+        public bool contains_ads { get; set; }
+        public bool contains_ai_content { get; set; }
+        public Person? owner { get; set; }
+        public Person[]? authors { get; set; }
+        public CategoryInfo? category { get; set; }
+        public ModVersion[]? versions { get; set; }
+        public DateTimeOffset? updated_at { get; set; }
+        public DateTimeOffset? published_at { get; set; }
+        public SourceLink[]? source_code_links { get; set; }
+        public ModVersion? latestVersion => versions is { Length: > 0 } ? versions[0] : null;
+    }
+
+    public sealed class PagedMods
+    {
+        public List<ModSummary> Items { get; init; } = new();
+        public int CurrentPage { get; init; }
+        public int LastPage { get; init; }
+        public int Total { get; init; }
+    }
+
+    public sealed class Category
+    {
+        public int id { get; set; }
+        public string title { get; set; } = "";
+        public string slug { get; set; } = "";
+        public string color_class { get; set; } = "";
+    }
+
+    public sealed class SourceLink
+    {
+        public string url { get; set; } = "";
+        public string? label { get; set; }
+    }
+}

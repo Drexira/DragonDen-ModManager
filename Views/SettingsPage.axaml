@@ -1,0 +1,180 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DragonDen.ModManager.Views.SettingsPage">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
+        <SolidColorBrush x:Key="Dd.Panel.2" Color="#1B2230" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Orange" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Red" Color="#E05353" />
+        <SolidColorBrush x:Key="Dd.Red.H" Color="#F16B6B" />
+        <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+        <SolidColorBrush x:Key="Dd.BtnFg" Color="#EDEDED" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="{StaticResource Dd.Panel}" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style Selector="Border.chip">
+            <Setter Property="Background" Value="{StaticResource Dd.Panel.2}" />
+            <Setter Property="BorderBrush" Value="#2C3748" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+
+        <Style Selector="Button.btn">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.BtnFg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="9,7" />
+            <Setter Property="MinWidth" Value="104" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="Button.btn-danger">
+            <Setter Property="Background" Value="{StaticResource Dd.Red}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Red}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.btn-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Red.H}" />
+        </Style>
+
+        <Style Selector="TextBox.dd">
+            <Setter Property="Background" Value="#181C22" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="CaretBrush" Value="{StaticResource Dd.Orange}" />
+        </Style>
+        <Style Selector="TextBox.dd:pointerover">
+            <Setter Property="BorderBrush" Value="#3A3F47" />
+        </Style>
+        <Style Selector="TextBox.dd:focus">
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Orange}" />
+        </Style>
+
+        <Style Selector="ToggleButton.ghost">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Subtle}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="ToggleButton.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#212732" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+        </Style>
+        <Style Selector="ToggleButton.ghost:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+        </Style>
+        <Style Selector="TextBlock.note">
+            <Setter Property="Foreground" Value="{StaticResource Dd.Subtle}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer
+        HorizontalScrollBarVisibility="Auto"
+        VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12" Margin="0,0,10,0">
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="h2" Text="SPT Folder" />
+                    <TextBlock Classes="note"
+                               Text="Pick the game root. It will auto-detect the spt version and configure plugins and mods folders." />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <TextBox x:Name="SptRootBox" Classes="dd" />
+                        <Button x:Name="BrowseSPTBtn" Grid.Column="1" Content="Browse…" Classes="btn" />
+                    </Grid>
+
+                    <Border Classes="chip">
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Name="SptStatusText" Text="No folder selected." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="h2" Text="Data Folder" />
+                    <TextBlock Classes="note" Text="Pick a folder where downloads and temp extracts will be done." />
+                    <TextBlock Classes="note" Text="(will use data folder in manager folder if empty)" />
+                    <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10">
+                        <TextBox x:Name="DataBox" Classes="dd" />
+                        <Button x:Name="BrowseDataBtn" Grid.Column="1" Content="Browse…" Classes="btn" />
+                        <Button x:Name="ResetDataBtn" Grid.Column="2" Content="Reset to Default" Classes="btn" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="h2" Text="Mod Paths" />
+                    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="10" RowSpacing="8">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Client mods subpath" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="ClientRelBox" Classes="dd" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Server mods subpath" />
+                        <TextBox Grid.Row="1" Grid.Column="1" x:Name="ServerRelBox" Classes="dd" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Final mod folder paths" />
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                            <TextBlock x:Name="ClientFullText" Foreground="{StaticResource Dd.Subtle}" />
+                            <TextBlock x:Name="ServerFullText" Foreground="{StaticResource Dd.Subtle}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="h2" Text="Forge API Token" />
+                    <TextBlock Classes="note" Text="Used to fetch mod info from Forge. Your token is stored locally." />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <TextBox x:Name="ForgeTokenBox" Classes="dd" PasswordChar="•" />
+                        <ToggleButton x:Name="ShowTokenToggle" Grid.Column="1" Content="Show" Classes="ghost" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="SaveBtn" Content="Save" Classes="btn" />
+                <Button x:Name="ClearCacheBtn" Content="Clear Cache" Classes="btn btn-danger" />
+                <Button x:Name="ClearTempFilesBtn" Content="Clear Temp Files" Classes="btn btn-danger" />
+                <TextBlock x:Name="StatusText" Foreground="{StaticResource Dd.Subtle}" VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+        </ScrollViewer>
+</UserControl>

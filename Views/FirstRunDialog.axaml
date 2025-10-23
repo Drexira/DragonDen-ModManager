@@ -1,0 +1,99 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:DragonDen.ModManager.Views"
+        x:Class="DragonDen.ModManager.Views.FirstRunDialog"
+        Width="650" Height="250"
+        CanResize="False"
+        SystemDecorations="None"
+        WindowStartupLocation="CenterOwner"
+        Title="Select SPT Folder">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+        <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+        <SolidColorBrush x:Key="Dd.BtnFg" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Success" Color="#18C37E" />
+        <SolidColorBrush x:Key="Dd.Danger" Color="#E05353" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.btn">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.BtnFg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="MinWidth" Value="140" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#FF9C2A" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="Button.btn.success">
+            <Setter Property="Background" Value="{StaticResource Dd.Success}" />
+            <Setter Property="Foreground" Value="#111111" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Success}" />
+        </Style>
+        <Style Selector="Button.btn.success:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#25E8A28F" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="Button.btn.danger">
+            <Setter Property="Background" Value="{StaticResource Dd.Danger}" />
+            <Setter Property="Foreground" Value="#111111" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Danger}" />
+        </Style>
+        <Style Selector="Button.btn.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#30FF7A7A" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="Border.chip">
+            <Setter Property="Background" Value="#1B2230" />
+            <Setter Property="BorderBrush" Value="#2C3748" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{StaticResource Dd.Panel}">
+        <views:TitleBar ShowMinimize="False" ShowMaximize="False" />
+
+        <Grid Grid.Row="1" Margin="16" RowDefinitions="Auto,*,Auto" RowSpacing="12">
+            <StackPanel Spacing="6">
+                <TextBlock Text="Select your SPT root folder"
+                           FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}" />
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Dd.Subtle}">
+                    Pick the game's root folder. We'll locate <Run Text="SPT.Server.exe" /> either in the root or inside the
+                    <Run Text="SPT\" /> subfolder to detect your SPT version and auto-configure paths.
+                </TextBlock>
+            </StackPanel>
+
+            <Border Grid.Row="1" Classes="chip">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="VersionText"
+                               Foreground="{StaticResource Dd.Text}"
+                               Text="No folder selected yet." />
+                    <TextBlock x:Name="HintText"
+                               Foreground="{StaticResource Dd.Subtle}"
+                               FontSize="12"
+                               Text="Tip: the folder should contain SPT.Server.exe (directly or under SPT\)." />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="SelectBtn" Content="Select SPT Folder" Classes="btn success" />
+                <Button x:Name="CloseBtn" Content="Close" Classes="btn danger" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

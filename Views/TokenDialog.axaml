@@ -1,0 +1,152 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:DragonDen.ModManager.Views"
+        x:Class="DragonDen.ModManager.Views.TokenDialog"
+        Width="700" Height="300"
+        CanResize="False"
+        SystemDecorations="None"
+        WindowStartupLocation="CenterOwner"
+        Title="Forge Token Required">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+        <SolidColorBrush x:Key="Dd.Orange" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+        <SolidColorBrush x:Key="Dd.BtnFg" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.TextDim" Color="#C8D0D8" />
+        <SolidColorBrush x:Key="Dd.Success" Color="#18C37E" />
+        <SolidColorBrush x:Key="Dd.Warn" Color="#E6A23C" />
+        <SolidColorBrush x:Key="Dd.Danger" Color="#E05353" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.btn">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.BtnFg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="MinWidth" Value="120" />
+        </Style>
+        <Style Selector="Button.btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.link:pointerover">
+            <Setter Property="Foreground" Value="#FFC27A" />
+            <Setter Property="TextBlock.TextDecorations" Value="Underline" />
+        </Style>
+
+        <Style Selector="Button.btn.success">
+            <Setter Property="Background" Value="{StaticResource Dd.Success}" />
+            <Setter Property="Foreground" Value="#111111" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Success}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.btn.success:pointerover">
+            <Setter Property="Background" Value="#1BD68B" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="Button.btn.danger">
+            <Setter Property="Background" Value="{StaticResource Dd.Danger}" />
+            <Setter Property="Foreground" Value="#111111" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Danger}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.btn.danger:pointerover">
+            <Setter Property="Background" Value="#F16D6D" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="TextBox.dd">
+            <Setter Property="Background" Value="#181C22" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="CaretBrush" Value="{StaticResource Dd.Orange}" />
+        </Style>
+        <Style Selector="TextBox.dd:pointerover">
+            <Setter Property="BorderBrush" Value="#3A3F47" />
+        </Style>
+        <Style Selector="TextBox.dd:focus">
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Orange}" />
+        </Style>
+
+        <Style Selector="ToggleButton.ghost">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.TextDim}" />
+        </Style>
+        <Style Selector="ToggleButton.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#212732" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+        </Style>
+        <Style Selector="ToggleButton.ghost:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{StaticResource Dd.Panel}">
+        <views:TitleBar ShowMinimize="False" ShowMaximize="False" />
+
+        <Grid Grid.Row="1" Margin="16" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+            <StackPanel Spacing="6">
+                <TextBlock Text="Forge API token required"
+                           FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}" />
+                <TextBlock TextWrapping="Wrap"
+                           Foreground="{StaticResource Dd.Subtle}">
+                    You can create a token on the Forge website.
+                    Make sure the token has only <Run Text="Read" Foreground="{StaticResource Dd.Warn}" /> permissions checked.
+                </TextBlock>
+                <Button Classes="link"
+                        Content="Open Forge API Tokens page"
+                        Click="OnOpenTokenHelp" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Spacing="6">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox x:Name="TokenBox"
+                             Classes="dd"
+                             PasswordChar="•"
+                             Watermark="Paste token here (read-only scope)" />
+                    <ToggleButton x:Name="ShowToggle"
+                                  Grid.Column="1"
+                                  Classes="ghost"
+                                  Content="Show"
+                                  IsChecked="False"
+                                  IsCheckedChanged="OnShowToggle" />
+                </Grid>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" FontSize="12" TextWrapping="Wrap">
+                    Keep a backup of this token somewhere safe. It's used to fetch mod information from Forge.
+                </TextBlock>
+            </StackPanel>
+
+            <Border Grid.Row="2" />
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="SetBtn" Content="Save Token" Classes="btn success" />
+                <Button x:Name="CloseBtn" Content="Close" Classes="btn danger" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

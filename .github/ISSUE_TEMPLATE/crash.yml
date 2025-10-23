@@ -1,0 +1,57 @@
+﻿name: Crash
+description: Mod Manager crashes or shows a fatal error
+labels: ["bug", "crash"]
+body:
+  - type: textarea
+    id: doing
+    attributes:
+      label: What you were doing
+      placeholder: Installing mod X, opening Settings, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: error-text
+    attributes:
+      label: Error text or dialog
+      description: Paste text if possible
+    validations:
+      required: true
+  - type: checkboxes
+    id: repro
+    attributes:
+      label: Can you reproduce it
+      options:
+        - label: Yes, every time
+        - label: Sometimes
+        - label: No, happened once
+  - type: input
+    id: since
+    attributes:
+      label: Started in version
+      placeholder: 1.2.3
+  - type: input
+    id: mod-manager-version
+    attributes:
+      label: Mod Manager version
+    validations:
+      required: true
+  - type: input
+    id: spt-version
+    attributes:
+      label: SPT version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options: ["Windows 11", "Windows 10", "Other"]
+    validations:
+      required: true
+  - type: checkboxes
+    id: artifacts
+    attributes:
+      label: Attachments
+      options:
+        - label: I attached crash logs
+        - label: I attached a screenshot

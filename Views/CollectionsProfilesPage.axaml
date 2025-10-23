@@ -1,0 +1,20 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DragonDen.ModManager.Views.CollectionsProfilesPage">
+    
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="Dd.Text" Color="#FF8A00" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontSize" Value="25" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <TextBlock Classes="h2" Text="This feature will be added in the near future." HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </StackPanel>
+</UserControl>

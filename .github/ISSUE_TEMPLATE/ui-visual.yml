@@ -1,0 +1,29 @@
+﻿name: UI or Visual Issue
+description: Layout, text, theme, or scaling problem
+labels: ["ui"]
+body:
+  - type: input
+    id: screen
+    attributes:
+      label: Screen or panel
+      placeholder: Installed Mods, Settings, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What looks wrong
+      placeholder: Misaligned button, clipped text, wrong color
+    validations:
+      required: true
+  - type: input
+    id: window
+    attributes:
+      label: Window size
+      placeholder: 1920x1080
+  - type: checkboxes
+    id: artifacts
+    attributes:
+      label: Attachments
+      options:
+        - label: I attached a screenshot

@@ -1,0 +1,73 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:v="clr-namespace:DragonDen.ModManager.Views"
+    x:Class="DragonDen.ModManager.Views.MainWindow"
+    Width="1280" Height="720"
+    Icon="/Assets/icon.ico"
+    SystemDecorations="None"
+    ExtendClientAreaToDecorationsHint="False"
+    Background="{DynamicResource SurfaceBrush}"
+    TransparencyLevelHint="None"
+    Title="Dragon Den Mod Manager - ALPHA v0.0.1">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button#KoFiBtn:pointerover TextBlock">
+            <Setter Property="TextDecorations" Value="Underline"/>
+        </Style>
+        
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#FF7A1A"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{StaticResource Dd.Background}">
+        <v:TitleBar />
+
+        <Border Grid.Row="1" Padding="12" BorderBrush="{StaticResource Dd.Border}" BorderThickness="0">
+            <TabControl>
+                <TabItem Header="Browse Mods"><v:BrowseModsPage /></TabItem>
+                <TabItem Header="Installed Mods"><v:InstalledModsPage /></TabItem>
+                <TabItem Header="Collections"><v:CollectionsPage/></TabItem>
+                <TabItem Header="Collections Profiles"><v:CollectionsProfilesPage/></TabItem>
+                <TabItem Header="Settings"><v:SettingsPage x:Name="SettingsTabContent" /></TabItem>
+            </TabControl>
+        </Border>
+
+        <Border Grid.Row="0" Grid.RowSpan="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,12,40"
+                Background="Transparent">
+            <ItemsControl x:Name="ToastHost" />
+        </Border>
+
+        <Border Grid.Row="2"
+                BorderBrush="{StaticResource Dd.Border}"
+                BorderThickness="1,1,0,0"
+                Padding="8,6">
+            <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
+                <TextBlock x:Name="FooterLeft" Foreground="{StaticResource Dd.Border}" />
+                <Button Grid.Column="2"
+                        x:Name="KoFiBtn"
+                        Click="OnOpenKoFi"
+                        Padding="0"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Cursor="Hand">
+                    <TextBlock Text="Support me on Ko-fi" Foreground="#FF7A1A" />
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,30 @@
+﻿name: Wrong Info or Database
+description: Bad mod data, wrong link, or missing field
+labels: ["data"]
+body:
+  - type: input
+    id: entry
+    attributes:
+      label: Item or mod entry
+      placeholder: Name or link
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong
+      placeholder: Wrong version, broken link, missing thumbnail
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: Correct info
+      description: Provide link or text
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options: ["Single entry", "Many entries", "Not sure"]

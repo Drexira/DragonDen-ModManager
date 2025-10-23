@@ -1,0 +1,489 @@
+﻿<UserControl
+    x:Class="DragonDen.ModManager.Views.BrowseModsPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:DragonDen.ModManager.ViewModels"
+    xmlns:services="clr-namespace:DragonDen.ModManager.Services"
+    mc:Ignorable="d"
+    d:DesignWidth="1280" d:DesignHeight="800"
+    Focusable="True">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />
+        <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
+        <SolidColorBrush x:Key="Dd.Card" Color="#1B1F24" />
+        <SolidColorBrush x:Key="Dd.Card.Hover" Color="#21262C" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#99FFFFFF" />
+
+        <SolidColorBrush x:Key="Dd.Orange" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Orange.Hover" Color="#FFA333" />
+
+        <SolidColorBrush x:Key="Dd.Green" Color="#1faa33" />
+        <SolidColorBrush x:Key="Dd.Green.Hover" Color="#2ad643" />
+
+        <SolidColorBrush x:Key="Dd.Red" Color="#fc2626" />
+        <SolidColorBrush x:Key="Dd.Red.Hover" Color="#F16B6B" />
+
+        <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+        <SolidColorBrush x:Key="Dd.Btn.Hover" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Btn.HoverFg" Color="#111111" />
+
+        <LinearGradientBrush x:Key="Dd.SptBadge" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Offset="0" Color="#1f8f30" />
+            <GradientStop Offset="1" Color="#2ad643" />
+        </LinearGradientBrush>
+
+        <services:StringHasTextConverter x:Key="StringHasTextConverter" />
+
+        <DataTemplate x:Key="VersionTemplate" DataType="vm:SearchResultRow+VersionDisplay">
+            <TextBlock Text="{Binding Label}" />
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource Dd.Card}" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Margin" Value="5" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="MinHeight" Value="180" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border.card:pointerover">
+            <Setter Property="Background" Value="{StaticResource Dd.Card.Hover}" />
+        </Style>
+
+        <Style Selector="Border.pill">
+            <Setter Property="Background" Value="#262626" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="MinHeight" Value="20" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+
+        <Style Selector="Button.owner-pill">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="4,1" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="20" />
+            <Setter Property="FontWeight" Value="DemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="Foreground" Value="#111111" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.owner-pill:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Orange.Hover}" />
+            <Setter Property="FontWeight" Value="DemiBold"/>
+        </Style>
+
+        <Style Selector="Button.btn">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="MinWidth" Value="84" />
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn.Hover}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Btn.HoverFg}" />
+        </Style>
+        <Style Selector="Button.btn-success">
+            <Setter Property="Background" Value="{StaticResource Dd.Green}" />
+            <Setter Property="Foreground" Value="#0C1116" />
+        </Style>
+        <Style Selector="Button.btn-success:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Green.Hover}" />
+        </Style>
+        <Style Selector="Button.btn-danger">
+            <Setter Property="Background" Value="{StaticResource Dd.Red}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.btn-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Red.Hover}" />
+        </Style>
+        <Style Selector="Button.btn-neutral">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+        </Style>
+
+        <Style Selector="Button.mod-title">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+        <Style Selector="Button.mod-title /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.mod-title:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="#FF8A00" />
+        </Style>
+
+        <Style Selector="Button.guid-pill">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="#262A30" />
+            <Setter Property="Foreground" Value="#B7BDC7" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="22" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.guid-pill:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#262A30" />
+            <Setter Property="Foreground" Value="#B7BDC7" />
+        </Style>
+
+        <Style Selector="#ResultsList ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="#ResultsList ListBoxItem">
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="#ResultsList ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="#ResultsList ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="#ResultsList ListBoxItem:focus /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Background="{StaticResource Dd.Background}">
+        <Grid x:Name="MainContent" RowDefinitions="Auto,Auto,*">
+            <Border Background="{StaticResource Dd.Panel}" Padding="10" Grid.Row="0"
+                    BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="True">
+                    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
+                        <TextBox x:Name="SearchBox" Width="440" Watermark="Search mods or type @Author…" />
+                        <Button x:Name="ClearBtn" Content="Clear" Classes="btn btn-neutral" />
+                        <Button x:Name="RefreshBtn" Content="Refresh" Classes="btn btn-neutral" />
+                    </StackPanel>
+
+                    <DockPanel DockPanel.Dock="Right">
+                        <TextBlock x:Name="SearchStatusText" VerticalAlignment="Center" Margin="10,0,12,0"
+                                   Foreground="{StaticResource Dd.Subtle}" />
+                        <StackPanel Orientation="Horizontal" Spacing="14" HorizontalAlignment="Right">
+                            <CheckBox x:Name="FeaturedChk" Content="Hide Featured" />
+                            <CheckBox x:Name="AdsChk" Content="Hide Contains Ads" />
+                            <CheckBox x:Name="AiChk" Content="Hide Contains AI" />
+                        </StackPanel>
+                    </DockPanel>
+                </DockPanel>
+            </Border>
+
+            <Border Background="{StaticResource Dd.Panel}" Padding="10" Grid.Row="1"
+                    BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="True">
+                    <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left">
+                        <ComboBox x:Name="CategoryBox" Width="220">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="services:UiCategory">
+                                    <TextBlock Text="{Binding Title}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                            <ComboBox.SelectionBoxItemTemplate>
+                                <DataTemplate x:DataType="services:UiCategory">
+                                    <TextBlock Text="{Binding Title}" />
+                                </DataTemplate>
+                            </ComboBox.SelectionBoxItemTemplate>
+                        </ComboBox>
+
+                        <ComboBox x:Name="SptFilterBox" Width="170" />
+                        <ComboBox x:Name="SortBox" Width="160">
+                            <ComboBoxItem Content="Most recent" Tag="recent" />
+                            <ComboBoxItem Content="Newest published" Tag="newest" />
+                            <ComboBoxItem Content="Most downloads" Tag="downloads" />
+                        </ComboBox>
+                        <ComboBox x:Name="PageSizeBox" Width="90">
+                            <ComboBoxItem Content="9" />
+                            <ComboBoxItem Content="18" />
+                            <ComboBoxItem Content="27" />
+                            <ComboBoxItem Content="54" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                        <TextBlock x:Name="LoadedModsLabel" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Dd.Subtle}" />
+                        <Separator Width="1" Margin="6,0" Background="{StaticResource Dd.Border}" />
+                        <Button x:Name="PrevBtn" Content="◀ Prev" Classes="btn btn-neutral" MinWidth="70" />
+                        <TextBlock Text="Page" VerticalAlignment="Center" Foreground="{StaticResource Dd.Subtle}" />
+                        <TextBlock x:Name="PageInfo" Width="64" TextAlignment="Center" VerticalAlignment="Center" />
+                        <Button x:Name="NextBtn" Content="Next ▶" Classes="btn btn-neutral" MinWidth="70" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Grid Grid.Row="2" x:Name="ResultsHost">
+                <ScrollViewer x:Name="ResultsScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
+                    <ListBox x:Name="ResultsList"
+                             SelectionMode="Single"
+                             Background="Transparent"
+                             BorderBrush="Transparent"
+                             SelectionChanged="OnResultsSelectionChanged">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel HorizontalAlignment="Center" Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="vm:SearchResultRow">
+                                <Border Classes="card" MinWidth="600" MaxWidth="600">
+                                    <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,*,Auto">
+                                        <Border Grid.Row="0" Grid.Column="0"
+                                                Width="165" Height="165"
+                                                CornerRadius="12" Margin="0"
+                                                Background="#101418" BorderBrush="{StaticResource Dd.Border}" BorderThickness="1"
+                                                ClipToBounds="True">
+                                            <Grid>
+                                                <services:WebImage x:Name="Thumb" Url="{Binding ThumbnailOrPlaceholder}" Stretch="UniformToFill" />
+                                                <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="8,2"
+                                                        CornerRadius="10" Background="{StaticResource Dd.SptBadge}"
+                                                        IsVisible="{Binding IsLatestVersion}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Path Data="M12,2 L14.5,8.0 21,8.8 16.0,13.0 17.2,19.6 12,16.3 6.8,19.6 8.0,13.0 3,8.8 9.5,8.0 z"
+                                                              Width="12" Height="12" Fill="#1E2329" Stretch="Uniform" />
+                                                        <TextBlock Foreground="#1E2329" FontWeight="Bold" FontSize="11"
+                                                                   Text="{Binding SptConstraintText, StringFormat=SPT {0}}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" ClipToBounds="True">
+                                            <Button Classes="mod-title"
+                                                    Click="OnOpenModPage"
+                                                    Tag="{Binding .}">
+                                                <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"
+                                                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                                            </Button>
+
+                                            <Button Classes="guid-pill"
+                                                    IsVisible="{Binding Guid, Converter={StaticResource StringHasTextConverter}}"
+                                                    Tag="{Binding Guid}"
+                                                    ToolTip.Tip="Click to copy"
+                                                    Click="OnCopyGuid">
+                                                <TextBlock Text="{Binding Guid, StringFormat=(\{0\})}" />
+                                            </Button>
+
+                                            <Grid Margin="2,2,0,0" ColumnDefinitions="Auto,6,*">
+                                                <Border Grid.Column="0"
+                                                        Padding="10,2,10,2"
+                                                        Classes="pill"
+                                                        IsVisible="{Binding Category, Converter={StaticResource StringHasTextConverter}}">
+                                                    <TextBlock Text="{Binding Category}" />
+                                                </Border>
+                                                
+                                                <ScrollViewer Grid.Column="2"
+                                                              HorizontalScrollBarVisibility="Hidden"
+                                                              VerticalScrollBarVisibility="Disabled"
+                                                              PointerWheelChanged="OnAuthorsWheel"
+                                                              ClipToBounds="True">
+                                                    <ItemsControl ItemsSource="{Binding OwnerNames}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal" Spacing="6" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Classes="owner-pill"
+                                                                        Padding="10,2,10,2"
+                                                                        Content="{Binding .}"
+                                                                        Tag="{Binding .}"
+                                                                        Click="OnOwnerPillClick" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                            </Grid>
+
+                                            <Border Classes="pill" Padding="10,2,10,2" HorizontalAlignment="Left">
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <TextBlock Text="{Binding LatestVersionText}" />
+                                                    <TextBlock Text="•" />
+                                                    <TextBlock Text="Downloads" />
+                                                    <TextBlock Text="{Binding Downloads, StringFormat={}{0:N0}}" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <TextBlock Margin="0,6,6,0"
+                                                       Text="{Binding Teaser}"
+                                                       TextWrapping="Wrap"
+                                                       MaxLines="3"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Teaser}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Grid.Column="0"
+                                                    Spacing="8"
+                                                    Margin="0,0,0,0"
+                                                    VerticalAlignment="Bottom">
+                                            <WrapPanel Orientation="Horizontal" Margin="2,5,0,0" HorizontalAlignment="Right" IsVisible="{Binding IsLatestVersion}">
+                                                <ItemsControl ItemsSource="{Binding SourceButtons}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" Spacing="5" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Classes="btn btn-neutral"
+                                                                    Margin="0,0,5,0"
+                                                                    Content="{Binding Label}"
+                                                                    Tag="{Binding Url}"
+                                                                    Click="OnOpenSource" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </WrapPanel>
+                                            <WrapPanel Orientation="Horizontal" Margin="2,5,0,0">
+                                                <Button Content="Install"
+                                                        FontWeight="Bold"
+                                                        Margin="0,0,5,0"
+                                                        Classes="btn btn-success"
+                                                        Width="96"
+                                                        Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
+                                                        Click="OnInstallSelected"
+                                                        IsVisible="{Binding ShowInstall}"/>
+
+                                                <ComboBox x:Name="VerBox"
+                                                          Width="297"
+                                                          ItemsSource="{Binding VersionsDisplay}"
+                                                          SelectedIndex="0"
+                                                          ItemTemplate="{StaticResource VersionTemplate}"
+                                                          IsVisible="{Binding ShowVersionPicker}"/>
+
+                                                <Button Content="Uninstall"
+                                                        Margin="0,0,5,0"
+                                                        Classes="btn btn-danger"
+                                                        Width="96"
+                                                        Click="OnUninstallSelected"
+                                                        IsVisible="{Binding ShowUninstall}"/>
+
+                                                <StackPanel Margin="68,0,0,0"/>
+                                                <Button Content="Mod Page"
+                                                        Margin="5,0,0,0"
+                                                        Classes="btn btn-neutral"
+                                                        Width="96"
+                                                        Tag="{Binding .}"
+                                                        Click="OnOpenModPage"/>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Open Mod Page" Tag="{Binding .}" Click="OnOpenModPage" />
+                                            <MenuItem Header="Copy Page URL" Tag="{Binding ModPageUrl}" Click="OnCopyLink" />
+                                            <MenuItem Header="Open Thumbnail" Tag="{Binding Thumbnail}" Click="OnOpenThumb" />
+                                            <MenuItem Header="Copy GUID" Tag="{Binding Guid}" Click="OnCopyGuid" />
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </ScrollViewer>
+            <Border x:Name="SearchOverlay"
+                    IsVisible="False"
+                    Background="#66000000"
+                    ZIndex="10">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            Width="360">
+                    <Border Background="#151A20"
+                            CornerRadius="12"
+                            Padding="14"
+                            BorderBrush="{StaticResource Dd.Border}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Loading results…"
+                                       FontSize="16"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="SearchOverlayTip"
+                                       Foreground="{StaticResource Dd.Subtle}"
+                                       TextWrapping="Wrap" />
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="6"
+                                         CornerRadius="3"
+                                         Foreground="{StaticResource Dd.Orange}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+            </Grid>
+        </Grid>
+
+        <Border x:Name="DimOverlay" Background="#88000000" IsVisible="False" ZIndex="900" />
+        <Border x:Name="LoadingModal" IsVisible="False" ZIndex="901"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Padding="20" CornerRadius="14"
+                Background="#151A20"
+                BorderBrush="{StaticResource Dd.Border}" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18"
+                                  OffsetX="0"
+                                  OffsetY="6"
+                                  Color="#AA000000" />
+            </Border.Effect>
+            <StackPanel Width="420" Spacing="10">
+                <Grid ColumnDefinitions="6,*">
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock x:Name="ModalTitle" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ModalLine1" Foreground="{StaticResource Dd.Subtle}" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Background="#101418" CornerRadius="8" Padding="10" BorderBrush="{StaticResource Dd.Border}" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock x:Name="ModalTip" Foreground="#CDE3FF" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Spacing="6">
+                    <ProgressBar x:Name="ModalBar" IsIndeterminate="True" Height="8"
+                                 CornerRadius="4" Foreground="{StaticResource Dd.Orange}" />
+                    <Grid ColumnDefinitions="*,Auto" Margin="2,0,0,0">
+                        <TextBlock x:Name="ModalEta" Foreground="{StaticResource Dd.Subtle}" Grid.Column="0" />
+                        <TextBlock x:Name="ModalLine2" Foreground="{StaticResource Dd.Subtle}" Grid.Column="1" />
+                    </Grid>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancel" Classes="btn btn-danger" Click="OnCancelIndexing" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border x:Name="DragShield" Background="Transparent" IsVisible="False" IsHitTestVisible="True" ZIndex="850" />
+        <ProgressBar x:Name="BusyBar" IsIndeterminate="True" IsVisible="False"
+                     HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="2" ZIndex="902" />
+    </Grid>
+</UserControl>

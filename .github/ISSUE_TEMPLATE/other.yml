@@ -1,0 +1,23 @@
+﻿name: Other
+description: Anything else
+labels: ["question"]
+body:
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      placeholder: One line
+    validations:
+      required: true
+  - type: textarea
+    id: blocker
+    attributes:
+      label: Current blocker
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+  - type: textarea
+    id: extras
+    attributes:
+      label: Extra files or links

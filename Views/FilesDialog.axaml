@@ -1,0 +1,163 @@
+﻿<Window
+    x:Class="DragonDen.ModManager.Views.FilesDialog"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="clr-namespace:DragonDen.ModManager.Models"
+
+    MinWidth="650" MinHeight="360"
+    MaxWidth="650" MaxHeight="800"
+    SizeToContent="WidthAndHeight"
+    TransparencyLevelHint="AcrylicBlur,Blur,Transparent"
+    Background="{DynamicResource PanelBrush}"
+    SystemDecorations="None"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="36"
+    WindowStartupLocation="CenterOwner"
+    ShowInTaskbar="False"
+    CanResize="False">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Dd.Panel" Color="#13181D" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#20262D" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+
+        <SolidColorBrush x:Key="Dd.Red" Color="#D74242" />
+        <SolidColorBrush x:Key="Dd.Red.Hover" Color="#B93232" />
+
+        <SolidColorBrush x:Key="Dd.ChipBg" Color="#262B31" />
+        <SolidColorBrush x:Key="Dd.ChipBr" Color="#333A43" />
+
+        <SolidColorBrush x:Key="Dd.ListBg" Color="#151A20" />
+        <SolidColorBrush x:Key="Dd.ListBr" Color="#232A33" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.title">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.title:pointerover">
+            <Setter Property="Background" Value="#2E2E2E" />
+        </Style>
+        <Style Selector="Button.title:pressed">
+            <Setter Property="Background" Value="#3A3A3A" />
+        </Style>
+
+        <Style Selector="Button.title.close:pointerover">
+            <Setter Property="Background" Value="{StaticResource Dd.Red}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.title.close:pressed">
+            <Setter Property="Background" Value="{StaticResource Dd.Red.Hover}" />
+        </Style>
+
+        <Style Selector="Border.chip">
+            <Setter Property="Background" Value="{StaticResource Dd.ChipBg}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.ChipBr}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style Selector="#FilesList ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="0,2" />
+        </Style>
+        <Style Selector="#FilesList ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1F2730" />
+            <Setter Property="BorderBrush" Value="#2A2F36" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="6" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="{StaticResource Dd.Panel}" BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" Height="36">
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="12,0" VerticalAlignment="Center">
+                    <Path Data="M4,0 L8,6 L0,6 Z" Fill="#7AA2F7" Width="10" Height="10" Margin="0,0,2,0" />
+                    <TextBlock x:Name="TitleText" Text="Files" VerticalAlignment="Center" FontWeight="SemiBold" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0" Spacing="6">
+                    <Button Classes="title close" Click="OnCloseClicked" ToolTip.Tip="Close">
+                        <Grid Width="12" Height="12">
+                            <Path Data="M1,1 L11,11" Stroke="White" StrokeThickness="1.7" StrokeLineCap="Round" />
+                            <Path Data="M11,1 L1,11" Stroke="White" StrokeThickness="1.7" StrokeLineCap="Round" />
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Padding="12" Background="{StaticResource Dd.Panel}">
+            <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+                <Grid Grid.Row="0" ColumnDefinitions="140,*,*" Margin="2,0,2,0">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                        <Border Classes="chip">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Files" />
+                                <TextBlock Text="•" />
+                                <TextBlock x:Name="FilesCountText" Text="0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="chip">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="HintText"
+                                           Foreground="{StaticResource Dd.Subtle}"
+                                           FontSize="12"
+                                           Text="Tip: double clicking files will open them. (.dll files won't open)" />
+                                <TextBlock x:Name="HintText2"
+                                           Foreground="{StaticResource Dd.Subtle}"
+                                           FontSize="12"
+                                           Text="ESC key closes this window." />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="2" Height="1" Background="{StaticResource Dd.ListBr}" Opacity="0.7" />
+
+                <Border Grid.Row="3" Background="{StaticResource Dd.ListBg}" BorderBrush="{StaticResource Dd.ListBr}" BorderThickness="1" CornerRadius="10"
+                        Padding="0" MaxHeight="540" MaxWidth="940">
+                    <ScrollViewer
+                        HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Auto">
+                        <ListBox x:Name="FilesList" SelectionMode="Single" DoubleTapped="OnFilesListDoubleTapped">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:ModFile">
+                                    <Grid ColumnDefinitions="80,*" ColumnSpacing="0">
+                                        <Border Classes="chip"
+                                                Background="{Binding TargetColor}"
+                                                BorderBrush="#424B57"
+                                                HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding TargetLabel}" />
+                                        </Border>
+
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding DisplayPath}"
+                                                   FontFamily="Consolas, Menlo, Monaco, Courier New"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="None"
+                                                   ToolTip.Tip="{Binding DisplayPath}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,41 @@
+﻿name: Performance or Freeze
+description: Slow, stutter, high CPU, or hang
+labels: ["performance"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Where it happens
+      placeholder: Screen or action
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options: ["Stutter", "High CPU", "High memory", "Freeze", "Other"]
+    validations:
+      required: true
+  - type: input
+    id: duration
+    attributes:
+      label: Duration
+      placeholder: Seconds
+  - type: textarea
+    id: specs
+    attributes:
+      label: System specs
+      placeholder: CPU, GPU, RAM
+  - type: input
+    id: mod-manager-version
+    attributes:
+      label: Mod Manager version
+    validations:
+      required: true
+  - type: checkboxes
+    id: artifacts
+    attributes:
+      label: Attachments
+      options:
+        - label: I attached logs
+        - label: I attached a clip
