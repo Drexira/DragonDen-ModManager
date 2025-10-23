@@ -13,21 +13,41 @@
 
     <Window.Resources>
         <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />
-        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="Dd.Panel" Color="#13181D" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#20262D" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Orange" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Orange.Hover" Color="#FFA333" />
+        <SolidColorBrush x:Key="Dd.Red" Color="#CC3A3A" />
+        <SolidColorBrush x:Key="Dd.Red.Hover" Color="#E04B4B" />
+        <SolidColorBrush x:Key="Dd.Blue" Color="#2e3890" />
+        <SolidColorBrush x:Key="Dd.Blue.Hover" Color="#3441BF" />
+
+        <SolidColorBrush x:Key="Dd.Btn" Color="#2e3890" />
+        <SolidColorBrush x:Key="Dd.Btn.Hover" Color="#3441BF" />
+        <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Btn.HoverFg" Color="#D9D9D9" />
+        <SolidColorBrush x:Key="Dd.Transparent" Color="Transparent"/>
     </Window.Resources>
 
     <Window.Styles>
         <Style Selector="Button#KoFiBtn:pointerover TextBlock">
             <Setter Property="TextDecorations" Value="Underline"/>
         </Style>
-        
-        <Style Selector="Button.link">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#FF7A1A"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="MinHeight" Value="0"/>
+        <Style Selector="Button.KoFiBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Transparent}" />
+        </Style>
+        <Style Selector="TextBlock.KoFiBtnText:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{StaticResource Dd.Blue}" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{DynamicResource Dd.Transparent}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Dd.Transparent}" />
         </Style>
     </Window.Styles>
 
@@ -44,28 +64,15 @@
             </TabControl>
         </Border>
 
-        <Border Grid.Row="0" Grid.RowSpan="2"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Margin="0,0,12,40"
-                Background="Transparent">
+        <Border Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,12,40" Background="Transparent">
             <ItemsControl x:Name="ToastHost" />
         </Border>
 
-        <Border Grid.Row="2"
-                BorderBrush="{StaticResource Dd.Border}"
-                BorderThickness="1,1,0,0"
-                Padding="8,6">
+        <Border Grid.Row="2" BorderBrush="{StaticResource Dd.Border}" BorderThickness="1,1,0,0" Padding="8,6">
             <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
                 <TextBlock x:Name="FooterLeft" Foreground="{StaticResource Dd.Border}" />
-                <Button Grid.Column="2"
-                        x:Name="KoFiBtn"
-                        Click="OnOpenKoFi"
-                        Padding="0"
-                        Background="Transparent"
-                        BorderBrush="Transparent"
-                        Cursor="Hand">
-                    <TextBlock Text="Support me on Ko-fi" Foreground="#FF7A1A" />
+                <Button Grid.Column="2" x:Name="KoFiBtn" Click="OnOpenKoFi" Padding="0" Background="Transparent" BorderBrush="Transparent" Cursor="Hand">
+                    <TextBlock x:Name="KoFiBtnText" Text="Support me on Ko-fi" Foreground="#FF7A1A" />
                 </Button>
             </Grid>
         </Border>
