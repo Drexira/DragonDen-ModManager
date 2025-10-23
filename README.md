@@ -6,6 +6,8 @@ The manager keeps a local cache for fast browsing and provides rich, non-blockin
 
 This readme is for developers who want to contribute.
 
+![Alt](https://repobeats.axiom.co/api/embed/21c0664117083fdfcf12c400c0c0e85a10a6d7f4.svg "Repobeats analytics image")
+
 ---
 
 ## Features
