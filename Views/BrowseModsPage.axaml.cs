@@ -874,6 +874,8 @@ public partial class BrowseModsPage : UserControl
         finally
         {
             RefreshBtn.IsEnabled = true;
+            
+            UpdatePagingUi();
         }
     }
 
