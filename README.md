@@ -38,38 +38,6 @@ If either is missing or invalid, first-run dialogs will guide you.
 
 ---
 
-## Project Structure (important bits)
-```
-DragonDen.ModManager/
-App.axaml / App.cs                      // App lifetime, DI-lite wiring, cache warmup, single-instance activation
-Views/
-  MainWindow.axaml / .cs
-  BrowseModsPage.axaml / .cs            // Search UI, filters, paging; loading overlay; install/uninstall
-  ChromeTitleBar.axaml / .cs            // Custom title bar and window chrome
-  ...
-Services/
-  ForgeClient.cs                        // Forge API helpers (summary)
-  CacheDb.cs (Storage & Services)       // Cache DB facade (summaries, categories, SPT tags)
-  SevenZip.cs                           // 7z wrapper
-  InstallQueue.cs                       // Download + extraction queue
-  Toasts.cs                             // Simple toast system
-  Paths.cs                              
-  SemverUtil.cs
-  Spt.cs                                // Detect server version
-Storage/
-  CacheDb.cs                            // SQLite or equivalent storage for cached Forge data
-  Db.cs                                 // Installed mods DB
-ViewModels/
-  SearchResultRow.cs                    // Item model for the results list
-Assets/
-  icon.png
-```
-
-Notes:
-* There are two “CacheDb” namespaces: a storage‐level one (`DragonDen.ModManager.Storage.CacheDb`) and a services-level cache (`DragonDen.ModManager.Services.CacheDb`). The manager wires the latter as `App.Cache` and the DB for installed mods as `App.Db`.
-
----
-
 ## How Things Work
 ### App startup
 * `App.OnFrameworkInitializationCompleted()`:
