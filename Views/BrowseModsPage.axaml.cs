@@ -190,7 +190,7 @@ public partial class BrowseModsPage : UserControl
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(1000) };
     private readonly object _indexGate = new();
     private readonly Random _rng = new();
 
@@ -209,6 +209,7 @@ public partial class BrowseModsPage : UserControl
     private bool _ignoreNextReset;
     private bool _isSearching;
     private int _searchRunId;
+    private bool _softSearch;
 
     public BrowseModsPage()
     {
@@ -263,12 +264,14 @@ public partial class BrowseModsPage : UserControl
         {
             _debounce.Stop();
             await PerformSearch(true);
+            _softSearch = false;
         };
         SearchBox.PropertyChanged += async (_, e) =>
         {
             if (e.Property == TextBox.TextProperty)
             {
                 _debounce.Stop();
+                _softSearch = true;
                 _debounce.Start();
             }
         };
@@ -464,9 +467,12 @@ public partial class BrowseModsPage : UserControl
         NextBtn.IsEnabled = !_isIndexing && !_isSearching && _page < Math.Max(1, _lastPage);
     }
     
-    private void ShowSearchOverlay()
+    private void ShowSearchOverlay(bool soft = false)
     {
         _isSearching = true;
+        
+        if (soft) return;
+        
         BusyBar.IsVisible = true;
         try
         {
@@ -504,9 +510,12 @@ public partial class BrowseModsPage : UserControl
         Cursor = new Cursor(StandardCursorType.Wait);
     }
 
-    private void HideSearchOverlay()
+    private void HideSearchOverlay(bool soft = false)
     {
         _isSearching = false;
+        
+        if (soft) return;
+        
         BusyBar.IsVisible = false;
         SearchOverlay.IsVisible = false;
         SearchBox.IsEnabled = true;
@@ -883,14 +892,14 @@ public partial class BrowseModsPage : UserControl
         }
     }
 
-    private async Task PerformSearch(bool resetPage)
+    private async Task PerformSearch(bool resetPage, bool softOverlay = false)
     {
         if (resetPage && !_ignoreNextReset)
             _page = 1;
 
         _ignoreNextReset = false;
         var myRunId = ++_searchRunId;
-        ShowSearchOverlay();
+        ShowSearchOverlay(softOverlay);
 
         var raw = (SearchBox.Text ?? "").Trim();
         var isAuthorQuery = raw.StartsWith("@");
@@ -1065,7 +1074,7 @@ public partial class BrowseModsPage : UserControl
         finally
         {
             if (myRunId == _searchRunId)
-                HideSearchOverlay();
+                HideSearchOverlay(softOverlay);
         }
     }
 
