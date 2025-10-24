@@ -588,9 +588,8 @@ public partial class BrowseModsPage : UserControl
         try
         {
             var cachedItems = await FetchCategoriesFromCache();
-            SetCategories(cachedItems);
-
-            _ = RefreshCategoriesInBackgroundAsync();
+            if (cachedItems.Count > 0) SetCategories(cachedItems);
+            else _ = RefreshCategoriesInBackgroundAsync();
 
             await LoadAllSptFiltersAsync();
 
@@ -630,7 +629,7 @@ public partial class BrowseModsPage : UserControl
         if (string.IsNullOrWhiteSpace(App.Config.Forge.Token)) return null;
 
         using var http = BuildApiClient(3);
-        var url = "https://forge.sp-tarkov.com/api/v0/mod-categories?per_page=100&fields=id,slug,title";
+        var url = "https://forge.sp-tarkov.com/api/v0/mod-categories?per_page=25&fields=id,slug,title";
         try
         {
             using var resp = await http.GetAsync(url, ct);
