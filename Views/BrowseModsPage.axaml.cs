@@ -236,6 +236,7 @@ public partial class BrowseModsPage : UserControl
         FeaturedChk.IsCheckedChanged += OnHideTogglesChanged;
         AdsChk.IsCheckedChanged += OnHideTogglesChanged;
         AiChk.IsCheckedChanged += OnHideTogglesChanged;
+        HideInstalledChk.IsCheckedChanged += OnHideTogglesChanged;
 
         PrevBtn.Click += async (_, __) =>
         {
@@ -487,6 +488,7 @@ public partial class BrowseModsPage : UserControl
         FeaturedChk.IsEnabled = false;
         AdsChk.IsEnabled = false;
         AiChk.IsEnabled = false;
+        HideInstalledChk.IsEnabled = false;
 
         try
         {
@@ -517,6 +519,7 @@ public partial class BrowseModsPage : UserControl
         FeaturedChk.IsEnabled = true;
         AdsChk.IsEnabled = true;
         AiChk.IsEnabled = true;
+        HideInstalledChk.IsEnabled = true;
 
         UpdatePagingUi();
         Cursor = new Cursor(StandardCursorType.Arrow);
@@ -904,36 +907,19 @@ public partial class BrowseModsPage : UserControl
         var hideFeatured = (FeaturedChk?.IsChecked ?? false);
         var hideAds = (AdsChk?.IsChecked ?? false);
         var hideAi = (AiChk?.IsChecked ?? false);
+        var hideInstalled = (HideInstalledChk?.IsChecked ?? false);
 
         _lastPage = Math.Max(0, _lastPage);
         UpdatePagingUi();
 
-        try
+        async Task<List<SearchResultRow>> BuildRowsAsync(IEnumerable<ForgeClient.ModSummary> mods)
         {
-            var res = await CacheDb.QueryModsAsync(
-                new CacheDb.Query
-                {
-                    Text = query,
-                    Author = author,
-                    CategorySlug = catSlug,
-                    SptConstraint = sptTag,
-                    Sort = sortKey,
-                    Page = _page,
-                    PageSize = pageSize
-                },
-                hideFeatured,
-                hideAds,
-                hideAi);
-
-            _totalMatches = res.total;
-            _lastPage = Math.Max(1, (int)Math.Ceiling(_totalMatches / (double)pageSize));
-            _page = Math.Clamp(_page, 1, _lastPage);
-            UpdatePagingUi();
-
             var rows = new List<SearchResultRow>();
-            foreach (var m in res.items)
+
+            foreach (var m in mods)
             {
                 if (m.guid == "net.drexira.modmanager") continue;
+
                 var row = new SearchResultRow
                 {
                     ModId = m.id,
@@ -956,32 +942,19 @@ public partial class BrowseModsPage : UserControl
 
                 var versions = await CacheDb.GetVersionsAsync(m.id);
                 row.Versions = versions;
-                
-                row.IsInstalled = App.Db.HasRealInstall(row.Name);
 
-                var cachedSources = await CacheDb.GetSourcesForModAsync(m.id);
-                if (cachedSources is { Count: > 0 })
-                    foreach (var s in cachedSources)
-                    {
-                        if (string.IsNullOrWhiteSpace(s.url)) continue;
-                        row.SourceButtons.Add(new SearchResultRow.SourceButton
-                        {
-                            Url = s.url,
-                            Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label!.Trim()
-                        });
-                    }
+                row.IsInstalled = App.Db.HasRealInstall(row.Name);
 
                 var displays = new List<SearchResultRow.VersionDisplay>();
                 foreach (var ver in versions)
                 {
                     var spt = SemverUtil.NormalizeToThreeParts(ver.SptVersionConstraint);
-                    var label = string.IsNullOrWhiteSpace(spt)
-                        ? $"v{ver.Version ?? "n/a"}"
-                        : $"v{ver.Version ?? "n/a"} • SPT {spt}";
                     displays.Add(new SearchResultRow.VersionDisplay
                     {
                         Model = ver,
-                        Label = label,
+                        Label = string.IsNullOrWhiteSpace(spt)
+                            ? $"v{ver.Version ?? "n/a"}"
+                            : $"v{ver.Version ?? "n/a"} • SPT {spt}",
                         SptNormalized = spt
                     });
                 }
@@ -995,30 +968,92 @@ public partial class BrowseModsPage : UserControl
 
                 var latestModSPTVersion = SemverUtil.NormalizeToThreeParts(latest?.SptVersionConstraint);
                 var latestSPTVersion = App.Cache.GetLatestSPTVersion();
-                
                 if (string.Equals(latestModSPTVersion, latestSPTVersion, StringComparison.OrdinalIgnoreCase))
                     row.IsLatestVersion = true;
-                
+
                 if (m.source_code_links is { Length: > 0 })
                     foreach (var s in m.source_code_links)
-                    {
-                        if (s is null || string.IsNullOrWhiteSpace(s.url)) continue;
-                        row.SourceButtons.Add(new SearchResultRow.SourceButton
-                        {
-                            Url = s.url,
-                            Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label.Trim()
-                        });
-                    }
+                        if (s is { url: { } u } && !string.IsNullOrWhiteSpace(u))
+                            row.SourceButtons.Add(new SearchResultRow.SourceButton { Url = u, Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label.Trim() });
 
                 rows.Add(row);
             }
 
-            await EnsureSourcesFromApiAsync(rows.Where(r => r.SourceButtons.Count == 0).ToList());
+            return rows;
+        }
 
-            ResultsList.ItemsSource = rows;
+        try
+        {
+            var targetStart = (_page - 1) * pageSize;
+            var needCount = targetStart + pageSize;
+
+            var accVisible = new List<SearchResultRow>();
+            var hiddenOnSeenPages = 0;
+
+            var rawPage = 1;
+            var rawLastPage = 1;
+            _totalMatches = 0;
+
+            while (accVisible.Count < needCount && rawPage <= rawLastPage)
+            {
+                var res = await CacheDb.QueryModsAsync(
+                    new CacheDb.Query
+                    {
+                        Text = query,
+                        Author = author,
+                        CategorySlug = catSlug,
+                        SptConstraint = sptTag,
+                        Sort = sortKey,
+                        Page = rawPage,
+                        PageSize = pageSize
+                    },
+                    hideFeatured,
+                    hideAds,
+                    hideAi);
+
+                if (rawPage == 1)
+                {
+                    _totalMatches = res.total;
+                    rawLastPage = Math.Max(1, (int)Math.Ceiling(_totalMatches / (double)pageSize));
+                    _lastPage = rawLastPage;
+                    UpdatePagingUi();
+                }
+
+                var built = await BuildRowsAsync(res.items);
+
+                List<SearchResultRow> considered = built;
+                if (hideInstalled)
+                {
+                    var before = built.Count;
+                    considered = built.Where(r => !r.IsInstalled).ToList();
+                    hiddenOnSeenPages += (before - considered.Count);
+                }
+
+                var toMaybeShow = considered;
+                await EnsureSourcesFromApiAsync(toMaybeShow.Where(r => r.SourceButtons.Count == 0).ToList());
+
+                accVisible.AddRange(toMaybeShow);
+                rawPage++;
+            }
+
+            var visibleForPage = accVisible.Skip(targetStart).Take(pageSize).ToList();
+
+            ResultsList.ItemsSource = visibleForPage;
             PageInfo.Text = $"{_page} / {_lastPage}";
             LoadedModsLabel.Text = "Loaded Mods: " + _totalMatches.ToString("N0", CultureInfo.InvariantCulture);
-            SearchStatusText.Text = rows.Count == 0 ? "No results" : $"Showing {rows.Count} of {_totalMatches:N0}";
+
+            if (visibleForPage.Count == 0)
+            {
+                SearchStatusText.Text = hideInstalled ? 
+                (hiddenOnSeenPages > 0 ? "No visible results (installed hidden)." : "No results") : 
+                "No results";
+            }
+            else
+            {
+                SearchStatusText.Text = hideInstalled ? 
+                $"Showing {visibleForPage.Count} of {_totalMatches:N0} (installed hidden)" : 
+                $"Showing {visibleForPage.Count} of {_totalMatches:N0}";
+            }
 
             ScrollResultsToTop();
         }
@@ -1033,7 +1068,7 @@ public partial class BrowseModsPage : UserControl
                 HideSearchOverlay();
         }
     }
-    
+
     private void OnUninstallSelected(object? sender, RoutedEventArgs e)
     {
         var row =
@@ -1446,11 +1481,12 @@ public partial class BrowseModsPage : UserControl
             }
         }
 
-        var rowCtx = (btn.Parent as Panel)?.DataContext as SearchResultRow ?? 
-        ResultsList.SelectedItem as SearchResultRow ?? 
-        new SearchResultRow { Name = "Mod", Guid = "" };
+        var rowCtx = (btn.Parent as Panel)?.DataContext as SearchResultRow ??
+                     ResultsList.SelectedItem as SearchResultRow ??
+                     new SearchResultRow { Name = "Mod", Guid = "" };
 
-        var row = (btn.DataContext as SearchResultRow) ?? (ResultsList.SelectedItem as SearchResultRow); if (row is null) return;
+        var row = (btn.DataContext as SearchResultRow) ?? (ResultsList.SelectedItem as SearchResultRow);
+        if (row is null) return;
 
         List<ForgeClient.MissingDep> rawMissing = new();
         if (!row.IsInstalled)
@@ -1466,9 +1502,9 @@ public partial class BrowseModsPage : UserControl
         }
 
         var missing = rawMissing.Where(d => !IsInstalledByNameOrGuid(d.Name, d.Guid)).ToList();
-        var owner = (TopLevel.GetTopLevel(this) as Window) ?? 
-        this.FindAncestorOfType<Window>() ?? 
-        (App.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        var owner = (TopLevel.GetTopLevel(this) as Window) ??
+                    this.FindAncestorOfType<Window>() ??
+                    (App.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
         if (missing is { Count: > 0 } && !row.IsInstalled && owner is not null)
         {
@@ -1494,6 +1530,9 @@ public partial class BrowseModsPage : UserControl
 
         row.IsInstalled = true;
         App.Toasts.Show("Queued download.");
+
+        if (HideInstalledChk?.IsChecked ?? false)
+            await PerformSearch(false);
     }
 
     private static bool IsInstalledByNameOrGuid(string? name, string? guid)

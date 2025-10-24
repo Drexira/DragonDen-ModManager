@@ -180,7 +180,7 @@
                     BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
                 <DockPanel LastChildFill="True">
                     <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
-                        <TextBox x:Name="SearchBox" Width="440" Watermark="Search mods or type @Author…" />
+                        <TextBox x:Name="SearchBox" Width="400" Watermark="Search mods or type @Author…" />
                         <Button x:Name="ClearBtn" Content="Clear" Classes="btn btn-neutral" />
                         <Button x:Name="RefreshBtn" Content="Refresh" Classes="btn btn-neutral" />
                     </StackPanel>
@@ -226,12 +226,12 @@
                             <ComboBoxItem Content="27" />
                             <ComboBoxItem Content="54" />
                         </ComboBox>
+                        <CheckBox x:Name="HideInstalledChk" Content="Hide Installed" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" DockPanel.Dock="Right">
-                        <TextBlock x:Name="LoadedModsLabel" VerticalAlignment="Center"
-                                   Foreground="{StaticResource Dd.Subtle}" />
-                        <Separator Width="1" Margin="6,0" Background="{StaticResource Dd.Border}" />
+                    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                        <TextBlock x:Name="LoadedModsLabel" VerticalAlignment="Center" Foreground="{StaticResource Dd.Subtle}" />
+                        <Separator Width="1" Margin="5,0" Background="{StaticResource Dd.Border}" />
                         <Button x:Name="PrevBtn" Content="◀ Prev" Classes="btn btn-neutral" MinWidth="70" />
                         <TextBlock Text="Page" VerticalAlignment="Center" Foreground="{StaticResource Dd.Subtle}" />
                         <TextBlock x:Name="PageInfo" Width="64" TextAlignment="Center" VerticalAlignment="Center" />
