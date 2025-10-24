@@ -49,13 +49,13 @@ public class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // Ensure dirs exist
         try
         {
             Directory.CreateDirectory(Paths.CacheDir);
         }
         catch
         {
+            // good girl action
         }
 
         try
@@ -64,9 +64,9 @@ public class App : Application
         }
         catch
         {
+            // good girl action
         }
 
-        // Core services
         Config = Config.Load(Paths.AppSettingsPath);
 
         var modsDbPath = Paths.ModsDbPath;
