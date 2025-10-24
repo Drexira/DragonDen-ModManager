@@ -1,0 +1,140 @@
+﻿<Window
+    x:Class="DragonDen.ModManager.Views.DependenciesDialog"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:DragonDen.ModManager.ViewModels"
+    xmlns:services="clr-namespace:DragonDen.ModManager.Services"
+    x:DataType="vm:DependenciesDialogViewModel"
+    mc:Ignorable="d"
+    Width="600"
+    SizeToContent="WidthAndHeight"
+    CanResize="False"
+    SystemDecorations="None"
+    ExtendClientAreaToDecorationsHint="False"
+    WindowStartupLocation="CenterOwner"
+    Title="Dependencies required">
+
+    <Window.Resources>
+        <services:StringHasTextConverter x:Key="StringHasTextConverter" />
+
+        <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />
+        <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
+        <SolidColorBrush x:Key="Dd.Card" Color="#1B1F24" />
+        <SolidColorBrush x:Key="Dd.Card.Hover" Color="#21262C" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#99FFFFFF" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#FF8A00" />
+
+        <SolidColorBrush x:Key="Dd.Orange" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Orange.Hover" Color="#FFA333" />
+
+        <SolidColorBrush x:Key="Dd.Green" Color="#1faa33" />
+        <SolidColorBrush x:Key="Dd.Green.Hover" Color="#2ad643" />
+
+        <SolidColorBrush x:Key="Dd.Red" Color="#d40404" />
+        <SolidColorBrush x:Key="Dd.Red.Hover" Color="#fc2626" />
+        
+        <SolidColorBrush x:Key="Dd.Black" Color="#111111" />
+        <SolidColorBrush x:Key="Dd.Black.Hover" Color="#222222" />
+
+        <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+        <SolidColorBrush x:Key="Dd.Btn.Hover" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Btn.HoverFg" Color="#111111" />
+
+        <LinearGradientBrush x:Key="Dd.SptBadge" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Offset="0" Color="#fc2626" />
+            <GradientStop Offset="1" Color="#d40404" />
+        </LinearGradientBrush>
+    </Window.Resources>
+    
+    <Window.Styles>
+        <Style Selector="Button.btn">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="MinWidth" Value="84" />
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn.Hover}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Btn.HoverFg}" />
+        </Style>
+        <Style Selector="Button.btn-success">
+            <Setter Property="Background" Value="{StaticResource Dd.Green}" />
+            <Setter Property="Foreground" Value="#0C1116" />
+        </Style>
+        <Style Selector="Button.btn-updateall">
+            <Setter Property="Background" Value="{StaticResource Dd.Green}" />
+            <Setter Property="Foreground" Value="#0C1116" />
+            <Setter Property="FontWeight" Value="DemiBold"/>
+        </Style>
+        <Style Selector="Button.btn-success:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Green.Hover}" />
+        </Style>
+        <Style Selector="Button.btn-danger">
+            <Setter Property="Background" Value="{StaticResource Dd.Red}" />
+            <Setter Property="Foreground" Value="#0C1116" />
+            <Setter Property="FontWeight" Value="DemiBold"/>
+        </Style>
+        <Style Selector="Button.btn-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Red.Hover}" />
+        </Style>
+        <Style Selector="Button.btn-neutral">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+        </Style>
+    </Window.Styles>
+
+    <Border CornerRadius="12"
+            Padding="14"
+            Background="{StaticResource Dd.Panel}"
+            BorderBrush="{StaticResource Dd.Border}"
+            BorderThickness="1">
+        <StackPanel Spacing="10">
+            <TextBlock Text="{Binding Header}" FontSize="16" FontWeight="SemiBold" />
+
+            <TextBlock Text="{Binding Subheader}" Foreground="{StaticResource Dd.Subtle}" TextWrapping="Wrap" />
+
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DependenciesDialogViewModel+ItemVm">
+                            <DockPanel LastChildFill="True" Margin="0,2">
+                                <TextBlock Text="•" Margin="0,0,6,0" />
+                                <StackPanel Spacing="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Name}" />
+                                        <TextBlock Text="(optional)"
+                                                   Foreground="#b0b0b0"
+                                                   IsVisible="{Binding IsOptional}" />
+                                    </StackPanel>
+
+                                    <TextBlock Foreground="{DynamicResource ThemeForegroundLowBrush}"
+                                               IsVisible="{Binding VersionConstraint, Converter={StaticResource StringHasTextConverter}}"
+                                               Text="{Binding VersionConstraint, StringFormat=Version: {0}}"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <StackPanel Spacing="8">
+                <Separator Background="{StaticResource Dd.Border}" />
+                <TextBlock Text="Choose your option wisely, there may be dragons here..."
+                           Foreground="{StaticResource Dd.Subtle}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button x:Name="InstallWithDepsBtn" Content="Install mod + dependencies" Width="220" Classes="btn btn-success" />
+                <Button x:Name="InstallWithoutDepsBtn" Content="Install without dependencies" Width="220" Classes="btn btn-danger" />
+                <Button x:Name="CancelBtn" Content="Cancel" Width="100" Classes="btn btn-neutral" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

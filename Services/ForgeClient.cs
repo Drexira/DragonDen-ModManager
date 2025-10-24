@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -47,6 +48,16 @@ public static class ForgeClient
             try
             {
                 using var res = await http.SendAsync(NewGet(url), HttpCompletionOption.ResponseHeadersRead, ct);
+
+                if (res.StatusCode == HttpStatusCode.Unauthorized || res.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    var bodyAuth = await res.Content.ReadAsStringAsync(ct);
+                    throw new HttpRequestException(
+                        $"HTTP {(int)res.StatusCode} while GET {url}\n" +
+                        "Forge API rejected the request (unauthenticated/forbidden). " +
+                        "Check your API token.\n" + bodyAuth);
+                }
+
                 if ((int)res.StatusCode == 1015)
                 {
                     var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(4 * Math.Pow(2, attempt));
@@ -108,6 +119,20 @@ public static class ForgeClient
         return null;
     }
 
+    public static async Task<List<ModDependency>> GetDependenciesForVersionAsync(
+        int modId, int versionId, CancellationToken ct = default)
+    {
+        var url = $"{BaseUrl}/api/v0/mod/{modId}/versions?include=dependencies&filter[id]={versionId}&per_page=1";
+        using var doc = await FetchJsonWithRetries(url, ct);
+        if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+        {
+            var parsed = ParseVersions(data);
+            var first = parsed?.FirstOrDefault();
+            if (first?.Dependencies is { Count: > 0 }) return first.Dependencies;
+        }
+        return new List<ModDependency>();
+    }
+    
     public static async Task<List<Category>> GetCategoriesAsync(CancellationToken ct = default)
     {
         var url = $"{BaseUrl}/api/v0/mod-categories";
@@ -251,30 +276,18 @@ public static class ForgeClient
         return new PagedMods { Items = list, CurrentPage = currentPage, LastPage = lastPage, Total = total };
     }
 
-    public static async Task<List<ModVersion>> GetAllVersionsAsync(int modId, CancellationToken ct = default)
+    public static async Task<List<ModVersion>> GetAllVersionsAsync(int modId, CancellationToken ct = default, bool includeDependencies = false)
     {
-        var url = $"{BaseUrl}/api/v0/mod/{modId}/versions?per_page=50&sort=-published_at";
+        var include = includeDependencies ? "&include=dependencies" : "";
+        var url = $"{BaseUrl}/api/v0/mod/{modId}/versions?per_page=50&sort=-published_at{include}";
         using var doc = await FetchJsonWithRetries(url, ct);
+
         var list = new List<ModVersion>();
         if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
-            foreach (var v in data.EnumerateArray())
-            {
-                ct.ThrowIfCancellationRequested();
-
-                DateTimeOffset? dto = null;
-                if (v.TryGetProperty("published_at", out var pe) && pe.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(pe.GetString(), out var p))
-                    dto = p;
-
-                list.Add(new ModVersion
-                {
-                    Id = v.GetPropertyOrDefault("id", 0),
-                    Version = v.GetPropertyOrDefault("version", (string?)null),
-                    Link = v.GetPropertyOrDefault("link", (string?)null),
-                    SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null),
-                    Downloads = v.GetPropertyOrDefault("downloads", 0L),
-                    PublishedAt = dto
-                });
-            }
+        {
+            var parsed = ParseVersions(data);
+            if (parsed != null) list.AddRange(parsed);
+        }
 
         return list;
     }
@@ -386,21 +399,44 @@ public static class ForgeClient
     {
         if (el.ValueKind != JsonValueKind.Array) return null;
         var list = new List<ModVersion>();
+
         foreach (var v in el.EnumerateArray())
         {
             DateTimeOffset? dto = null;
             if (v.TryGetProperty("published_at", out var pe) && pe.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(pe.GetString(), out var p))
                 dto = p;
 
-            list.Add(new ModVersion
+            var mv = new ModVersion
             {
                 Id = v.GetPropertyOrDefault("id", 0),
                 Version = v.GetPropertyOrDefault("version", (string?)null),
                 Link = v.GetPropertyOrDefault("link", (string?)null),
                 SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null),
                 Downloads = v.GetPropertyOrDefault("downloads", 0L),
-                PublishedAt = dto
-            });
+                PublishedAt = dto,
+                Dependencies = null
+            };
+
+            if (v.TryGetProperty("dependencies", out var depsEl) && depsEl.ValueKind == JsonValueKind.Array)
+            {
+                var deps = new List<ModDependency>();
+                foreach (var d in depsEl.EnumerateArray())
+                {
+                    if (d.ValueKind != JsonValueKind.Object) continue;
+                    deps.Add(new ModDependency
+                    {
+                        id = d.GetPropertyOrDefault("id", 0),
+                        mod_id = d.GetPropertyOrDefault("mod_id", 0),
+                        mod_guid = d.GetPropertyOrDefault("mod_guid", (string?)null),
+                        mod_name = d.GetPropertyOrDefault("mod_name", (string?)null),
+                        version_constraint = d.GetPropertyOrDefault("version_constraint", (string?)null),
+                        is_optional = d.GetPropertyOrDefault("is_optional", false)
+                    });
+                }
+                if (deps.Count > 0) mv.Dependencies = deps;
+            }
+
+            list.Add(mv);
         }
 
         return list.ToArray();
@@ -484,6 +520,15 @@ public static class ForgeClient
         return def;
     }
 
+    public sealed class MissingDep
+    {
+        public int ModId { get; init; }
+        public string Name { get; init; } = "";
+        public string? Guid { get; init; }
+        public string? VersionConstraint { get; init; }
+        public bool IsOptional { get; init; }
+    }
+
     public sealed class ModVersion
     {
         public int Id { get; set; }
@@ -492,6 +537,7 @@ public static class ForgeClient
         public string? SptVersionConstraint { get; set; }
         public DateTimeOffset? PublishedAt { get; set; }
         public long Downloads { get; set; }
+        public List<ModDependency>? Dependencies { get; set; }
     }
 
     public sealed class Person
@@ -532,6 +578,16 @@ public static class ForgeClient
         public DateTimeOffset? published_at { get; set; }
         public SourceLink[]? source_code_links { get; set; }
         public ModVersion? latestVersion => versions is { Length: > 0 } ? versions[0] : null;
+    }
+    
+    public sealed class ModDependency
+    {
+        public int id { get; set; }
+        public int mod_id { get; set; }
+        public string? mod_guid { get; set; }
+        public string? mod_name { get; set; }
+        public string? version_constraint { get; set; }
+        public bool is_optional { get; set; }
     }
 
     public sealed class PagedMods

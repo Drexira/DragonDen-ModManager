@@ -863,6 +863,23 @@ LIMIT 1;";
             throw;
         }
     }
+    
+    public (int id, string? name, string? guid)? TryGetModById(int id)
+    {
+        using var c = Conn();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = @"SELECT id, COALESCE(name,''), COALESCE(guid,'') FROM mods WHERE id = $id LIMIT 1";
+        cmd.Parameters.AddWithValue("$id", id);
+        using var r = cmd.ExecuteReader();
+        if (r.Read())
+        {
+            var mid  = r.IsDBNull(0) ? 0  : r.GetInt32(0);
+            var name = r.IsDBNull(1) ? "" : r.GetString(1);
+            var guid = r.IsDBNull(2) ? "" : r.GetString(2);
+            return (mid, string.IsNullOrWhiteSpace(name) ? null : name, string.IsNullOrWhiteSpace(guid) ? null : guid);
+        }
+        return null;
+    }
 
     public async Task EnsureVersionsCachedAsync(int modId)
     {

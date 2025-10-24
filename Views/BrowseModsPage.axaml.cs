@@ -14,6 +14,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using DragonDen.ModManager.Services;
 using DragonDen.ModManager.ViewModels;
 using CacheDb = DragonDen.ModManager.Storage.CacheDb;
@@ -1052,6 +1053,117 @@ public partial class BrowseModsPage : UserControl
         App.Toasts.Show($"Uninstalled {row.Name}");
     }
 
+    private async Task<List<ForgeClient.MissingDep>> ResolveMissingDependenciesAsync(int modId, int versionId)
+    {
+        var result = new List<ForgeClient.MissingDep>();
+        if (modId <= 0 || versionId <= 0) return result;
+
+        if (string.IsNullOrWhiteSpace(App.Config.Forge.Token))
+        {
+            App.Toasts.Show("Sign in to Forge to resolve and auto-install dependencies.");
+            return result;
+        }
+
+        try
+        {
+            var deps = await ForgeClient.GetDependenciesForVersionAsync(modId, versionId, App.ShutdownToken);
+
+            foreach (var d in deps)
+            {
+                var childModId = d.mod_id;
+                var name = (d.mod_name ?? "").Trim();
+                var guid = (d.mod_guid ?? "").Trim();
+
+                if (childModId <= 0 && string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(guid))
+                {
+                    var cached = await CacheDb.TryGetModByIdAsync(d.id);
+                    if (cached is { } c)
+                    {
+                        childModId = c.id;
+                        name = c.name ?? name;
+                        guid = c.guid ?? guid;
+                    }
+                }
+
+                if (childModId > 0 && (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(guid)))
+                {
+                    var cached = await CacheDb.TryGetModByIdAsync(childModId);
+                    if (cached is { } c)
+                    {
+                        if (string.IsNullOrWhiteSpace(name)) name = c.name ?? name;
+                        if (string.IsNullOrWhiteSpace(guid)) guid = c.guid ?? guid;
+                    }
+                }
+
+                var installKey = !string.IsNullOrWhiteSpace(name) ? name : guid;
+                var alreadyInstalled = !string.IsNullOrWhiteSpace(installKey) && App.Db.HasRealInstall(installKey);
+
+                if (alreadyInstalled) continue;
+
+                if (childModId > 0 || !string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(guid))
+                {
+                    result.Add(new ForgeClient.MissingDep
+                    {
+                        ModId = childModId,
+                        Name = name,
+                        Guid = guid,
+                        VersionConstraint = d.version_constraint,
+                        IsOptional = d.is_optional
+                    });
+                }
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            App.Toasts.Show(ex.Message.Contains("401") || ex.Message.Contains("403")
+                ? "Forge rejected dependency lookup (invalid/expired token)."
+                : $"Failed to fetch dependencies: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            App.Toasts.Show($"Failed to fetch dependencies: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    private async Task<List<(int ModId, string? Name, string? Guid)>> QueueDependenciesThenModAsync(
+        string modName,
+        ForgeClient.ModVersion selectedVersion,
+        List<ForgeClient.MissingDep> missing)
+    {
+        var enqueued = new List<(int ModId, string? Name, string? Guid)>();
+        var required = missing.Where(d => !d.IsOptional).ToList();
+
+        foreach (var dep in required)
+        {
+            var depKey = string.IsNullOrWhiteSpace(dep.Name) ? (dep.Guid ?? "") : dep.Name;
+
+            if (!string.IsNullOrWhiteSpace(depKey) && App.Db.HasRealInstall(depKey)) continue;
+
+            try
+            {
+                var lookupKey = !string.IsNullOrWhiteSpace(dep.Name) ? dep.Name : dep.Guid ?? "";
+                var best = await CacheDb.GetLatestVersionForModNameAsync(lookupKey);
+                if (best is null || string.IsNullOrWhiteSpace(best.Link)) continue;
+
+                App.Queue.EnqueueRemote(string.IsNullOrWhiteSpace(dep.Name) ? (dep.Guid ?? "Dependency") : dep.Name,
+                    best.Link!, best.Version ?? "0.0.0", dep.Guid ?? "");
+
+                enqueued.Add((dep.ModId, dep.Name, dep.Guid));
+            }
+            catch
+            {
+                // good girl action
+            }
+        }
+
+        App.Queue.EnqueueRemote(modName, selectedVersion.Link!, selectedVersion.Version ?? "0.0.0", "");
+        enqueued.Add((0, modName, null));
+
+        return enqueued;
+    }
+
     private void OnAuthorsWheel(object? sender, PointerWheelEventArgs e)
     {
         if (sender is ScrollViewer sv)
@@ -1292,7 +1404,7 @@ public partial class BrowseModsPage : UserControl
         }
     }
 
-    private void OnInstallSelected(object? sender, RoutedEventArgs e)
+    private async void OnInstallSelected(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
         if (btn.Tag is not SearchResultRow.VersionDisplay vd)
@@ -1334,21 +1446,140 @@ public partial class BrowseModsPage : UserControl
             }
         }
 
-        SearchResultRow rowCtx;
-        if (btn.Parent is Panel p && p.DataContext is SearchResultRow rdc) rowCtx = rdc;
-        else rowCtx = ResultsList.SelectedItem as SearchResultRow ?? new SearchResultRow { Name = "Mod", Guid = "" };
+        var rowCtx = (btn.Parent as Panel)?.DataContext as SearchResultRow ?? 
+        ResultsList.SelectedItem as SearchResultRow ?? 
+        new SearchResultRow { Name = "Mod", Guid = "" };
 
-        var name = rowCtx.Name;
-        var guid = rowCtx.Guid ?? "";
-        var version = model.Version ?? "0.0.0";
-        
-        var row = (btn.DataContext as SearchResultRow) 
-                  ?? (ResultsList.SelectedItem as SearchResultRow);
-        if (row is null) return;
+        var row = (btn.DataContext as SearchResultRow) ?? (ResultsList.SelectedItem as SearchResultRow); if (row is null) return;
 
-        App.Queue.EnqueueRemote(name, model.Link!, version, guid);
+        List<ForgeClient.MissingDep> rawMissing = new();
+        if (!row.IsInstalled)
+        {
+            try
+            {
+                rawMissing = await ResolveMissingDependenciesAsync(rowCtx.ModId, model.Id);
+            }
+            catch
+            {
+                rawMissing = new();
+            }
+        }
+
+        var missing = rawMissing.Where(d => !IsInstalledByNameOrGuid(d.Name, d.Guid)).ToList();
+        var owner = (TopLevel.GetTopLevel(this) as Window) ?? 
+        this.FindAncestorOfType<Window>() ?? 
+        (App.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+
+        if (missing is { Count: > 0 } && !row.IsInstalled && owner is not null)
+        {
+            var choice = await DependenciesDialog.ShowAsync(owner!, rowCtx.Name, missing);
+            if (choice == DependenciesDialog.InstallChoice.Cancel) return;
+
+            if (choice == DependenciesDialog.InstallChoice.InstallWithDeps)
+            {
+                var enq = await QueueDependenciesThenModAsync(rowCtx.Name, model, missing);
+                MarkRowsInstalled(enq);
+            }
+            else
+            {
+                App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "0.0.0", rowCtx.Guid ?? "");
+                MarkRowsInstalled(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
+            }
+        }
+        else
+        {
+            App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "0.0.0", rowCtx.Guid ?? "");
+            MarkRowsInstalled(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
+        }
+
         row.IsInstalled = true;
         App.Toasts.Show("Queued download.");
+    }
+
+    private static bool IsInstalledByNameOrGuid(string? name, string? guid)
+    {
+        var g = (guid ?? "").Trim();
+        var n = (name ?? "").Trim();
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(g) && App.Db.HasRealInstall(g)) return true;
+        }
+        catch
+        {
+            // good girl action
+        }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(n) && App.Db.HasRealInstall(n)) return true;
+        }
+        catch
+        {
+            // good girl action
+        }
+
+        return false;
+    }
+    
+    private void MarkRowsInstalled(IEnumerable<(int ModId, string? Name, string? Guid)> items)
+    {
+        if (ResultsList?.ItemsSource is not IEnumerable<SearchResultRow> rows) return;
+
+        var list = rows.ToList();
+        foreach (var it in items)
+        {
+            var row = list.FirstOrDefault(r =>
+                (it.ModId > 0 && r.ModId == it.ModId) ||
+                (!string.IsNullOrWhiteSpace(it.Guid) && !string.IsNullOrWhiteSpace(r.Guid) &&
+                 string.Equals(it.Guid, r.Guid, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(it.Name) && !string.IsNullOrWhiteSpace(r.Name) &&
+                 string.Equals(it.Name, r.Name, StringComparison.OrdinalIgnoreCase)));
+
+            if (row != null) row.IsInstalled = true;
+        }
+    }
+    
+    private static async Task<ForgeClient.ModVersion?> GetBestVersionForDepAsync(ForgeClient.MissingDep dep)
+    {
+        if (!string.IsNullOrWhiteSpace(dep.Name))
+        {
+            var v = await CacheDb.GetLatestVersionForModNameAsync(dep.Name);
+            if (v is not null) return v;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dep.Guid))
+        {
+            try
+            {
+                var v = await App.Cache.GetLatestVersionForModGuidAsync(dep.Guid);
+                if (v is not null) return v;
+            }
+            catch
+            {
+                // good girl action
+            }
+        }
+
+        if (dep.ModId > 0)
+        {
+            try
+            {
+                await App.Cache.EnsureVersionsCachedAsync(dep.ModId);
+                var list = App.Cache.GetVersionsForMod(dep.ModId);
+                var best = list
+                    .OrderByDescending(x => x.PublishedAt ?? DateTimeOffset.MinValue)
+                    .ThenByDescending(x => x.Downloads)
+                    .FirstOrDefault();
+                if (best is not null) return best;
+            }
+            catch
+            {
+                // good girl action
+            }
+        }
+
+        return null;
     }
 
     private static IEnumerable<string> BuildOwnerNames(ForgeClient.ModSummary m)

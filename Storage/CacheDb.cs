@@ -59,6 +59,11 @@ public static class CacheDb
     {
         return Task.FromResult(App.Cache.GetSourcesForMod(modId));
     }
+    
+    public static Task<(int id, string? name, string? guid)?> TryGetModByIdAsync(int id)
+    {
+        return Task.FromResult(App.Cache.TryGetModById(id));
+    }
 
     public sealed class Query
     {
