@@ -13,6 +13,20 @@ namespace DragonDen.ModManager.Services;
 
 public static class ForgeClient
 {
+    public static event Action<string>? StatusMessage;
+
+    private static void RaiseStatus(string msg)
+    {
+        try
+        {
+            StatusMessage?.Invoke(msg);
+        }
+        catch
+        {
+            // good girl action
+        }
+    }
+
     private static readonly HttpClient http = new()
     {
         Timeout = TimeSpan.FromSeconds(100)
@@ -35,6 +49,32 @@ public static class ForgeClient
         if (Uri.TryCreate(pathOrUrl, UriKind.Absolute, out _)) return pathOrUrl!;
         return $"{BaseUrl}/{pathOrUrl!.TrimStart('/')}";
     }
+    
+    private static async Task DelayWithStatus(
+        TimeSpan delay,
+        CancellationToken ct,
+        Func<TimeSpan, string> messageForRemaining)
+    {
+        var deadline = DateTimeOffset.UtcNow + delay;
+
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var remaining = deadline - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero) break;
+
+            var secs = (int)Math.Ceiling(remaining.TotalSeconds);
+            if (secs < 1) secs = 1;
+
+            RaiseStatus(messageForRemaining(TimeSpan.FromSeconds(secs)));
+
+            var step = TimeSpan.FromSeconds(1);
+            if (remaining < step) step = remaining;
+
+            await Task.Delay(step, ct);
+        }
+    }
 
     private static async Task<JsonDocument> FetchJsonWithRetries(string url, CancellationToken ct)
     {
@@ -52,6 +92,7 @@ public static class ForgeClient
                 if (res.StatusCode == HttpStatusCode.Unauthorized || res.StatusCode == HttpStatusCode.Forbidden)
                 {
                     var bodyAuth = await res.Content.ReadAsStringAsync(ct);
+                    RaiseStatus("Forge rejected the request (unauthenticated/forbidden).");
                     throw new HttpRequestException(
                         $"HTTP {(int)res.StatusCode} while GET {url}\n" +
                         "Forge API rejected the request (unauthenticated/forbidden). " +
@@ -61,7 +102,7 @@ public static class ForgeClient
                 if ((int)res.StatusCode == 1015)
                 {
                     var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(4 * Math.Pow(2, attempt));
-                    await Task.Delay(retry, ct);
+                    await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
@@ -69,7 +110,7 @@ public static class ForgeClient
                 if (res.StatusCode == (HttpStatusCode)429)
                 {
                     var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
-                    await Task.Delay(retry, ct);
+                    await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
@@ -77,7 +118,7 @@ public static class ForgeClient
                 if ((int)res.StatusCode >= 500 && (int)res.StatusCode < 600)
                 {
                     var retry = TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt));
-                    await Task.Delay(retry, ct);
+                    await DelayWithStatus(retry, ct, rem => $"Forge error {(int)res.StatusCode} - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
@@ -99,7 +140,7 @@ public static class ForgeClient
             {
                 last = ex;
                 var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt));
-                await Task.Delay(retry, ct);
+                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s…");
                 attempt++;
             }
         }
@@ -308,10 +349,11 @@ public static class ForgeClient
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, url);
                 using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+
                 if ((int)res.StatusCode == 1015 || res.StatusCode == (HttpStatusCode)429)
                 {
                     var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
-                    await Task.Delay(retry, ct);
+                    await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
                     continue;
                 }
 
@@ -319,7 +361,8 @@ public static class ForgeClient
                 {
                     if ((int)res.StatusCode >= 500 && (int)res.StatusCode < 600)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt)), ct);
+                        var retry = TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt));
+                        await DelayWithStatus(retry, ct, rem => $"Forge error {(int)res.StatusCode} - retrying in {rem.Seconds}s…");
                         continue;
                     }
 
@@ -355,7 +398,8 @@ public static class ForgeClient
             }
             catch
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt)), ct);
+                var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt));
+                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s…");
             }
         }
 

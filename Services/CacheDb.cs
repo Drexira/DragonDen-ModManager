@@ -771,7 +771,7 @@ LIMIT 1;";
             var since = DateTimeOffset.MinValue;
             if (!string.IsNullOrWhiteSpace(sinceIso)) DateTimeOffset.TryParse(sinceIso, out since);
 
-            progress?.Report(("categories", 0, 1));
+            progress?.Report(("Fetching categories", 0, 1));
             var cats = await ForgeClient.GetCategoriesAsync(ct).ConfigureAwait(false);
             foreach (var c in cats)
             {
@@ -779,7 +779,7 @@ LIMIT 1;";
                 UpsertCategory(c.id, c.title, c.slug, c.color_class);
             }
 
-            progress?.Report(("categories", 1, 1));
+            progress?.Report(("Fetched categories", 1, 1));
 
             var cursorKey = "mods_cursor_page";
             var cursorSinceKey = "mods_cursor_since";
@@ -805,6 +805,8 @@ LIMIT 1;";
             {
                 ct.ThrowIfCancellationRequested();
 
+                progress?.Report(($"Fetching mods", page, Math.Max(totalPages, 1)));
+
                 var chunk = await ForgeClient.GetModsPageAsync(
                     page, pageSize,
                     true, true, true, true,
@@ -814,7 +816,6 @@ LIMIT 1;";
                     ct).ConfigureAwait(false);
 
                 if (page == 1) totalPages = Math.Min(maxPages, Math.Max(1, chunk.LastPage));
-                progress?.Report(("mods", page, totalPages));
 
                 if (chunk.Items.Count == 0) break;
 
@@ -850,7 +851,7 @@ LIMIT 1;";
 
             SetMeta(cursorKey, "1");
 
-            progress?.Report(("done", 1, 1));
+            progress?.Report(("Finishing up", 1, 1));
         }
         catch (OperationCanceledException)
         {
@@ -863,7 +864,7 @@ LIMIT 1;";
             throw;
         }
     }
-    
+
     public (int id, string? name, string? guid)? TryGetModById(int id)
     {
         using var c = Conn();

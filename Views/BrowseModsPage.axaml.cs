@@ -610,7 +610,6 @@ public partial class BrowseModsPage : UserControl
 
     private async Task<List<UiCategory>> FetchCategoriesFromCache()
     {
-        await CacheDb.EnsureInitializedAsync();
         var cats = await CacheDb.GetCategoriesAsync();
 
         var items = new List<UiCategory> { new() { Title = "All categories", Slug = "", ColorClass = "" } };
@@ -850,11 +849,25 @@ public partial class BrowseModsPage : UserControl
         SearchStatusText.Text = "Refreshing cache…";
         if (showModal) ShowModal("Refreshing", "Syncing with Forge…");
 
+        void OnForgeStatus(string msg)
+        {
+            try
+            {
+                Dispatcher.UIThread.Post(() => { UpdateModal("Refreshing", msg, -1); });
+            }
+            catch
+            {
+                // good girl action
+            }
+        }
+
+        ForgeClient.StatusMessage += OnForgeStatus;
+
         try
         {
             var progress = new Progress<(string phase, int current, int total)>(p =>
             {
-                var pct = p.total <= 0 ? -1 : p.current * 100.0 / p.total;
+                var pct = p.total <= 0 ? -1 : p.current * 100.0 / Math.Max(1, p.total);
                 UpdateModal("Refreshing", $"{p.phase}…", pct, p.current, p.total);
             });
 
@@ -885,6 +898,7 @@ public partial class BrowseModsPage : UserControl
         }
         finally
         {
+            ForgeClient.StatusMessage -= OnForgeStatus;
             RefreshBtn.IsEnabled = true;
             
             UpdatePagingUi();
@@ -1074,6 +1088,8 @@ public partial class BrowseModsPage : UserControl
         {
             if (myRunId == _searchRunId)
                 HideSearchOverlay(softOverlay);
+            
+            UpdatePagingUi();
         }
     }
 
