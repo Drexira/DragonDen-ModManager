@@ -9,7 +9,7 @@
     ExtendClientAreaToDecorationsHint="False"
     Background="{DynamicResource SurfaceBrush}"
     TransparencyLevelHint="None"
-    Title="Dragon Den Mod Manager - ALPHA v0.0.1">
+    Title="Dragon Den Mod Manager - ALPHA v0.0.2">
 
     <Window.Resources>
         <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />
