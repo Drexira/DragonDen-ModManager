@@ -68,6 +68,21 @@ public static class Installer
                 movedServerRel.Add(afterServer);
                 movedServer++;
             }
+            else if (allowClient && (
+                         unix.StartsWith("BepInEx/patchers/", StringComparison.OrdinalIgnoreCase) ||
+                         unix.Equals("BepInEx/patchers", StringComparison.OrdinalIgnoreCase) ||
+                         unix.StartsWith("patchers/", StringComparison.OrdinalIgnoreCase) ||
+                         unix.Equals("patchers", StringComparison.OrdinalIgnoreCase)))
+            {
+                var sub = TrimPrefix(unix, "BepInEx/patchers/") ?? TrimPrefix(unix, "patchers/") ?? "";
+                var bepinRoot = GetBepInExRoot();
+                var toFull = Path.Combine(bepinRoot, "patchers", sub.Replace('/', Path.DirectorySeparatorChar));
+                CopyOverwrite(stage, rel, toFull);
+
+                var relFromPlugins = string.IsNullOrWhiteSpace(sub) ? "../patchers" : "../patchers/" + sub;
+                movedClientRel.Add(relFromPlugins.Replace('\\', '/'));
+                movedClient++;
+            }
             else if (allowClient && (unix.StartsWith("BepInEx/", StringComparison.OrdinalIgnoreCase) ||
                                      unix.StartsWith("plugins/", StringComparison.OrdinalIgnoreCase)))
             {
@@ -249,6 +264,20 @@ public static class Installer
     private static string? TrimPrefix(string text, string prefix)
     {
         return text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? text[prefix.Length..] : null;
+    }
+    
+    private static string GetBepInExRoot()
+    {
+        try
+        {
+            var p = Directory.GetParent(Spt.ClientModsPath);
+            if (p != null) return p.FullName;
+        }
+        catch
+        {
+            // good girl action
+        }
+        return Path.GetFullPath(Path.Combine(Spt.ClientModsPath, ".."));
     }
 
     public sealed record InstallResult(int clientFiles, int serverFiles)
