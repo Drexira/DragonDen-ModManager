@@ -44,9 +44,22 @@ public sealed class SearchResultRow : INotifyPropertyChanged
             OnPropsChanged(nameof(IsInstalled), nameof(ShowUninstall), nameof(ShowInstall), nameof(ShowVersionPicker));
         }
     }
+    private bool _isQueued;
+
+    public bool IsQueued
+    {
+        get => _isQueued;
+        set
+        {
+            if (_isQueued == value) return;
+            _isQueued = value;
+            OnPropsChanged(nameof(IsQueued), nameof(IsInstalled), nameof(ShowQueued), nameof(ShowInstall));
+        }
+    }
     public bool ShowUninstall => IsInstalled;
-    public bool ShowInstall => !IsInstalled;
+    public bool ShowInstall => !IsInstalled && !IsQueued;
     public bool ShowVersionPicker=> !IsInstalled;
+    public bool ShowQueued => IsQueued && !IsInstalled;
 
     public sealed class VersionDisplay
     {

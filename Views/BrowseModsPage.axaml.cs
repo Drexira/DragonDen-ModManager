@@ -239,6 +239,7 @@ public partial class BrowseModsPage : UserControl
         AdsChk.IsCheckedChanged += OnHideTogglesChanged;
         AiChk.IsCheckedChanged += OnHideTogglesChanged;
         HideInstalledChk.IsCheckedChanged += OnHideTogglesChanged;
+        App.InstallsChanged += OnInstallsChanged;
 
         PrevBtn.Click += async (_, __) =>
         {
@@ -1111,6 +1112,7 @@ public partial class BrowseModsPage : UserControl
 
         App.Db.Uninstall(row.Name);
         App.NotifyInstallsChanged();
+        row.IsQueued = false;
         row.IsInstalled = false;
 
         var list = ResultsList.ItemsSource as IList<SearchResultRow>;
@@ -1512,6 +1514,9 @@ public partial class BrowseModsPage : UserControl
         var row = btn.DataContext as SearchResultRow ?? ResultsList.SelectedItem as SearchResultRow;
         if (row is null) return;
 
+        App.Toasts.Show("Queued download.");
+        MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
+
         List<ForgeClient.MissingDep> rawMissing = new();
         if (!row.IsInstalled)
             try
@@ -1536,25 +1541,34 @@ public partial class BrowseModsPage : UserControl
             if (choice == DependenciesDialog.InstallChoice.InstallWithDeps)
             {
                 var enq = await QueueDependenciesThenModAsync(rowCtx.Name, model, missing);
-                MarkRowsInstalled(enq);
+                MarkRowsQueued(enq);
             }
             else
             {
                 App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "0.0.0", rowCtx.Guid ?? "");
-                MarkRowsInstalled(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
+                MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
             }
         }
         else
         {
             App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "0.0.0", rowCtx.Guid ?? "");
-            MarkRowsInstalled(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
+            MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
         }
-
-        row.IsInstalled = true;
-        App.Toasts.Show("Queued download.");
-
-        if (HideInstalledChk?.IsChecked ?? false)
-            await PerformSearch(false);
+    }
+    
+    private void OnInstallsChanged()
+    {
+        if (ResultsList?.ItemsSource is not IEnumerable<SearchResultRow> rows) return;
+        var list = rows.ToList();
+        foreach (var r in list)
+        {
+            var installed = IsInstalledByNameOrGuid(r.Name, r.Guid);
+            if (installed)
+            {
+                r.IsQueued = false;
+                r.IsInstalled = true;
+            }
+        }
     }
 
     private static bool IsInstalledByNameOrGuid(string? name, string? guid)
@@ -1583,6 +1597,28 @@ public partial class BrowseModsPage : UserControl
         return false;
     }
 
+    private void MarkRowsQueued(IEnumerable<(int ModId, string? Name, string? Guid)> items)
+    {
+        if (ResultsList?.ItemsSource is not IEnumerable<SearchResultRow> rows) return;
+
+        var list = rows.ToList();
+        foreach (var it in items)
+        {
+            var row = list.FirstOrDefault(r =>
+                (it.ModId > 0 && r.ModId == it.ModId) ||
+                (!string.IsNullOrWhiteSpace(it.Guid) && !string.IsNullOrWhiteSpace(r.Guid) &&
+                 string.Equals(it.Guid, r.Guid, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(it.Name) && !string.IsNullOrWhiteSpace(r.Name) &&
+                 string.Equals(it.Name, r.Name, StringComparison.OrdinalIgnoreCase)));
+
+            if (row != null)
+            {
+                row.IsInstalled = false;
+                row.IsQueued = true;
+            }
+        }
+    }
+
     private void MarkRowsInstalled(IEnumerable<(int ModId, string? Name, string? Guid)> items)
     {
         if (ResultsList?.ItemsSource is not IEnumerable<SearchResultRow> rows) return;
@@ -1597,7 +1633,11 @@ public partial class BrowseModsPage : UserControl
                 (!string.IsNullOrWhiteSpace(it.Name) && !string.IsNullOrWhiteSpace(r.Name) &&
                  string.Equals(it.Name, r.Name, StringComparison.OrdinalIgnoreCase)));
 
-            if (row != null) row.IsInstalled = true;
+            if (row != null)
+            {
+                row.IsQueued = false;
+                row.IsInstalled = true;
+            }
         }
     }
 
