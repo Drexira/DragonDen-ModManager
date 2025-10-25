@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +16,18 @@ namespace DragonDen.ModManager.Services;
 public static class ForgeClient
 {
     public static event Action<string>? StatusMessage;
+
+    private sealed record CacheEntry(byte[] Bytes, DateTimeOffset At);
+
+    private sealed class FetchResult
+    {
+        public int Status;
+        public byte[] Bytes = Array.Empty<byte>();
+        public TimeSpan? RetryAfter;
+    }
+
+    private static readonly ConcurrentDictionary<string, Lazy<Task<FetchResult>>> _inflight = new();
+    private static readonly ConcurrentDictionary<string, CacheEntry> _cache = new();
 
     private static void RaiseStatus(string msg)
     {
@@ -85,63 +99,68 @@ public static class ForgeClient
         while (attempt < maxRetries)
         {
             ct.ThrowIfCancellationRequested();
+
             try
             {
-                using var res = await http.SendAsync(NewGet(url), HttpCompletionOption.ResponseHeadersRead, ct);
+                var res = await GetResultDeDupedAsync(url, ct).ConfigureAwait(false);
 
-                if (res.StatusCode == HttpStatusCode.Unauthorized || res.StatusCode == HttpStatusCode.Forbidden)
+                if (res.Status == (int)HttpStatusCode.Unauthorized || res.Status == (int)HttpStatusCode.Forbidden)
                 {
-                    var bodyAuth = await res.Content.ReadAsStringAsync(ct);
+                    var bodyAuth = Encoding.UTF8.GetString(res.Bytes);
                     RaiseStatus("Forge rejected the request (unauthenticated/forbidden).");
-                    throw new HttpRequestException(
-                        $"HTTP {(int)res.StatusCode} while GET {url}\n" +
-                        "Forge API rejected the request (unauthenticated/forbidden). " +
-                        "Check your API token.\n" + bodyAuth);
+                    throw new HttpRequestException($"HTTP {res.Status} while GET {url}\n" +
+                                                   "Forge API rejected the request (unauthenticated/forbidden). " +
+                                                   "Check your API token.\n" + bodyAuth);
                 }
 
-                if ((int)res.StatusCode == 1015)
+                if (res.Status == 1015)
                 {
-                    var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(4 * Math.Pow(2, attempt));
+                    var retry = res.RetryAfter ?? TimeSpan.FromSeconds(4 * Math.Pow(2, attempt));
                     await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
 
-                if (res.StatusCode == (HttpStatusCode)429)
+                if (res.Status == 429)
                 {
-                    var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
+                    var retry = res.RetryAfter ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
                     await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
 
-                if ((int)res.StatusCode >= 500 && (int)res.StatusCode < 600)
+                if (res.Status is >= 500 and < 600)
                 {
                     var retry = TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Forge error {(int)res.StatusCode} - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Forge error {res.Status} - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
 
-                if (!res.IsSuccessStatusCode)
+                if (res.Status is < 200 or >= 300)
                 {
-                    var body = await res.Content.ReadAsStringAsync(ct);
-                    throw new HttpRequestException($"HTTP {(int)res.StatusCode} while GET {url}\n{body}");
+                    var body = Encoding.UTF8.GetString(res.Bytes);
+                    throw new HttpRequestException($"HTTP {res.Status} while GET {url}\n{body}");
                 }
 
-                using var s = await res.Content.ReadAsStreamAsync(ct);
-                return await JsonDocument.ParseAsync(s, cancellationToken: ct);
+                using var s = new MemoryStream(res.Bytes, false);
+                return await JsonDocument.ParseAsync(s, cancellationToken: ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex) when (++attempt <= maxRetries)
             {
                 last = ex;
-                var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt));
+                var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt - 1));
                 await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s…");
-                attempt++;
+            }
+            catch (Exception ex) when (++attempt <= maxRetries)
+            {
+                last = ex;
+                var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt - 1));
+                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s…");
             }
         }
 
@@ -163,17 +182,87 @@ public static class ForgeClient
     public static async Task<List<ModDependency>> GetDependenciesForVersionAsync(
         int modId, int versionId, CancellationToken ct = default)
     {
-        var url = $"{BaseUrl}/api/v0/mod/{modId}/versions?include=dependencies&filter[id]={versionId}&per_page=1";
+        string ts()
+        {
+            return DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        }
+
+        var url =
+            $"{BaseUrl}/api/v0/mod/{modId}/versions" +
+            $"?include=dependencies&filter[id]={versionId}&per_page=1";
+
+        Console.WriteLine($"[{ts()}] Fetching dependencies for mod {modId}, version {versionId}…");
         using var doc = await FetchJsonWithRetries(url, ct);
+
+        var deps = new List<ModDependency>();
         if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
         {
-            var parsed = ParseVersions(data);
-            var first = parsed?.FirstOrDefault();
-            if (first?.Dependencies is { Count: > 0 }) return first.Dependencies;
+            var first = data.EnumerateArray().FirstOrDefault();
+            if (first.ValueKind == JsonValueKind.Object &&
+                first.TryGetProperty("dependencies", out var depsEl) &&
+                depsEl.ValueKind == JsonValueKind.Array)
+                foreach (var d in depsEl.EnumerateArray())
+                {
+                    if (d.ValueKind != JsonValueKind.Object) continue;
+                    deps.Add(new ModDependency
+                    {
+                        id = d.GetPropertyOrDefault("id", 0),
+                        mod_id = d.GetPropertyOrDefault("mod_id", 0),
+                        mod_guid = d.GetPropertyOrDefault("mod_guid", (string?)null),
+                        mod_name = d.GetPropertyOrDefault("mod_name", (string?)null),
+                        version_constraint = d.GetPropertyOrDefault("version_constraint", (string?)null),
+                        is_optional = d.GetPropertyOrDefault("is_optional", false)
+                    });
+                }
         }
-        return new List<ModDependency>();
+
+        Console.WriteLine($"[{ts()}] Found {deps.Count} dependencies for mod {modId}, version {versionId}.");
+        return deps;
     }
-    
+
+    public static async Task<List<ModDependency>> GetDependenciesForLatestAsync(
+        int modId, string? sptConstraint = null, CancellationToken ct = default)
+    {
+        string ts()
+        {
+            return DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        }
+
+        var query = "include=dependencies&per_page=1&sort=-published_at";
+        if (!string.IsNullOrWhiteSpace(sptConstraint))
+            query += $"&filter[spt_version]={Uri.EscapeDataString(sptConstraint)}";
+
+        var url = $"{BaseUrl}/api/v0/mod/{modId}/versions?{query}";
+
+        Console.WriteLine($"[{ts()}] Fetching latest{(sptConstraint != null ? $" (SPT {sptConstraint})" : "")} dependencies for mod {modId}…");
+        using var doc = await FetchJsonWithRetries(url, ct);
+
+        var deps = new List<ModDependency>();
+        if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+        {
+            var first = data.EnumerateArray().FirstOrDefault();
+            if (first.ValueKind == JsonValueKind.Object &&
+                first.TryGetProperty("dependencies", out var depsEl) &&
+                depsEl.ValueKind == JsonValueKind.Array)
+                foreach (var d in depsEl.EnumerateArray())
+                {
+                    if (d.ValueKind != JsonValueKind.Object) continue;
+                    deps.Add(new ModDependency
+                    {
+                        id = d.GetPropertyOrDefault("id", 0),
+                        mod_id = d.GetPropertyOrDefault("mod_id", 0),
+                        mod_guid = d.GetPropertyOrDefault("mod_guid", (string?)null),
+                        mod_name = d.GetPropertyOrDefault("mod_name", (string?)null),
+                        version_constraint = d.GetPropertyOrDefault("version_constraint", (string?)null),
+                        is_optional = d.GetPropertyOrDefault("is_optional", false)
+                    });
+                }
+        }
+
+        Console.WriteLine($"[{ts()}] Found {deps.Count} dependencies for mod {modId}{(sptConstraint != null ? $" (SPT {sptConstraint})" : "")}.");
+        return deps;
+    }
+
     public static async Task<List<Category>> GetCategoriesAsync(CancellationToken ct = default)
     {
         var url = $"{BaseUrl}/api/v0/mod-categories";
@@ -477,6 +566,7 @@ public static class ForgeClient
                         is_optional = d.GetPropertyOrDefault("is_optional", false)
                     });
                 }
+
                 if (deps.Count > 0) mv.Dependencies = deps;
             }
 
@@ -564,6 +654,73 @@ public static class ForgeClient
         return def;
     }
 
+    private static TimeSpan GetTtlFor(string url)
+    {
+        if (url.Contains("/api/v0/mod-categories", StringComparison.OrdinalIgnoreCase))
+            return TimeSpan.FromMinutes(20);
+
+        if (url.Contains("/api/v0/mod/", StringComparison.OrdinalIgnoreCase) &&
+            url.Contains("/versions", StringComparison.OrdinalIgnoreCase))
+            return TimeSpan.FromSeconds(2);
+
+        return TimeSpan.FromSeconds(1);
+    }
+
+    private static async Task<FetchResult> GetResultDeDupedAsync(string url, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        if (_cache.TryGetValue(url, out var hit))
+            if (now - hit.At < GetTtlFor(url))
+            {
+                Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → cached ({hit.Bytes.Length} bytes).");
+                return new FetchResult { Status = 200, Bytes = hit.Bytes };
+            }
+
+        var lazy = _inflight.GetOrAdd(url, _ => new Lazy<Task<FetchResult>>(() => FetchBytesCoreAsync(url, ct)));
+        try
+        {
+            var res = await lazy.Value.ConfigureAwait(false);
+
+            if (res.Status is >= 200 and < 300)
+                _cache[url] = new CacheEntry(res.Bytes, DateTimeOffset.UtcNow);
+
+            return res;
+        }
+        finally
+        {
+            _inflight.TryRemove(url, out _);
+        }
+    }
+
+    private static async Task<FetchResult> FetchBytesCoreAsync(string url, CancellationToken ct)
+    {
+        using var res = await http.SendAsync(NewGet(url), HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+
+        var retryAfter =
+            res.Headers.RetryAfter?.Delta ??
+            (res.Headers.RetryAfter?.Date is DateTimeOffset when
+                ? when - DateTimeOffset.UtcNow
+                : null);
+
+        if (!res.IsSuccessStatusCode)
+        {
+            var bytesErr = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            var statusCode = (int)res.StatusCode;
+
+            if (statusCode == 1015)
+                Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → 1015 (Cloudflare rate-limit).");
+            else
+                Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {statusCode} {res.StatusCode}.");
+
+            return new FetchResult { Status = statusCode, Bytes = bytesErr, RetryAfter = retryAfter };
+        }
+
+        var okBytes = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {(int)res.StatusCode} OK ({okBytes.Length} bytes).");
+        return new FetchResult { Status = (int)res.StatusCode, Bytes = okBytes, RetryAfter = retryAfter };
+    }
+
     public sealed class MissingDep
     {
         public int ModId { get; init; }
@@ -623,7 +780,7 @@ public static class ForgeClient
         public SourceLink[]? source_code_links { get; set; }
         public ModVersion? latestVersion => versions is { Length: > 0 } ? versions[0] : null;
     }
-    
+
     public sealed class ModDependency
     {
         public int id { get; set; }

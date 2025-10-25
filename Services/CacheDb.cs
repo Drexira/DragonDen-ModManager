@@ -14,6 +14,8 @@ namespace DragonDen.ModManager.Services;
 public sealed class CacheDb
 {
     private readonly string path;
+    private static readonly object _refreshLock = new();
+    private static Task? _refreshInflight;
 
     public CacheDb(string dbPath)
     {
@@ -757,11 +759,42 @@ LIMIT 1;";
         return r == null || r == DBNull.Value ? null : Convert.ToString(r);
     }
 
-    public async Task RefreshAllAsync(
-        IProgress<(string phase, int current, int total)>? progress = null,
-        CancellationToken ct = default,
-        int pageSize = 50,
-        int maxPages = 1000)
+    public async Task RefreshAllAsync(IProgress<(string phase, int current, int total)>? progress = null,
+        CancellationToken ct = default, int pageSize = 50, int maxPages = 1000)
+    {
+        Task? toAwait;
+        lock (_refreshLock)
+        {
+            if (_refreshInflight != null)
+            {
+                toAwait = _refreshInflight;
+            }
+            else
+            {
+                _refreshInflight = DoRefreshAsync(progress, ct, pageSize, maxPages);
+                toAwait = _refreshInflight;
+            }
+        }
+
+        try
+        {
+            await toAwait!;
+        }
+        finally
+        {
+            lock (_refreshLock)
+            {
+                if (ReferenceEquals(_refreshInflight, toAwait))
+                    _refreshInflight = null;
+            }
+        }
+    }
+
+    private async Task DoRefreshAsync(
+        IProgress<(string phase, int current, int total)>? progress,
+        CancellationToken ct,
+        int pageSize,
+        int maxPages)
     {
         try
         {
@@ -798,7 +831,7 @@ LIMIT 1;";
             var totalPages = 1;
             var newestSeen = since;
 
-            var delayMs = 450;
+            var delayMs = 950;
             var rnd = new Random();
 
             while (page <= maxPages)
@@ -843,7 +876,7 @@ LIMIT 1;";
                 page++;
 
                 await Task.Delay(delayMs, ct).ConfigureAwait(true);
-                delayMs = Math.Min((int)(delayMs * 1.15) + 50, 1000);
+                delayMs = Math.Min((int)(delayMs * 1.15) + 50, 2000);
             }
 
             if (newestSeen > since)
@@ -874,11 +907,12 @@ LIMIT 1;";
         using var r = cmd.ExecuteReader();
         if (r.Read())
         {
-            var mid  = r.IsDBNull(0) ? 0  : r.GetInt32(0);
+            var mid = r.IsDBNull(0) ? 0 : r.GetInt32(0);
             var name = r.IsDBNull(1) ? "" : r.GetString(1);
             var guid = r.IsDBNull(2) ? "" : r.GetString(2);
             return (mid, string.IsNullOrWhiteSpace(name) ? null : name, string.IsNullOrWhiteSpace(guid) ? null : guid);
         }
+
         return null;
     }
 

@@ -22,7 +22,7 @@ public class App : Application
     private static readonly object _installsLock = new();
     private static bool _pendingInstallRefresh;
 
-    private CancellationTokenSource? _warmCts;
+    private static CancellationTokenSource? _warmCts;
     private Task? _warmTask;
     public static Config Config { get; private set; } = null!;
     public static Db Db { get; set; } = null!;
@@ -212,6 +212,18 @@ public class App : Application
         try
         {
             ConfigChanged?.Invoke();
+        }
+        catch
+        {
+            // good girl action
+        }
+    }
+    
+    public static void CancelWarmCache()
+    {
+        try
+        {
+            _warmCts?.Cancel();
         }
         catch
         {

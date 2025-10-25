@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -466,13 +467,13 @@ public partial class BrowseModsPage : UserControl
         PrevBtn.IsEnabled = !_isIndexing && !_isSearching && _page > 1;
         NextBtn.IsEnabled = !_isIndexing && !_isSearching && _page < Math.Max(1, _lastPage);
     }
-    
+
     private void ShowSearchOverlay(bool soft = false)
     {
         _isSearching = true;
-        
+
         if (soft) return;
-        
+
         BusyBar.IsVisible = true;
         try
         {
@@ -513,9 +514,9 @@ public partial class BrowseModsPage : UserControl
     private void HideSearchOverlay(bool soft = false)
     {
         _isSearching = false;
-        
+
         if (soft) return;
-        
+
         BusyBar.IsVisible = false;
         SearchOverlay.IsVisible = false;
         SearchBox.IsEnabled = true;
@@ -592,6 +593,7 @@ public partial class BrowseModsPage : UserControl
             else _ = RefreshCategoriesInBackgroundAsync();
 
             await LoadAllSptFiltersAsync();
+            _pendingSptMajor ??= DetectSptMajorFromConfig();
 
             SptFilterBox.SelectionChanged += async (_, __) =>
             {
@@ -710,10 +712,7 @@ public partial class BrowseModsPage : UserControl
                 var parts = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
                 return parts.Length >= 2 ? $"{parts[0]}.{parts[1]}" : "";
             }, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderBy(x => x, semverDesc).ToList(),
-                StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x, semverDesc).ToList(), StringComparer.OrdinalIgnoreCase);
 
         var items = new List<ComboBoxItem>
         {
@@ -722,7 +721,7 @@ public partial class BrowseModsPage : UserControl
 
         foreach (var maj in majors.OrderBy(x => x, semverDesc))
         {
-            if (maj.StartsWith($"0") || maj.Contains("3.12")) continue;
+            if (maj.StartsWith("0") || maj.Contains("3.12")) continue;
             items.Add(new ComboBoxItem { Content = $"SPT {maj}", Tag = maj });
 
             if (byMajor.TryGetValue(maj, out var patchList))
@@ -731,18 +730,32 @@ public partial class BrowseModsPage : UserControl
         }
 
         var knownMajors = new HashSet<string>(majors, StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in byMajor)
-            if (!knownMajors.Contains(kv.Key))
-                foreach (var f in kv.Value)
-                    items.Add(new ComboBoxItem { Content = $"SPT {f}", Tag = f });
+        items.AddRange(from kv in byMajor where !knownMajors.Contains(kv.Key) from f in kv.Value select new ComboBoxItem { Content = $"SPT {f}", Tag = f });
 
         _updatingSptFilter = true;
+
         try
         {
             var keepTag = (SptFilterBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
             SptFilterBox.ItemsSource = items;
-            var keep = items.FirstOrDefault(i =>
-                string.Equals((string?)i.Tag ?? "", keepTag, StringComparison.OrdinalIgnoreCase));
+
+            ComboBoxItem? keep = null;
+
+            if (!string.IsNullOrWhiteSpace(keepTag))
+            {
+                keep = items.FirstOrDefault(i =>
+                    string.Equals((string?)i.Tag ?? "", keepTag, StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                var detected = DetectSptMajorFromConfig();
+                if (!string.IsNullOrWhiteSpace(detected))
+                    keep = items.FirstOrDefault(i =>
+                               string.Equals(i.Tag?.ToString(), detected, StringComparison.OrdinalIgnoreCase))
+                           ?? items.FirstOrDefault(i =>
+                               (i.Tag?.ToString() ?? "").StartsWith(detected + ".", StringComparison.OrdinalIgnoreCase));
+            }
+
             SptFilterBox.SelectedItem = keep ?? items[0];
         }
         finally
@@ -830,6 +843,7 @@ public partial class BrowseModsPage : UserControl
 
     private async Task StartIndexingAsync(bool showModal)
     {
+        App.CancelWarmCache();
         CancellationToken ct;
         int runId;
         lock (_indexGate)
@@ -853,7 +867,7 @@ public partial class BrowseModsPage : UserControl
         {
             try
             {
-                Dispatcher.UIThread.Post(() => { UpdateModal("Refreshing", msg, -1); });
+                Dispatcher.UIThread.Post(() => { UpdateModal("Refreshing", msg); });
             }
             catch
             {
@@ -900,7 +914,7 @@ public partial class BrowseModsPage : UserControl
         {
             ForgeClient.StatusMessage -= OnForgeStatus;
             RefreshBtn.IsEnabled = true;
-            
+
             UpdatePagingUi();
         }
     }
@@ -926,10 +940,10 @@ public partial class BrowseModsPage : UserControl
 
         var pageSize = int.TryParse((PageSizeBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out var v) ? v : 12;
 
-        var hideFeatured = (FeaturedChk?.IsChecked ?? false);
-        var hideAds = (AdsChk?.IsChecked ?? false);
-        var hideAi = (AiChk?.IsChecked ?? false);
-        var hideInstalled = (HideInstalledChk?.IsChecked ?? false);
+        var hideFeatured = FeaturedChk?.IsChecked ?? false;
+        var hideAds = AdsChk?.IsChecked ?? false;
+        var hideAi = AiChk?.IsChecked ?? false;
+        var hideInstalled = HideInstalledChk?.IsChecked ?? false;
 
         _lastPage = Math.Max(0, _lastPage);
         UpdatePagingUi();
@@ -1043,12 +1057,12 @@ public partial class BrowseModsPage : UserControl
 
                 var built = await BuildRowsAsync(res.items);
 
-                List<SearchResultRow> considered = built;
+                var considered = built;
                 if (hideInstalled)
                 {
                     var before = built.Count;
                     considered = built.Where(r => !r.IsInstalled).ToList();
-                    hiddenOnSeenPages += (before - considered.Count);
+                    hiddenOnSeenPages += before - considered.Count;
                 }
 
                 var toMaybeShow = considered;
@@ -1065,17 +1079,11 @@ public partial class BrowseModsPage : UserControl
             LoadedModsLabel.Text = "Loaded Mods: " + _totalMatches.ToString("N0", CultureInfo.InvariantCulture);
 
             if (visibleForPage.Count == 0)
-            {
-                SearchStatusText.Text = hideInstalled ? 
-                (hiddenOnSeenPages > 0 ? "No visible results (installed hidden)." : "No results") : 
-                "No results";
-            }
+                SearchStatusText.Text = hideInstalled ? hiddenOnSeenPages > 0 ? "No visible results (installed hidden)." : "No results" : "No results";
             else
-            {
-                SearchStatusText.Text = hideInstalled ? 
-                $"Showing {visibleForPage.Count} of {_totalMatches:N0} (installed hidden)" : 
-                $"Showing {visibleForPage.Count} of {_totalMatches:N0}";
-            }
+                SearchStatusText.Text = hideInstalled
+                    ? $"Showing {visibleForPage.Count} of {_totalMatches:N0} (installed hidden)"
+                    : $"Showing {visibleForPage.Count} of {_totalMatches:N0}";
 
             ScrollResultsToTop();
         }
@@ -1088,7 +1096,7 @@ public partial class BrowseModsPage : UserControl
         {
             if (myRunId == _searchRunId)
                 HideSearchOverlay(softOverlay);
-            
+
             UpdatePagingUi();
         }
     }
@@ -1108,7 +1116,7 @@ public partial class BrowseModsPage : UserControl
         var list = ResultsList.ItemsSource as IList<SearchResultRow>;
         var total = list?.Count ?? 0;
         SearchStatusText.Text = total == 0 ? "No results" : $"Showing {total:N0}";
-    
+
         App.Toasts.Show($"Uninstalled {row.Name}");
     }
 
@@ -1116,12 +1124,6 @@ public partial class BrowseModsPage : UserControl
     {
         var result = new List<ForgeClient.MissingDep>();
         if (modId <= 0 || versionId <= 0) return result;
-
-        if (string.IsNullOrWhiteSpace(App.Config.Forge.Token))
-        {
-            App.Toasts.Show("Sign in to Forge to resolve and auto-install dependencies.");
-            return result;
-        }
 
         try
         {
@@ -1160,7 +1162,6 @@ public partial class BrowseModsPage : UserControl
                 if (alreadyInstalled) continue;
 
                 if (childModId > 0 || !string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(guid))
-                {
                     result.Add(new ForgeClient.MissingDep
                     {
                         ModId = childModId,
@@ -1169,7 +1170,6 @@ public partial class BrowseModsPage : UserControl
                         VersionConstraint = d.version_constraint,
                         IsOptional = d.is_optional
                     });
-                }
             }
         }
         catch (HttpRequestException ex)
@@ -1196,7 +1196,7 @@ public partial class BrowseModsPage : UserControl
 
         foreach (var dep in required)
         {
-            var depKey = string.IsNullOrWhiteSpace(dep.Name) ? (dep.Guid ?? "") : dep.Name;
+            var depKey = string.IsNullOrWhiteSpace(dep.Name) ? dep.Guid ?? "" : dep.Name;
 
             if (!string.IsNullOrWhiteSpace(depKey) && App.Db.HasRealInstall(depKey)) continue;
 
@@ -1206,7 +1206,7 @@ public partial class BrowseModsPage : UserControl
                 var best = await CacheDb.GetLatestVersionForModNameAsync(lookupKey);
                 if (best is null || string.IsNullOrWhiteSpace(best.Link)) continue;
 
-                App.Queue.EnqueueRemote(string.IsNullOrWhiteSpace(dep.Name) ? (dep.Guid ?? "Dependency") : dep.Name,
+                App.Queue.EnqueueRemote(string.IsNullOrWhiteSpace(dep.Name) ? dep.Guid ?? "Dependency" : dep.Name,
                     best.Link!, best.Version ?? "0.0.0", dep.Guid ?? "");
 
                 enqueued.Add((dep.ModId, dep.Name, dep.Guid));
@@ -1337,7 +1337,7 @@ public partial class BrowseModsPage : UserControl
     private void OnOpenSource(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button b || b.Tag is not string url || string.IsNullOrWhiteSpace(url)) return;
-        
+
         try
         {
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
@@ -1509,26 +1509,24 @@ public partial class BrowseModsPage : UserControl
                      ResultsList.SelectedItem as SearchResultRow ??
                      new SearchResultRow { Name = "Mod", Guid = "" };
 
-        var row = (btn.DataContext as SearchResultRow) ?? (ResultsList.SelectedItem as SearchResultRow);
+        var row = btn.DataContext as SearchResultRow ?? ResultsList.SelectedItem as SearchResultRow;
         if (row is null) return;
 
         List<ForgeClient.MissingDep> rawMissing = new();
         if (!row.IsInstalled)
-        {
             try
             {
                 rawMissing = await ResolveMissingDependenciesAsync(rowCtx.ModId, model.Id);
             }
             catch
             {
-                rawMissing = new();
+                rawMissing = new List<ForgeClient.MissingDep>();
             }
-        }
 
         var missing = rawMissing.Where(d => !IsInstalledByNameOrGuid(d.Name, d.Guid)).ToList();
-        var owner = (TopLevel.GetTopLevel(this) as Window) ??
+        var owner = TopLevel.GetTopLevel(this) as Window ??
                     this.FindAncestorOfType<Window>() ??
-                    (App.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+                    (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
         if (missing is { Count: > 0 } && !row.IsInstalled && owner is not null)
         {
@@ -1584,7 +1582,7 @@ public partial class BrowseModsPage : UserControl
 
         return false;
     }
-    
+
     private void MarkRowsInstalled(IEnumerable<(int ModId, string? Name, string? Guid)> items)
     {
         if (ResultsList?.ItemsSource is not IEnumerable<SearchResultRow> rows) return;
@@ -1602,7 +1600,7 @@ public partial class BrowseModsPage : UserControl
             if (row != null) row.IsInstalled = true;
         }
     }
-    
+
     private static async Task<ForgeClient.ModVersion?> GetBestVersionForDepAsync(ForgeClient.MissingDep dep)
     {
         if (!string.IsNullOrWhiteSpace(dep.Name))
@@ -1612,7 +1610,6 @@ public partial class BrowseModsPage : UserControl
         }
 
         if (!string.IsNullOrWhiteSpace(dep.Guid))
-        {
             try
             {
                 var v = await App.Cache.GetLatestVersionForModGuidAsync(dep.Guid);
@@ -1622,10 +1619,8 @@ public partial class BrowseModsPage : UserControl
             {
                 // good girl action
             }
-        }
 
         if (dep.ModId > 0)
-        {
             try
             {
                 await App.Cache.EnsureVersionsCachedAsync(dep.ModId);
@@ -1640,7 +1635,6 @@ public partial class BrowseModsPage : UserControl
             {
                 // good girl action
             }
-        }
 
         return null;
     }
