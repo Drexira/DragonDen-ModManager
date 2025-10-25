@@ -372,6 +372,16 @@
                                                         Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
                                                         Click="OnInstallSelected"
                                                         IsVisible="{Binding ShowInstall}"/>
+                                                
+                                                <Button Content="Queued"
+                                                        IsEnabled="False"
+                                                        FontWeight="Bold"
+                                                        Margin="0,0,5,0"
+                                                        Classes="btn btn-neutral"
+                                                        Width="96"
+                                                        Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
+                                                        Click="OnInstallSelected"
+                                                        IsVisible="{Binding ShowQueued}"/>
 
                                                 <ComboBox x:Name="VerBox"
                                                           Width="297"

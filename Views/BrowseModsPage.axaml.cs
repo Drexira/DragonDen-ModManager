@@ -628,26 +628,18 @@ public partial class BrowseModsPage : UserControl
 
     private async Task<List<UiCategory>?> FetchCategoriesFromApi(CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(App.Config.Forge.Token)) return null;
-
-        using var http = BuildApiClient(3);
-        var url = "https://forge.sp-tarkov.com/api/v0/mod-categories?per_page=25&fields=id,slug,title";
         try
         {
-            using var resp = await http.GetAsync(url, ct);
-            if (!resp.IsSuccessStatusCode) return null;
-
-            var json = await resp.Content.ReadAsStringAsync(ct);
-            var parsed = JsonSerializer.Deserialize<ApiListResponse<CategoryDto>>(json, JsonOpts);
-            if (parsed?.Success != true || parsed.Data is null) return null;
+            var cats = await ForgeClient.GetCategoriesAsync(ct);
+            if (cats is null || cats.Count == 0) return null;
 
             var items = new List<UiCategory> { new() { Title = "All categories", Slug = "", ColorClass = "" } };
-            items.AddRange(parsed.Data
+            items.AddRange(cats
                 .Select(c => new UiCategory
                 {
-                    Title = string.IsNullOrWhiteSpace(c.Title) ? c.Slug ?? "(Uncategorized)" : c.Title,
-                    Slug = c.Slug ?? "",
-                    ColorClass = ""
+                    Title = string.IsNullOrWhiteSpace(c.title) ? (string.IsNullOrWhiteSpace(c.slug) ? "(Uncategorized)" : c.slug) : c.title,
+                    Slug = c.slug ?? "",
+                    ColorClass = c.color_class ?? ""
                 })
                 .OrderBy(x => x.Title, StringComparer.OrdinalIgnoreCase));
 
@@ -1281,39 +1273,41 @@ public partial class BrowseModsPage : UserControl
     private async Task EnsureSourcesFromApiAsync(List<SearchResultRow> rows)
     {
         if (string.IsNullOrWhiteSpace(App.Config.Forge.Token)) return;
-        var needs = rows.Where(r => !(r.SourceButtons?.Count > 0)).ToList();
+        var needs = rows.Where(r => !(r.SourceButtons?.Count > 0)).Take(4).ToList();
         if (needs.Count == 0) return;
-
-        using var http = BuildApiClient();
 
         foreach (var r in needs)
         {
             try
             {
-                var url = $"https://forge.sp-tarkov.com/api/v0/mod/{r.ModId}?fields=source_code_links&include=source_code_links";
-                using var resp = await http.GetAsync(url);
-                if (!resp.IsSuccessStatusCode) continue;
+                var mod = await ForgeClient.GetModAsync(r.ModId,
+                    includeOwner: false,
+                    includeAuthors: false,
+                    includeCategory: false,
+                    includeVersions: false,
+                    includeSourceLinks: true,
+                    ct: App.ShutdownToken);
 
-                var json = await resp.Content.ReadAsStringAsync();
-                var parsed = JsonSerializer.Deserialize<ApiSingleResponse<ModDetailsDto>>(json, JsonOpts);
-                var links = parsed?.Data?.SourceCodeLinks;
-                if (links is { Count: > 0 })
+                var links = mod?.source_code_links;
+                if (links is { Length: > 0 })
+                {
                     foreach (var s in links)
                     {
-                        if (string.IsNullOrWhiteSpace(s.Url)) continue;
+                        if (string.IsNullOrWhiteSpace(s.url)) continue;
                         r.SourceButtons.Add(new SearchResultRow.SourceButton
                         {
-                            Url = s.Url!,
-                            Label = string.IsNullOrWhiteSpace(s.Label) ? "Source" : s.Label!.Trim()
+                            Url = s.url,
+                            Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label!.Trim()
                         });
                     }
+                }
             }
             catch
             {
                 // good girl action
             }
 
-            await Task.Delay(35);
+            await Task.Delay(250);
         }
     }
 

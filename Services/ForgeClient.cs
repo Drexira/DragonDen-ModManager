@@ -19,6 +19,9 @@ public static class ForgeClient
 
     private sealed record CacheEntry(byte[] Bytes, DateTimeOffset At);
 
+    private static readonly SemaphoreSlim _rateGate = new(1, 1);
+    private static readonly TimeSpan _perRequestDelay = TimeSpan.FromMilliseconds(550);
+
     private sealed class FetchResult
     {
         public int Status;
@@ -63,7 +66,7 @@ public static class ForgeClient
         if (Uri.TryCreate(pathOrUrl, UriKind.Absolute, out _)) return pathOrUrl!;
         return $"{BaseUrl}/{pathOrUrl!.TrimStart('/')}";
     }
-    
+
     private static async Task DelayWithStatus(
         TimeSpan delay,
         CancellationToken ct,
@@ -116,7 +119,7 @@ public static class ForgeClient
                 if (res.Status == 1015)
                 {
                     var retry = res.RetryAfter ?? TimeSpan.FromSeconds(4 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
@@ -124,7 +127,7 @@ public static class ForgeClient
                 if (res.Status == 429)
                 {
                     var retry = res.RetryAfter ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
@@ -132,7 +135,7 @@ public static class ForgeClient
                 if (res.Status is >= 500 and < 600)
                 {
                     var retry = TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Forge error {res.Status} - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare error {res.Status} - retrying in {rem.Seconds}s…");
                     attempt++;
                     continue;
                 }
@@ -442,7 +445,7 @@ public static class ForgeClient
                 if ((int)res.StatusCode == 1015 || res.StatusCode == (HttpStatusCode)429)
                 {
                     var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Forge rate limited - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s…");
                     continue;
                 }
 
@@ -659,11 +662,13 @@ public static class ForgeClient
         if (url.Contains("/api/v0/mod-categories", StringComparison.OrdinalIgnoreCase))
             return TimeSpan.FromMinutes(20);
 
-        if (url.Contains("/api/v0/mod/", StringComparison.OrdinalIgnoreCase) &&
-            url.Contains("/versions", StringComparison.OrdinalIgnoreCase))
-            return TimeSpan.FromSeconds(2);
+        if (url.Contains("/api/v0/mod/", StringComparison.OrdinalIgnoreCase) && url.Contains("/versions", StringComparison.OrdinalIgnoreCase))
+            return TimeSpan.FromMinutes(2);
 
-        return TimeSpan.FromSeconds(1);
+        if (url.Contains("/api/v0/mods", StringComparison.OrdinalIgnoreCase))
+            return TimeSpan.FromSeconds(30);
+
+        return TimeSpan.FromSeconds(5);
     }
 
     private static async Task<FetchResult> GetResultDeDupedAsync(string url, CancellationToken ct)
@@ -695,30 +700,41 @@ public static class ForgeClient
 
     private static async Task<FetchResult> FetchBytesCoreAsync(string url, CancellationToken ct)
     {
-        using var res = await http.SendAsync(NewGet(url), HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-
-        var retryAfter =
-            res.Headers.RetryAfter?.Delta ??
-            (res.Headers.RetryAfter?.Date is DateTimeOffset when
-                ? when - DateTimeOffset.UtcNow
-                : null);
-
-        if (!res.IsSuccessStatusCode)
+        await _rateGate.WaitAsync(ct);
+        try
         {
-            var bytesErr = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-            var statusCode = (int)res.StatusCode;
+            var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(80, 220));
+            await Task.Delay(_perRequestDelay + jitter, ct);
 
-            if (statusCode == 1015)
-                Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → 1015 (Cloudflare rate-limit).");
-            else
-                Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {statusCode} {res.StatusCode}.");
+            using var res = await http.SendAsync(NewGet(url), HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
 
-            return new FetchResult { Status = statusCode, Bytes = bytesErr, RetryAfter = retryAfter };
+            var retryAfter =
+                res.Headers.RetryAfter?.Delta ??
+                (res.Headers.RetryAfter?.Date is DateTimeOffset when
+                    ? when - DateTimeOffset.UtcNow
+                    : null);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                var bytesErr = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                var statusCode = (int)res.StatusCode;
+
+                if (statusCode == 1015)
+                    Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → 1015 (Cloudflare rate-limit).");
+                else
+                    Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {statusCode} {res.StatusCode}.");
+
+                return new FetchResult { Status = statusCode, Bytes = bytesErr, RetryAfter = retryAfter };
+            }
+
+            var okBytes = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {(int)res.StatusCode} OK ({okBytes.Length} bytes).");
+            return new FetchResult { Status = (int)res.StatusCode, Bytes = okBytes, RetryAfter = retryAfter };
         }
-
-        var okBytes = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-        Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {(int)res.StatusCode} OK ({okBytes.Length} bytes).");
-        return new FetchResult { Status = (int)res.StatusCode, Bytes = okBytes, RetryAfter = retryAfter };
+        finally
+        {
+            _rateGate.Release();
+        }
     }
 
     public sealed class MissingDep

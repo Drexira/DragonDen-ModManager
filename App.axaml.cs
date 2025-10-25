@@ -24,6 +24,7 @@ public class App : Application
 
     private static CancellationTokenSource? _warmCts;
     private Task? _warmTask;
+    private static volatile int _warmStarted;
     public static Config Config { get; private set; } = null!;
     public static Db Db { get; set; } = null!;
     public static SevenZip SevenZip { get; private set; } = null!;
@@ -164,6 +165,7 @@ public class App : Application
 
     private async Task WarmCacheOnLaunch(CancellationToken ct)
     {
+        if (Interlocked.Exchange(ref _warmStarted, 1) == 1) return;
         try
         {
             await Cache.RefreshAllAsync(null, ct);
@@ -178,6 +180,7 @@ public class App : Application
         }
     }
 
+
     public static void NotifyInstallsChanged()
     {
         lock (_installsLock)
@@ -186,7 +189,7 @@ public class App : Application
             _pendingInstallRefresh = true;
         }
 
-        Dispatcher.UIThread.Post(async () =>
+        Dispatcher.UIThread.Post(async void () =>
         {
             try
             {

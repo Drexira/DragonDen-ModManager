@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -74,19 +73,10 @@ public partial class MainWindow : Window
             installPage?.SelectSptMajor(majorTwo);
         }
 
-        try
-        {
-            await ModCache.EnsureWarmAsync();
-        }
-        catch
-        {
-            // good girl action
-        }
-        
         var year = DateTime.Now.Year;
         _footerLeft!.Text = $"© {year} Dragon Den Mod Manager";
     }
-    
+
     private void OnOpenKoFi(object? sender, RoutedEventArgs e)
     {
         try
@@ -97,6 +87,9 @@ public partial class MainWindow : Window
                 UseShellExecute = true
             });
         }
-        catch { }
+        catch
+        {
+            // good girl action
+        }
     }
 }
