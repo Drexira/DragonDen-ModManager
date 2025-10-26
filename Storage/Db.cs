@@ -31,24 +31,26 @@ public sealed class Db
     {
         using var c = Conn();
         c.Execute(@"CREATE TABLE IF NOT EXISTS mods(
-            mod_id TEXT PRIMARY KEY,
-            name TEXT,
-            version TEXT,
-            installed_at INTEGER,
-            source TEXT,
-            guid TEXT,             -- NEW
-            source_url TEXT        -- NEW
-        )");
+        mod_id TEXT PRIMARY KEY,
+        name TEXT,
+        version TEXT,
+        installed_at INTEGER,
+        source TEXT,
+        guid TEXT,
+        source_url TEXT
+    )");
         c.Execute(@"CREATE TABLE IF NOT EXISTS files(
-            path TEXT PRIMARY KEY,
-            mod_id TEXT,
-            sha256 TEXT,
-            target TEXT,
-            FOREIGN KEY(mod_id) REFERENCES mods(mod_id) ON DELETE CASCADE
-        )");
+        path TEXT PRIMARY KEY,
+        mod_id TEXT,
+        sha256 TEXT,
+        target TEXT,
+        FOREIGN KEY(mod_id) REFERENCES mods(mod_id) ON DELETE CASCADE
+    )");
 
         EnsureColumn(c, "mods", "guid", "TEXT");
         EnsureColumn(c, "mods", "source_url", "TEXT");
+        EnsureColumn(c, "mods", "disabled", "INTEGER DEFAULT 0");
+        EnsureColumn(c, "mods", "disabled_at", "INTEGER");
 
         var hasTarget = false;
         using (var cmd = c.CreateCommand())
@@ -185,12 +187,17 @@ WHERE COALESCE(f.target,'client') = $t
         using var c = Conn();
         int missing = 0, changed = 0;
         using var cmd = c.CreateCommand();
-        cmd.CommandText = "SELECT path, sha256 FROM files";
+        cmd.CommandText = @"
+SELECT f.path, f.sha256
+FROM files f
+JOIN mods m ON m.mod_id = f.mod_id
+WHERE COALESCE(m.disabled,0)=0
+";
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
-            var rel = r.GetString(0);
-            var hash = r.GetString(1);
+            var rel = r.IsDBNull(0) ? "" : r.GetString(0);
+            var hash = r.IsDBNull(1) ? "" : r.GetString(1);
             var f = Path.Combine(root, rel);
             if (!File.Exists(f))
             {
@@ -214,23 +221,25 @@ WHERE COALESCE(f.target,'client') = $t
         return (m1.Item1 + m2.Item1, m1.Item2 + m2.Item2);
     }
 
-    public List<(string mod_id, string name, string version, long fileCount, string guid, string source_url, long installed_at)> ListMods()
+    public List<(string mod_id, string name, string version, long fileCount, string guid, string source_url, long installed_at, int disabled, long disabled_at)> ListMods()
     {
         using var c = Conn();
-        var list = new List<(string, string, string, long, string, string, long)>();
+        var list = new List<(string, string, string, long, string, string, long, int, long)>();
         using var cmd = c.CreateCommand();
         cmd.CommandText = @"
-        SELECT m.mod_id,
-               m.name,
-               m.version,
-               COUNT(f.path),
-               COALESCE(m.guid,''),
-               COALESCE(m.source_url,''),
-               COALESCE(m.installed_at,0)
-        FROM mods m
-        LEFT JOIN files f ON m.mod_id=f.mod_id
-        GROUP BY m.mod_id,m.name,m.version,m.guid,m.source_url,m.installed_at
-        ORDER BY m.name";
+    SELECT m.mod_id,
+           m.name,
+           m.version,
+           COUNT(f.path),
+           COALESCE(m.guid,''),
+           COALESCE(m.source_url,''),
+           COALESCE(m.installed_at,0),
+           COALESCE(m.disabled,0) AS disabled,
+           COALESCE(m.disabled_at,0) AS disabled_at
+    FROM mods m
+    LEFT JOIN files f ON m.mod_id=f.mod_id
+    GROUP BY m.mod_id,m.name,m.version,m.guid,m.source_url,m.installed_at,m.disabled,m.disabled_at
+    ORDER BY m.name";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add((
@@ -240,7 +249,9 @@ WHERE COALESCE(f.target,'client') = $t
                 r.GetInt64(3),
                 r.GetString(4),
                 r.GetString(5),
-                r.IsDBNull(6) ? 0L : r.GetInt64(6)
+                r.IsDBNull(6) ? 0L : r.GetInt64(6),
+                r.IsDBNull(7) ? 0 : r.GetInt32(7),
+                r.IsDBNull(8) ? 0L : r.GetInt64(8)
             ));
         return list;
     }
@@ -439,6 +450,105 @@ WHERE f.mod_id = @modId
 
             throw;
         }
+    }
+
+    public int PruneRemovedMods()
+    {
+        using var c = Conn();
+
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = @"
+SELECT m.mod_id,
+       COALESCE(f.path,'') AS path,
+       COALESCE(f.target,'client') AS target
+FROM mods m
+LEFT JOIN files f ON f.mod_id = m.mod_id
+ORDER BY m.mod_id";
+        using var r = cmd.ExecuteReader();
+
+        var byMod = new Dictionary<string, List<(string path, string target)>>(StringComparer.Ordinal);
+        while (r.Read())
+        {
+            var id = r.GetString(0);
+            var path = r.IsDBNull(1) ? "" : r.GetString(1);
+            var target = r.IsDBNull(2) ? "client" : r.GetString(2);
+
+            if (!byMod.TryGetValue(id, out var list))
+            {
+                list = new List<(string, string)>();
+                byMod[id] = list;
+            }
+
+            list.Add((path, target));
+        }
+
+        var removed = 0;
+
+        foreach (var kv in byMod)
+        {
+            var modId = kv.Key;
+            var files = kv.Value;
+
+            bool anyOnDisk = false;
+
+            foreach (var (rel, tgt) in files)
+            {
+                if (string.IsNullOrWhiteSpace(rel))
+                    continue;
+
+                var root = string.Equals(tgt, "server", StringComparison.OrdinalIgnoreCase)
+                    ? Spt.ServerModsPath
+                    : Spt.ClientModsPath;
+
+                if (!string.IsNullOrWhiteSpace(root))
+                {
+                    var full = Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar));
+                    if (File.Exists(full))
+                    {
+                        anyOnDisk = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!anyOnDisk)
+            {
+                c.Execute("DELETE FROM mods WHERE mod_id=$m", ("$m", modId));
+                removed++;
+            }
+        }
+
+        return removed;
+    }
+
+    public bool IsDisabledByName(string name)
+    {
+        using var c = Conn();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM mods WHERE name=$n COLLATE NOCASE AND COALESCE(disabled,0)=1 LIMIT 1";
+        cmd.Parameters.AddWithValue("$n", name ?? "");
+        return cmd.ExecuteScalar() != null;
+    }
+
+    public bool IsDisabledById(string modId)
+    {
+        using var c = Conn();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM mods WHERE mod_id=$m AND COALESCE(disabled,0)=1 LIMIT 1";
+        cmd.Parameters.AddWithValue("$m", modId ?? "");
+        return cmd.ExecuteScalar() != null;
+    }
+
+    public void SetDisabled(string modId, bool disabled)
+    {
+        using var c = Conn();
+        c.Execute(
+            "UPDATE mods SET disabled=$d, disabled_at=$t WHERE mod_id=$m",
+            ("$d", disabled ? 1 : 0),
+            ("$t", disabled ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() : (long?)null),
+            ("$m", modId)
+        );
+        App.NotifyInstallsChanged();
     }
 
     private static int TryInt(object? o)

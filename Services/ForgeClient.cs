@@ -739,6 +739,7 @@ public static class ForgeClient
         public int Id { get; set; }
         public string? Version { get; set; }
         public string? Link { get; set; }
+        public string? Description  { get; set; }
         public string? SptVersionConstraint { get; set; }
         public DateTimeOffset? PublishedAt { get; set; }
         public long Downloads { get; set; }

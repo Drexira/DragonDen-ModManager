@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -36,9 +37,13 @@ public partial class InstalledModsPage : UserControl
         OpenServerBtn.Click += (_, __) => OpenFolder(Spt.ServerModsPath);
         UninstallAllBtn.Click += async (_, __) => await UninstallAllAsync();
 
+        EnableAllBtn.Click += async (_, __) => await EnableAllAsync();
+        DisableAllBtn.Click += async (_, __) => await DisableAllAsync();
+
         SortBox.SelectionChanged += async (_, __) => await RefreshRows();
         UpdatesFirstChk.IsCheckedChanged += async (_, __) => await RefreshRows();
-        
+        HideDisabledChk.IsCheckedChanged += async (_, __) => await RefreshRows();
+
         _searchDebounce.Tick += async (_, __) =>
         {
             _searchDebounce.Stop();
@@ -215,65 +220,112 @@ public partial class InstalledModsPage : UserControl
         await RefreshRows();
     }
 
+    private async Task DisableAllAsync()
+    {
+        var rows = (ModsList.ItemsSource as IEnumerable<InstalledModRow>)?.ToList() ?? new();
+        var targets = rows.Where(r => !r.IsDisabled && r.Versions?.Count > 0).ToList();
+
+        if (targets.Count == 0)
+        {
+            Notifications.Current.ShowWarning("Nothing To Disable", "All visible mods are already disabled or custom installs.");
+            return;
+        }
+
+        var count = 0;
+        foreach (var r in targets)
+        {
+            try
+            {
+                foreach (var id in r.ModIds)
+                    await ModDisabler.DisableAsync(id, r.Name);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"DisableAllAsync: failed for {r.Name}: {ex.Message}");
+            }
+        }
+
+        Notifications.Current.ShowSuccess("Bulk Disable Complete", $"Disabled {count} mod(s).");
+        App.NotifyInstallsChanged();
+    }
+
+    private async Task EnableAllAsync()
+    {
+        var rows = (ModsList.ItemsSource as IEnumerable<InstalledModRow>)?.ToList() ?? new();
+        var targets = rows.Where(r => r.IsDisabled).ToList();
+
+        if (targets.Count == 0)
+        {
+            Notifications.Current.ShowWarning("Nothing To Enable", "No disabled mods in the current view.");
+            return;
+        }
+
+        var count = 0;
+        foreach (var r in targets)
+        {
+            try
+            {
+                foreach (var id in r.ModIds)
+                    await ModDisabler.EnableAsync(id, r.Name);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"EnableAllAsync: failed for {r.Name}: {ex.Message}");
+            }
+        }
+
+        Notifications.Current.ShowSuccess("Bulk Enable Complete", $"Enabled {count} mod(s).");
+        App.NotifyInstallsChanged();
+    }
+
     private async void OnAnyButtonClick(object? sender, RoutedEventArgs e)
     {
         if (e.Source is not Button b) return;
 
-        if (b.Content?.ToString()?.Equals("Uninstall", StringComparison.OrdinalIgnoreCase) == true)
+        if (b.DataContext is InstalledModRow dc && dc.IsDisabled)
         {
-            if (b.Tag is InstalledModRow row1)
-            {
-                App.Db.UninstallByModIds(row1.ModIds);
-                Notifications.Current.ShowSuccess("Mod Uninstalled", $"'{row1.Name}' was successfully removed.");
-                await RefreshRows();
-            }
+            // good girl action
+        }
 
+        if (b.Classes?.Contains("btn-trash") == true && b.Tag is InstalledModRow rowTrash)
+        {
+            App.Db.UninstallByModIds(rowTrash.ModIds);
+            Notifications.Current.ShowSuccess("Mod Uninstalled", $"'{rowTrash.Name}' was successfully removed.");
+            await RefreshRows();
             return;
         }
 
-        if (b.Content?.ToString()?.Equals("Update", StringComparison.OrdinalIgnoreCase) == true)
+        var content = b.Content?.ToString() ?? "";
+
+        if (content.Equals("List Files", StringComparison.OrdinalIgnoreCase))
         {
-            if (b.Tag is InstalledModRow row2)
-            {
-                if (row2.Latest?.Link is string url && !string.IsNullOrWhiteSpace(url))
-                {
-                    App.Queue.EnqueueRemote(row2.Name, url, row2.Latest?.Version ?? "0.0.0", row2.Guid ?? "");
-                    Notifications.Current.ShowSuccess("Update Queued", $"'{row2.Name}' has been added to the update queue.");
-                }
-                else
-                {
-                    Notifications.Current.ShowError("No Update Link", $"The mod '{row2.Name}' has no downloadable update link.");
-                    Console.WriteLine($"Update click failed: no update link found for {row2.Name}");
-                }
-            }
-
-            return;
-        }
-
-        if (b.Content?.ToString()?.Equals("Mod Page", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            if (b.Tag is InstalledModRow row3 && !string.IsNullOrWhiteSpace(row3.DetailUrl))
-                try
-                {
-                    _ = Process.Start(new ProcessStartInfo { FileName = row3.DetailUrl, UseShellExecute = true });
-                }
-                catch (Exception ex)
-                {
-                    Notifications.Current.ShowError("Browser Launch Failed", $"Unable to open mod page for '{row3.Name}'.");
-                    Console.WriteLine($"Mod page open error: {ex.Message}");
-                }
-            else Notifications.Current.ShowError("No Page Link", $"The mod '{b.Tag}' doesn't have a Forge page link.");
-
-            return;
-        }
-
-        if (b.Content?.ToString()?.Equals("List Files", StringComparison.OrdinalIgnoreCase) == true)
             if (b.Tag is InstalledModRow row4)
+            {
+                if (row4.IsDisabled)
+                {
+                    Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod to list its files.");
+                    return;
+                }
                 await ShowFilesDialog(row4);
+            }
+            return;
+        }
 
-        if (b.Content?.ToString()?.Equals("Edit Configs", StringComparison.OrdinalIgnoreCase) == true)
+        if (content.Equals("Edit Configs", StringComparison.OrdinalIgnoreCase))
+        {
             if (b.Tag is InstalledModRow row5)
+            {
+                if (row5.IsDisabled)
+                {
+                    Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod to edit its configs.");
+                    return;
+                }
                 await ShowConfigDialog(row5);
+            }
+            return;
+        }
     }
 
     public async Task RefreshFromSettingsAsync()
@@ -318,7 +370,7 @@ public partial class InstalledModsPage : UserControl
         else
             dlg.Show();
     }
-    
+
     private static bool IsEditablePath(string p)
     {
         var ext = Path.GetExtension(p ?? "");
@@ -405,10 +457,14 @@ public partial class InstalledModsPage : UserControl
     {
         StatusText.Text = "Scanning mods...";
         var stats = await Task.Run(() => InstalledScanner.ImportFromDisk());
-        StatusText.Text = $"Refreshed: imported {stats.imported}, updated {stats.updated}, skipped {stats.skipped}.";
+
+        var pruned = App.Db.PruneRemovedMods();
+
+        StatusText.Text = $"Refreshed: imported {stats.imported}, updated {stats.updated}, " +
+                          $"skipped {stats.skipped}, removed {pruned} missing.";
         await RefreshRows();
     }
-
+    
     private static bool IsUpdate(string installed, string latest)
     {
         var okI = SemverUtil.TryParseStrict(installed, out var vi);
@@ -432,18 +488,64 @@ public partial class InstalledModsPage : UserControl
         await RefreshRows();
     }
 
+    private async void OnDisableMod(object? s, RoutedEventArgs e)
+    {
+        if ((s as Control)?.Tag is not InstalledModRow row) return;
+
+        try
+        {
+            foreach (var modId in row.ModIds)
+                await ModDisabler.DisableAsync(modId, row.Name);
+
+            row.IsDisabled = true;
+            Notifications.Current.ShowSuccess("Disabled", $"{row.Name} moved to Disabled Mods.");
+            App.NotifyInstallsChanged();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Current.ShowError("Disable Failed", $"Couldn't disable {row.Name}.");
+            Console.WriteLine("[InstalledModsPage] Disable failed: " + ex);
+        }
+    }
+
+    private async void OnEnableMod(object? s, RoutedEventArgs e)
+    {
+        if ((s as Control)?.Tag is not InstalledModRow row) return;
+
+        try
+        {
+            foreach (var modId in row.ModIds)
+                await ModDisabler.EnableAsync(modId, row.Name);
+
+            row.IsDisabled = false;
+            Notifications.Current.ShowSuccess("Enabled", $"{row.Name} restored.");
+            App.NotifyInstallsChanged();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Current.ShowError("Enable Failed", $"Couldn't restore {row.Name}.");
+            Console.WriteLine("[InstalledModsPage] Enable failed: " + ex);
+        }
+    }
+
     public async Task RefreshRows()
     {
         var sortTag = ((SortBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "alpha").ToLowerInvariant();
         var updatesFirst = UpdatesFirstChk?.IsChecked ?? false;
+        var hideDisabled = HideDisabledChk?.IsChecked ?? false;
 
         var (allRows, statusText) = await BuildRowsAsync(sortTag, updatesFirst);
+
         var filtered = ApplySearchFilter(allRows, _searchText).ToList();
+        if (hideDisabled)
+            filtered = filtered.Where(r => !r.IsDisabled).ToList();
 
         ModsList.ItemsSource = filtered;
+
         StatusText.Text = filtered.Count == allRows.Count
             ? statusText
             : $"Showing {filtered.Count} of {allRows.Count} installed";
+
         _emptyState = this.FindControl<StackPanel>("EmptyState");
         if (_emptyState != null)
             _emptyState.IsVisible = allRows.Count == 0;
@@ -489,10 +591,7 @@ public partial class InstalledModsPage : UserControl
                 if (!string.IsNullOrWhiteSpace(u)) return u;
             }
 
-            static string Norm(string s)
-            {
-                return new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-            }
+            static string Norm(string s) => new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
 
             var norm = Norm(name);
             var hit = allCache.FirstOrDefault(r =>
@@ -505,7 +604,10 @@ public partial class InstalledModsPage : UserControl
             if (!string.IsNullOrWhiteSpace(u3)) return u3;
 
             var safeName = Uri.EscapeDataString(name ?? "");
-            return $"https://placehold.co/165x165/31343C/EEE.png?text={safeName}&font=source-sans-pro";
+            var thumbnail = this.FindControl<Border>("Thumbnail");
+            string thumbSize;
+            thumbSize = thumbnail != null ? thumbnail.Width + "x" + thumbnail.Height : "120x120";
+            return $"https://placehold.co/{thumbSize}/31343C/EEE.png?text={safeName}&font=source-sans-pro";
         }
 
         (string detail, bool hasPage, bool isCustom, List<string> authors, List<InstalledModRow.SourceButton> sources, string category)
@@ -593,21 +695,42 @@ public partial class InstalledModsPage : UserControl
                 var latestVerText = latestForAB?.Version ?? "";
                 var canUpdate = latestForAB != null && !string.IsNullOrWhiteSpace(latestForAB.Version) && IsUpdate(installedVersion, latestForAB.Version!);
 
+                var modIds = g.Select(x => x.mod_id).Distinct().ToList();
+
+                var isDisabled = false;
+                try
+                {
+                    foreach (var mid in modIds)
+                    {
+                        if (await ModDisabler.IsDisabledAsync(mid))
+                        {
+                            isDisabled = true;
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"BuildRowsAsync: IsDisabled check failed for {name}: {ex}");
+                }
+
                 var hasEditableConfigs = false;
                 try
                 {
-                    var modIds = g.Select(x => x.mod_id).Distinct().ToList();
                     foreach (var mid in modIds)
                     {
                         var files = App.Db.ListFilesForModId(mid);
                         if (files is { Count: > 0 })
+                        {
                             foreach (var (path, _) in files)
+                            {
                                 if (IsEditablePath(path))
                                 {
                                     hasEditableConfigs = true;
                                     break;
                                 }
-
+                            }
+                        }
                         if (hasEditableConfigs) break;
                     }
                 }
@@ -618,7 +741,7 @@ public partial class InstalledModsPage : UserControl
 
                 rows.Add(new InstalledModRow
                 {
-                    ModIds = g.Select(x => x.mod_id).Distinct().ToList(),
+                    ModIds = modIds,
                     Name = name,
                     Guid = guid,
                     InstalledVersion = installedVersion,
@@ -627,8 +750,8 @@ public partial class InstalledModsPage : UserControl
                     DetailUrl = detail,
                     HasPage = hasPage,
                     IsCustom = custom,
-                    IsOutdated = canUpdate,
-                    CanUpdate = canUpdate,
+                    IsOutdated = !isDisabled && canUpdate,
+                    CanUpdate = !isDisabled && canUpdate,
                     LatestVersionText = latestVerText,
                     Versions = filtered,
                     Latest = latestForAB,
@@ -638,7 +761,8 @@ public partial class InstalledModsPage : UserControl
                     InstalledAt = installedAt,
                     InstalledAtText = installedAt.HasValue ? installedAt.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm") : "",
                     LatestPublishedText = latestForAB?.PublishedAt.HasValue == true ? latestForAB!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd") : "",
-                    HasEditableConfigs = hasEditableConfigs
+                    HasEditableConfigs = hasEditableConfigs,
+                    IsDisabled = isDisabled
                 });
             }
             finally
@@ -649,15 +773,31 @@ public partial class InstalledModsPage : UserControl
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
 
-        IEnumerable<InstalledModRow> ordered = sortTag switch
-        {
-            "installed_desc" => rows.OrderByDescending(r => r.InstalledAt ?? DateTimeOffset.MinValue),
-            "installed_asc" => rows.OrderBy(r => r.InstalledAt ?? DateTimeOffset.MaxValue),
-            _ => rows.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-        };
-
+        IEnumerable<InstalledModRow> seq = rows;
         if (updatesFirst)
-            ordered = ordered.OrderBy(r => r.IsOutdated ? 0 : 1).ThenBy(r => 0);
+            seq = seq.OrderBy(r => r.IsOutdated ? 0 : 1);
+
+        Func<InstalledModRow, int> updatesKey = r => updatesFirst ? (r.IsOutdated ? 0 : 1) : 0;
+
+        IOrderedEnumerable<InstalledModRow>? ordered;
+        switch (sortTag)
+        {
+            case "installed_desc":
+                ordered = rows.OrderBy(updatesKey).ThenByDescending(r => r.InstalledAt ?? DateTimeOffset.MinValue).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
+                break;
+            case "installed_asc":
+                ordered = rows.OrderBy(updatesKey).ThenBy(r => r.InstalledAt ?? DateTimeOffset.MaxValue).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
+                break;
+            case "enabled_first":
+                ordered = rows.OrderBy(updatesKey).ThenBy(r => r.IsDisabled ? 1 : 0).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
+                break;
+            case "enabled_last":
+                ordered = rows.OrderBy(updatesKey).ThenBy(r => r.IsDisabled ? 0 : 1).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
+                break;
+            default:
+                ordered = rows.OrderBy(updatesKey).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
+                break;
+        }
 
         var final = ordered.ToList();
         var statusText = final.Count == 0 ? "No installed mods." : $"{final.Count} installed mods";
@@ -695,19 +835,63 @@ public partial class InstalledModsPage : UserControl
         });
     }
 
-    private void OnChangeVersion(object? sender, RoutedEventArgs e)
+    private void OnToggleEnabled(object? s, RoutedEventArgs e)
     {
-        if (sender is not Button btn) return;
-        if (btn.Tag is not ForgeClient.ModVersion chosen || string.IsNullOrWhiteSpace(chosen?.Link))
+        if (s is not CheckBox cb || cb.Tag is not InstalledModRow row) return;
+
+        var shouldEnable = cb.IsChecked == true;
+
+        if (shouldEnable)
+            OnEnableMod(cb, e);
+        else
+            OnDisableMod(cb, e);
+    }
+
+    private void OnUpdateFromBadge(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b || b.Tag is not InstalledModRow row) return;
+
+        if (row.IsDisabled)
         {
-            Notifications.Current.ShowWarning("No Version Selected", "Choose a version to install first.");
+            Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod before updating.");
             return;
         }
 
-        var row = btn.DataContext as InstalledModRow ?? ModsList.SelectedItem as InstalledModRow;
-        if (row is null)
+        if (row.Latest?.Link is string url && !string.IsNullOrWhiteSpace(url))
         {
-            Notifications.Current.ShowWarning("No Mod Selected", "Select a mod before changing its version.");
+            b.IsEnabled = false;
+            App.Queue.EnqueueRemote(row.Name, url, row.Latest?.Version ?? "0.0.0", row.Guid ?? "");
+            Notifications.Current.ShowSuccess("Update Queued", $"'{row.Name}' has been added to the update queue.");
+        }
+        else
+        {
+            Notifications.Current.ShowError("No Update Link", $"The mod '{row.Name}' has no downloadable update link.");
+            Console.WriteLine($"Update badge click failed: no update link for {row.Name}");
+        }
+    }
+
+    private async void OnOpenVersionModal(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b || b.Tag is not InstalledModRow row) return;
+        if (row.IsDisabled)
+        {
+            Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod before changing its version.");
+            return;
+        }
+
+        var owner = (Window?)TopLevel.GetTopLevel(this);
+        var dlg = new ChangeInstalledVersion(row);
+        if (owner is not null)
+            await dlg.ShowDialog(owner);
+        else
+            dlg.Show();
+    }
+
+    private void InstallChosenVersion(InstalledModRow row, ForgeClient.ModVersion? chosen)
+    {
+        if (chosen is null || string.IsNullOrWhiteSpace(chosen.Link))
+        {
+            Notifications.Current.ShowWarning("No Version Selected", "Choose a version to install first.");
             return;
         }
 
@@ -720,9 +904,9 @@ public partial class InstalledModsPage : UserControl
             return;
         }
 
-        var selectedVer = chosen.Version ?? "0.0.0";
-        var installedVersion = row.InstalledVersion ?? "0.0.0";
-        if (string.Equals(selectedVer, row.InstalledVersion, StringComparison.OrdinalIgnoreCase))
+        var selectedVer = chosen.Version ?? "Custom Install";
+        var installedVersion = row.InstalledVersion ?? "Custom Install";
+        if (string.Equals(selectedVer, installedVersion, StringComparison.OrdinalIgnoreCase))
         {
             Notifications.Current.ShowWarning("Already Installed", $"'{row.Name}' is already on version {installedVersion}.");
             return;
@@ -730,26 +914,15 @@ public partial class InstalledModsPage : UserControl
 
         App.Queue.EnqueueRemote(row.Name, chosen.Link!, selectedVer, row.Guid ?? "");
         Notifications.Current.ShowSuccess("Version Change Queued", $"'{row.Name}' will change from {installedVersion} → {selectedVer}.");
+
+        var host = this.GetVisualAncestors().OfType<Window>().FirstOrDefault(w => w.Title?.StartsWith("Choose version", StringComparison.OrdinalIgnoreCase) == true
+                                                                                 || w.Title?.StartsWith("Select a Version", StringComparison.OrdinalIgnoreCase) == true);
+        host?.Close();
     }
 
     private void OnVersionBoxAttached(object? sender, VisualTreeAttachmentEventArgs e)
     {
-        if (sender is not ComboBox cb) return;
-
-        void EnsureSelection()
-        {
-            if (cb.SelectedIndex < 0 && cb.ItemCount > 0)
-                cb.SelectedIndex = 0;
-        }
-
-        Dispatcher.UIThread.Post(EnsureSelection, DispatcherPriority.Background);
-
-        cb.PropertyChanged += (_, pe) =>
-        {
-            if (pe.Property == ItemsControl.ItemsSourceProperty ||
-                pe.Property == ItemsControl.ItemCountProperty)
-                Dispatcher.UIThread.Post(EnsureSelection, DispatcherPriority.Background);
-        };
+        // good girl action
     }
 
     private void OnAuthorClick(object? sender, RoutedEventArgs e)
@@ -934,4 +1107,9 @@ public partial class InstalledModsPage : UserControl
         var bslug = string.IsNullOrWhiteSpace(b.Slug) ? 0 : 1;
         return aslug > bslug;
     }
+}
+
+static class Fluent
+{
+    public static T Also<T>(this T self, Action<T> f) { f(self); return self; }
 }

@@ -57,7 +57,6 @@ public sealed class Notifications
         ShowCore(title, message, NotificationType.Error, ephemeral = true, timeout = TimeSpan.FromSeconds(5));
     }
 
-    // Back-compat name you already call in code:
     public void Show(string title, string message, bool ephemeral = true, TimeSpan? timeout = null)
     {
         ShowInfo(title, message, ephemeral, timeout);

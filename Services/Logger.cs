@@ -38,7 +38,7 @@ public static class Logger
 
             OpenWriter(_currentFilePath);
             CleanOldLogs_NoLock();
-        }
+        }Console.Error.WriteLine();
 
         Info("Logger initialized");
     }

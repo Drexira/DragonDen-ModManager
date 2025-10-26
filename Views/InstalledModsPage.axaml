@@ -13,6 +13,12 @@
         <svc:StringHasTextConverter x:Key="StringHasTextConverter" />
         <svc:VersionChangeEnabledConverter x:Key="VersionDiffEnabled" />
         <svc:VersionLabelConverter x:Key="VersionLabelConverter" />
+        <svc:BoolNotConverter x:Key="Not" />
+        <svc:StringEqualsConverter x:Key="Eq" />
+        <svc:StringNotEqualsConverter x:Key="Neq" />
+        <svc:CollectionHasItemsConverter x:Key="HasItems" />
+        <svc:ShowCustomInstallConverter x:Key="ShowCustom" />
+        <svc:BoolAndConverter x:Key="And" />
 
         <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />
         <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
@@ -25,12 +31,15 @@
         <SolidColorBrush x:Key="Dd.Orange" Color="#FF8A00" />
         <SolidColorBrush x:Key="Dd.Orange.Hover" Color="#FFA333" />
 
+        <SolidColorBrush x:Key="Dd.DarkOrange" Color="#cc6e00" />
+        <SolidColorBrush x:Key="Dd.DarkOrange.Hover" Color="#d67300" />
+
         <SolidColorBrush x:Key="Dd.Green" Color="#1faa33" />
         <SolidColorBrush x:Key="Dd.Green.Hover" Color="#2ad643" />
 
         <SolidColorBrush x:Key="Dd.Red" Color="#d40404" />
         <SolidColorBrush x:Key="Dd.Red.Hover" Color="#fc2626" />
-        
+
         <SolidColorBrush x:Key="Dd.Black" Color="#111111" />
         <SolidColorBrush x:Key="Dd.Black.Hover" Color="#222222" />
 
@@ -39,9 +48,14 @@
         <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
         <SolidColorBrush x:Key="Dd.Btn.HoverFg" Color="#111111" />
 
-        <LinearGradientBrush x:Key="Dd.SptBadge" StartPoint="0,0" EndPoint="1,1">
+        <LinearGradientBrush x:Key="Dd.RedGrad" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Offset="0" Color="#fc2626" />
             <GradientStop Offset="1" Color="#d40404" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="Dd.OrangeGrad" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Offset="0" Color="#FF8A00" />
+            <GradientStop Offset="1" Color="#FFA333" />
         </LinearGradientBrush>
     </UserControl.Resources>
 
@@ -53,7 +67,7 @@
             <Setter Property="Margin" Value="5" />
             <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="MinHeight" Value="180" />
+            <Setter Property="MinHeight" Value="160" />
             <Setter Property="ClipToBounds" Value="True" />
         </Style>
         <Style Selector="Border.card:pointerover">
@@ -77,7 +91,7 @@
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="MinHeight" Value="20" />
-            <Setter Property="FontWeight" Value="DemiBold"/>
+            <Setter Property="FontWeight" Value="DemiBold" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
             <Setter Property="Foreground" Value="#111111" />
@@ -85,7 +99,7 @@
         </Style>
         <Style Selector="Button.owner-pill:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{StaticResource Dd.Orange.Hover}" />
-            <Setter Property="FontWeight" Value="DemiBold"/>
+            <Setter Property="FontWeight" Value="DemiBold" />
         </Style>
 
         <Style Selector="Button.btn">
@@ -102,22 +116,10 @@
             <Setter Property="Background" Value="{StaticResource Dd.Btn.Hover}" />
             <Setter Property="Foreground" Value="{StaticResource Dd.Btn.HoverFg}" />
         </Style>
-        <Style Selector="Button.btn-success">
-            <Setter Property="Background" Value="{StaticResource Dd.Green}" />
-            <Setter Property="Foreground" Value="#0C1116" />
-        </Style>
-        <Style Selector="Button.btn-updateall">
-            <Setter Property="Background" Value="{StaticResource Dd.Green}" />
-            <Setter Property="Foreground" Value="#0C1116" />
-            <Setter Property="FontWeight" Value="DemiBold"/>
-        </Style>
-        <Style Selector="Button.btn-success:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{StaticResource Dd.Green.Hover}" />
-        </Style>
         <Style Selector="Button.btn-danger">
             <Setter Property="Background" Value="{StaticResource Dd.Red}" />
             <Setter Property="Foreground" Value="#0C1116" />
-            <Setter Property="FontWeight" Value="DemiBold"/>
+            <Setter Property="FontWeight" Value="DemiBold" />
         </Style>
         <Style Selector="Button.btn-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{StaticResource Dd.Red.Hover}" />
@@ -126,7 +128,11 @@
             <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
             <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
         </Style>
-        
+        <Style Selector="Button.btn-green">
+            <Setter Property="Background" Value="{StaticResource Dd.Green}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Black}" />
+        </Style>
+
         <Style Selector="TextBlock.h2">
             <Setter Property="FontSize" Value="25" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -166,6 +172,35 @@
             <Setter Property="Foreground" Value="#B7BDC7" />
         </Style>
 
+        <Style Selector="Button.update-badge">
+            <Setter Property="Background" Value="{StaticResource Dd.OrangeGrad}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Black}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="MinHeight" Value="22" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="6" />
+        </Style>
+
+        <Style Selector="Button.update-badge:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.OrangeGrad}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Black}" />
+        </Style>
+
+        <Style Selector="Button.btn-trash">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="Red" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.btn-trash:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="#ffffff" />
+        </Style>
+
         <Style Selector="#ModsList ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
@@ -188,14 +223,24 @@
             <Border Background="{StaticResource Dd.Panel}" Padding="10" Grid.Row="0"
                     BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
                 <DockPanel LastChildFill="True">
-                    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
-                        <Button x:Name="RefreshBtn" Content="Refresh Mods" Classes="btn btn-neutral" />
-                        <Button x:Name="CheckUpdatesBtn" Content="Look for updates" Classes="btn btn-neutral" />
-                        <Button x:Name="UpdateAllBtn" Content="Update all mods" Classes="btn btn-updateall" />
-                        <Button x:Name="OpenClientBtn" Content="Open Client Mods" Classes="btn btn-neutral" />
-                        <Button x:Name="OpenServerBtn" Content="Open Server Mods" Classes="btn btn-neutral" />
-                        <Button x:Name="UninstallAllBtn" Content="Uninstall All Mods" Classes="btn btn-danger" />
-                    </StackPanel>
+                    <WrapPanel Orientation="Horizontal" Margin="8" DockPanel.Dock="Left" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="RefreshBtn" Content="Refresh Mods" Classes="btn btn-neutral" />
+                            <Button x:Name="CheckUpdatesBtn" Content="Check Updates" Classes="btn btn-neutral" />
+                            <Button x:Name="UpdateAllBtn" FontWeight="DemiBold" Content="Update All" Classes="btn btn-green" />
+                        </StackPanel>
+                        <Border Width="1" Height="28" Background="{StaticResource Dd.Border}" Margin="4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="EnableAllBtn" FontWeight="DemiBold" Content="Enable All" Classes="btn btn-green" />
+                            <Button x:Name="DisableAllBtn" FontWeight="DemiBold" Content="Disable All" Classes="btn btn-danger" />
+                        </StackPanel>
+                        <Border Width="1" Height="28" Background="{StaticResource Dd.Border}" Margin="4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="OpenClientBtn" Content="Client Folder" Classes="btn btn-neutral" />
+                            <Button x:Name="OpenServerBtn" Content="Server Folder" Classes="btn btn-neutral" />
+                            <Button x:Name="UninstallAllBtn" Content="Uninstall All" Classes="btn btn-danger" />
+                        </StackPanel>
+                    </WrapPanel>
 
                     <TextBlock x:Name="StatusText"
                                Margin="10,0,0,0"
@@ -211,20 +256,21 @@
                     <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left">
                         <TextBox x:Name="SearchBox" Width="440" Watermark="Search mods or type @Author..." />
                         <Button x:Name="ClearBtn" Content="Clear" Classes="btn btn-neutral" />
-                        <ComboBox x:Name="SortBox" Width="200" SelectedIndex="0" Margin="0,0,0,0">
+                        <ComboBox x:Name="SortBox" Width="220" SelectedIndex="0">
                             <ComboBoxItem Content="Alphabetical (A→Z)" Tag="alpha" />
                             <ComboBoxItem Content="Newest installed" Tag="installed_desc" />
                             <ComboBoxItem Content="Oldest installed" Tag="installed_asc" />
+                            <ComboBoxItem Content="Enabled First" Tag="enabled_first" />
+                            <ComboBoxItem Content="Disabled First" Tag="enabled_last" />
                         </ComboBox>
                         <CheckBox x:Name="UpdatesFirstChk" Content="Updates first" IsChecked="True" />
+                        <CheckBox x:Name="HideDisabledChk" Content="Hide Disabled mods" IsChecked="False" />
                     </StackPanel>
                 </DockPanel>
             </Border>
 
             <ScrollViewer x:Name="ModsScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
-                <ListBox x:Name="ModsList"
-                         Background="Transparent"
-                         BorderBrush="Transparent">
+                <ListBox x:Name="ModsList" Background="Transparent" BorderBrush="Transparent">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel HorizontalAlignment="Center" Orientation="Horizontal" />
@@ -233,35 +279,128 @@
 
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:InstalledModRow">
-                            <Border Classes="card" MinWidth="600" MaxWidth="600">
-                                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,*,Auto">
-                                    <Border Grid.Row="0" Grid.Column="0"
-                                            Width="165" Height="165"
-                                            CornerRadius="12" Margin="0"
-                                            Background="#101418" BorderBrush="{StaticResource Dd.Border}" BorderThickness="1"
-                                            ClipToBounds="True">
-                                        <Grid>
-                                            <svc:WebImage x:Name="Thumb" Url="{Binding Thumbnail}" Stretch="UniformToFill" />
-                                        </Grid>
+                            <Border Classes="card" MinWidth="400" MaxWidth="400">
+                                <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="120,*,30">
+                                    <Border Grid.Row="0" Grid.ColumnSpan="3" Background="Transparent" Padding="1,-10,0,0">
+                                        <DockPanel>
+                                            <Button Classes="mod-title"
+                                                    IsEnabled="{Binding HasPage}"
+                                                    Tag="{Binding DetailUrl}"
+                                                    Click="OnOpenPageFromTitle">
+                                                <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"
+                                                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                                            </Button>
 
-                                    </Border>
-                                    <Border Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" Padding="8,2"
-                                            CornerRadius="10" Background="{StaticResource Dd.SptBadge}" IsVisible="{Binding IsOutdated}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="Outdated" FontWeight="Bold" Foreground="{StaticResource Dd.Black}"
-                                                       IsVisible="{Binding IsOutdated}" />
-                                        </StackPanel>
+                                            <StackPanel Margin="0,0,-10,0" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                <StackPanel.IsVisible>
+                                                    <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                        <Binding Path="InstalledVersion"/>
+                                                        <Binding Path="Versions"/>
+                                                    </MultiBinding>
+                                                </StackPanel.IsVisible>
+
+                                                <CheckBox
+                                                    Tag="{Binding .}"
+                                                    IsChecked="{Binding IsDisabled, Converter={StaticResource Not}}"
+                                                    ToolTip.Tip="Toggle enable/disable"
+                                                    Click="OnToggleEnabled">
+                                                    <CheckBox.Styles>
+                                                        <Style Selector="CheckBox /template/ Border#PART_Root">
+                                                            <Setter Property="Background" Value="#AA111111" />
+                                                            <Setter Property="CornerRadius" Value="6" />
+                                                            <Setter Property="Padding" Value="6,2" />
+                                                        </Style>
+                                                    </CheckBox.Styles>
+                                                </CheckBox>
+                                            </StackPanel>
+                                        </DockPanel>
                                     </Border>
 
-                                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" ClipToBounds="True">
-                                        <Button Classes="mod-title"
-                                                IsEnabled="{Binding HasPage}"
-                                                Tag="{Binding DetailUrl}"
-                                                Click="OnOpenPageFromTitle">
-                                            <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"
-                                                       TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Spacing="6">
+                                        <Border x:Name="Thumbnail" Width="120" Height="120"
+                                                CornerRadius="15"
+                                                Background="#101418"
+                                                BorderBrush="{StaticResource Dd.Border}" BorderThickness="1"
+                                                ClipToBounds="True">
+                                            <Grid>
+                                                <svc:WebImage Url="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                <Border HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                                        Margin="0,1,0,0" Padding="10,2"
+                                                        CornerRadius="8"
+                                                        Background="{StaticResource Dd.Border}"
+                                                        ToolTip.Tip="This mod is disabled, toggle checkmark to enable.">
+                                                    <Border.IsVisible>
+                                                        <MultiBinding Converter="{StaticResource And}">
+                                                            <Binding Path="IsDisabled"/>
+                                                            <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                                <Binding Path="InstalledVersion"/>
+                                                                <Binding Path="Versions"/>
+                                                            </MultiBinding>
+                                                        </MultiBinding>
+                                                    </Border.IsVisible>
+                                                    <TextBlock Text="Mod Disabled" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource Dd.DarkOrange}" />
+                                                </Border>
+
+                                                <Border HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                                        Margin="0,1,0,0" Padding="7,2"
+                                                        CornerRadius="8"
+                                                        ToolTip.Tip="This mod was not installed with Mod Manager"
+                                                        Background="{StaticResource Dd.Red}">
+                                                    <Border.IsVisible>
+                                                        <MultiBinding Converter="{StaticResource ShowCustom}">
+                                                            <Binding Path="InstalledVersion"/>
+                                                            <Binding Path="Versions"/>
+                                                        </MultiBinding>
+                                                    </Border.IsVisible>
+                                                    <TextBlock Text="Not Supported" FontWeight="Bold" Foreground="{StaticResource Dd.Black}" />
+                                                </Border>
+
+                                                <Button Classes="update-badge"
+                                                        Margin="1,0,0,0" Padding="8,2"
+                                                        Width="110" Height="10"
+                                                        HorizontalContentAlignment="Center"
+                                                        CornerRadius="8"
+                                                        Content="Update Mod"
+                                                        Background="{StaticResource Dd.Orange}"
+                                                        Tag="{Binding .}"
+                                                        Click="OnUpdateFromBadge"
+                                                        ToolTip.Tip="Click to update to latest version."
+                                                        IsEnabled="{Binding IsDisabled, Converter={StaticResource Not}}">
+                                                    <Button.IsVisible>
+                                                        <MultiBinding Converter="{StaticResource And}">
+                                                            <Binding Path="IsOutdated"/>
+                                                            <Binding Path="IsDisabled" Converter="{StaticResource Not}"/>
+                                                            <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                                <Binding Path="InstalledVersion"/>
+                                                                <Binding Path="Versions"/>
+                                                            </MultiBinding>
+                                                        </MultiBinding>
+                                                    </Button.IsVisible>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+
+                                        <Button Content="Change Version"
+                                                FontSize="13"
+                                                Classes="btn btn-neutral"
+                                                Tag="{Binding .}"
+                                                Click="OnOpenVersionModal">
+                                            <Button.IsEnabled>
+                                                <MultiBinding Converter="{StaticResource And}">
+                                                    <MultiBinding Converter="{StaticResource And}">
+                                                        <Binding Path="IsDisabled" Converter="{StaticResource Not}" />
+                                                        <Binding Path="Versions" Converter="{StaticResource HasItems}" />
+                                                    </MultiBinding>
+                                                    <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                        <Binding Path="InstalledVersion"/>
+                                                        <Binding Path="Versions"/>
+                                                    </MultiBinding>
+                                                </MultiBinding>
+                                            </Button.IsEnabled>
                                         </Button>
+                                    </StackPanel>
 
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
                                         <Button Classes="guid-pill"
                                                 IsVisible="{Binding Guid, Converter={StaticResource StringHasTextConverter}}"
                                                 Tag="{Binding Guid}"
@@ -270,11 +409,10 @@
                                             <TextBlock Text="{Binding Guid, StringFormat=(\{0\})}" />
                                         </Button>
 
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <Border Classes="pill" Padding="10,2,10,2" IsVisible="{Binding HasCategory}">
+                                        <WrapPanel Orientation="Horizontal">
+                                            <Border Classes="pill" Padding="8,2" IsVisible="{Binding HasCategory}">
                                                 <TextBlock Text="{Binding Category}" />
                                             </Border>
-
                                             <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                           VerticalScrollBarVisibility="Disabled"
                                                           PointerWheelChanged="OnAuthorsWheel"
@@ -287,14 +425,31 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Button Classes="owner-pill" Padding="10,2,10,2" Content="{Binding .}" Tag="{Binding .}" Click="OnAuthorClick" />
+                                                            <Button Classes="owner-pill" Padding="8,2"
+                                                                    Content="{Binding .}" Tag="{Binding .}" Click="OnAuthorClick" />
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
                                             </ScrollViewer>
-                                        </StackPanel>
+                                        </WrapPanel>
 
-                                        <Border Classes="pill" Padding="10,2,10,2" HorizontalAlignment="Left">
+                                        <Border Classes="pill" Padding="8,2" HorizontalAlignment="Left">
+                                            <Border.IsVisible>
+                                                <MultiBinding Converter="{StaticResource ShowCustom}">
+                                                    <Binding Path="InstalledVersion"/>
+                                                    <Binding Path="Versions"/>
+                                                </MultiBinding>
+                                            </Border.IsVisible>
+                                            <TextBlock Text="Custom Install" FontWeight="SemiBold"/>
+                                        </Border>
+                                        
+                                        <Border Classes="pill" Padding="8,2" HorizontalAlignment="Left">
+                                            <Border.IsVisible>
+                                                <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                    <Binding Path="InstalledVersion"/>
+                                                    <Binding Path="Versions"/>
+                                                </MultiBinding>
+                                            </Border.IsVisible>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <TextBlock Text="Installed" />
                                                 <TextBlock Text="{Binding InstalledVersion}" />
@@ -304,13 +459,16 @@
                                             </StackPanel>
                                         </Border>
 
-                                        <Border Classes="pill" Padding="10,2,10,2" HorizontalAlignment="Left" IsVisible="{Binding InstalledAtText, Converter={StaticResource StringHasTextConverter}}">
+                                        <Border Classes="pill" Padding="8,2" HorizontalAlignment="Left"
+                                                IsVisible="{Binding InstalledAtText, Converter={StaticResource StringHasTextConverter}}">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <TextBlock Text="Installed" />
                                                 <TextBlock Text="{Binding InstalledAtText}" />
                                             </StackPanel>
                                         </Border>
-                                        <Border Classes="pill" Padding="10,2,10,2" HorizontalAlignment="Left" IsVisible="{Binding LatestPublishedText, Converter={StaticResource StringHasTextConverter}}">
+
+                                        <Border Classes="pill" Padding="8,2" HorizontalAlignment="Left"
+                                                IsVisible="{Binding LatestPublishedText, Converter={StaticResource StringHasTextConverter}}">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <TextBlock Text="Latest published" />
                                                 <TextBlock Text="{Binding LatestPublishedText}" />
@@ -318,59 +476,65 @@
                                         </Border>
                                     </StackPanel>
 
-                                    <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Grid.Column="0"
-                                                Spacing="8" Margin="0,0,0,0" VerticalAlignment="Bottom">
-                                        <WrapPanel Orientation="Horizontal" Margin="2,5,0,0">
-                                            <ComboBox x:Name="VerBox" Width="297"
-                                                      ItemsSource="{Binding Versions}"
-                                                      SelectedIndex="0"
-                                                      AttachedToVisualTree="OnVersionBoxAttached">
-                                                <ComboBox.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <TextBlock Text="{Binding ., Converter={StaticResource VersionLabelConverter}}" />
-                                                    </DataTemplate>
-                                                </ComboBox.ItemTemplate>
-                                            </ComboBox>
-                                            <Button Content="Change Version" Margin="8,0,0,0" Classes="btn"
-                                                    Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
-                                                    Click="OnChangeVersion">
+                                    <Grid Grid.Row="2" Grid.ColumnSpan="3" Grid.Column="0" ColumnDefinitions="*,Auto">
+                                        <WrapPanel Grid.Column="0" Orientation="Horizontal" Margin="0,5,0,0">
+                                            <Button Content="List Files" Classes="btn btn-neutral" Margin="0,0,5,0" Tag="{Binding .}">
                                                 <Button.IsEnabled>
-                                                    <MultiBinding Converter="{StaticResource VersionDiffEnabled}">
-                                                        <Binding Path="InstalledVersion" />
-                                                        <Binding ElementName="VerBox" Path="SelectedItem" />
+                                                    <MultiBinding Converter="{StaticResource And}">
+                                                        <Binding Path="IsDisabled" Converter="{StaticResource Not}" />
+                                                        <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                            <Binding Path="InstalledVersion"/>
+                                                            <Binding Path="Versions"/>
+                                                        </MultiBinding>
+                                                    </MultiBinding>
+                                                </Button.IsEnabled>
+                                                </Button>
+                                            <Button Content="Edit Configs"
+                                                    Classes="btn btn-neutral"
+                                                    Margin="0,0,5,0"
+                                                    Tag="{Binding .}"
+                                                    IsVisible="{Binding HasEditableConfigs}">
+                                                <Button.IsEnabled>
+                                                    <MultiBinding Converter="{StaticResource And}">
+                                                        <Binding Path="IsDisabled" Converter="{StaticResource Not}" />
+                                                        <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                            <Binding Path="InstalledVersion"/>
+                                                            <Binding Path="Versions"/>
+                                                        </MultiBinding>
                                                     </MultiBinding>
                                                 </Button.IsEnabled>
                                             </Button>
-                                        </WrapPanel>
-                                        <WrapPanel Orientation="Horizontal" Margin="2,5,0,0">
-
-                                            <Button Content="Update" Margin="8,0,0,0" Classes="btn btn-success" IsEnabled="{Binding CanUpdate}"
-                                                    Tag="{Binding .}" />
-                                            <Button Content="Uninstall" Margin="8,0,0,0" Classes="btn btn-danger"
-                                                    Tag="{Binding .}" />
-                                            <Button Content="List Files" Margin="8,0,0,0" Classes="btn btn-neutral"
-                                                    Tag="{Binding .}" />
-                                            <Button Content="Edit Configs" Margin="8,0,0,0" Classes="btn btn-neutral"
-                                                    Tag="{Binding .}" IsVisible="{Binding HasEditableConfigs}"/>
 
                                             <ItemsControl ItemsSource="{Binding SourceButtons}" IsVisible="{Binding HasSources}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
-                                                        <StackPanel Orientation="Horizontal" Spacing="5" />
+                                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                                            </StackPanel>
                                                     </ItemsPanelTemplate>
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Button Classes="btn btn-neutral"
-                                                                Margin="5,0,0,0"
-                                                                Content="{Binding Label}"
-                                                                Tag="{Binding Url}"
-                                                                Click="OnOpenSource" />
+                                                        <Button Classes="btn btn-neutral" Content="{Binding Label}"
+                                                                Tag="{Binding Url}" Click="OnOpenSource" />
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                         </WrapPanel>
-                                    </StackPanel>
+
+                                        <Button Grid.Column="1"
+                                                Classes="btn-trash"
+                                                Content="❌" FontSize="20" Margin="0,0,-7,-7"
+                                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                ToolTip.Tip="Uninstall" Tag="{Binding .}">
+                                            <Button.IsVisible>
+                                                <MultiBinding Converter="{StaticResource ShowCustom}" ConverterParameter="invert">
+                                                    <Binding Path="InstalledVersion"/>
+                                                    <Binding Path="Versions"/>
+                                                </MultiBinding>
+                                            </Button.IsVisible>
+                                        </Button>
+                                    </Grid>
+                                    
                                 </Grid>
 
                                 <Border.ContextMenu>
@@ -386,15 +550,13 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </ScrollViewer>
-            
+
             <StackPanel Grid.Row="2" x:Name="EmptyState"
                         Spacing="8"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         IsVisible="False">
-                <TextBlock Classes="h2"
-                           Text="No mods found." 
-                           HorizontalAlignment="Center"/>
+                <TextBlock Classes="h2" Text="No mods found." HorizontalAlignment="Center"/>
                 <TextBlock Opacity="0.85"
                            Text="Install something from Browse Mods, or click 'Refresh Mods' to scan your SPT folder."
                            TextAlignment="Center"

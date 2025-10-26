@@ -172,7 +172,10 @@ public sealed class InstallQueue
                 job.IsCompleted = true;
             });
             Notifications.Current.UnbindInstall(job);
-            Notifications.Current.ShowError("Install Failed", job.Title);
+            if (ex.Message.Contains("7za list failed"))
+                Notifications.Current.ShowError("Install Failed", job.Title + "This mod does not have direct download.");
+            else 
+                Notifications.Current.ShowError("Install Failed", job.Title);
             Console.WriteLine("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
         }
     }
@@ -349,8 +352,11 @@ public sealed class InstallQueue
                 job.IsCompleted = true;
             });
             Notifications.Current.UnbindInstall(job);
-            Notifications.Current.ShowError("Install Failed", name);
-            Console.WriteLine("[InstallQueue] Remote install failed: " + name + " | " + ex);
+            if (ex.Message.Contains("7za list failed"))
+                Notifications.Current.ShowError("Install Failed", job.Title + "This mod does not have direct download.");
+            else 
+                Notifications.Current.ShowError("Install Failed", job.Title);
+            Console.WriteLine("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
         }
     }
 

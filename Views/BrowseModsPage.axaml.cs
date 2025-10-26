@@ -927,7 +927,6 @@ public partial class BrowseModsPage : UserControl
 
         ShowSearchOverlay(softOverlay);
 
-        // Ensure the overlay (or BusyBar for soft) actually renders before the fast query completes
         await FlushUiAsync();
 
         var raw = (SearchBox.Text ?? "").Trim();

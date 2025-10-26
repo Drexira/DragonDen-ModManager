@@ -9,7 +9,7 @@ public sealed class InstalledModRow
     public List<string> ModIds { get; set; } = new();
     public string Name { get; set; } = "";
     public string Guid { get; set; } = "";
-    public string InstalledVersion { get; set; } = "0.0.0";
+    public string InstalledVersion { get; set; } = "Custom Install";
     public int FileCount { get; set; }
     public bool HasEditableConfigs { get; set; }
     public string Thumbnail { get; set; } = "";
@@ -32,6 +32,10 @@ public sealed class InstalledModRow
     public bool HasCategory => !string.IsNullOrWhiteSpace(Category);
     public string? ThumbnailOrPlaceholder => string.IsNullOrWhiteSpace(Thumbnail) ? null : Thumbnail;
     public List<ForgeClient.ModVersion> Versions { get; set; } = new();
+    public bool IsDisabled { get; set; }
+    public string DisabledAtText { get; set; } = "";
+    public bool ShowDisable => !IsDisabled;
+    public bool ShowEnable  =>  IsDisabled;
 
     public sealed class SourceButton
     {

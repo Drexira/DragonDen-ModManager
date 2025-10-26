@@ -27,7 +27,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         
         Opened += (_, __) => { 
-            var scale = this.RenderScaling; // e.g., 1.25 at 125% Windows scaling
+            var scale = this.RenderScaling;
             Console.WriteLine($"Client={ClientSize.Width}x{ClientSize.Height}  " +
                             $"Outer={Width}x{Height}  Scale={scale:0.##}");
             ClientSize = new Size(1280, 720); 

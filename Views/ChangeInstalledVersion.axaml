@@ -1,0 +1,101 @@
+﻿<Window
+    x:Class="DragonDen.ModManager.Views.ChangeInstalledVersion"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    TransparencyLevelHint="AcrylicBlur,Blur,Transparent"
+    Background="{StaticResource Dd.Panel}"
+    ExtendClientAreaTitleBarHeightHint="36"
+    WindowStartupLocation="CenterOwner"
+    SystemDecorations="BorderOnly"
+    MinWidth="400" MinHeight="300"
+    Width="400" Height="300"
+    SizeToContent="Manual"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ShowInTaskbar="False"
+    CanResize="False">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Dd.Panel" Color="#13181D" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#20262D" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+        <SolidColorBrush x:Key="Dd.ListRow" Color="#11161B" />
+        <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+        <SolidColorBrush x:Key="Dd.Btn.Hover" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+        <SolidColorBrush x:Key="Dd.Green" Color="#1faa33" />
+        <SolidColorBrush x:Key="Dd.Green.Hover" Color="#2ad643" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.title">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.title:pointerover">
+            <Setter Property="Background" Value="#2E2E2E" />
+        </Style>
+
+        <Style Selector="Border.row">
+            <Setter Property="Background" Value="{StaticResource Dd.ListRow}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+
+        <Style Selector="Button.action">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+            <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="MinWidth" Value="84" />
+        </Style>
+        <Style Selector="Button.action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Btn.Hover}" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+        <Style Selector="Button.install">
+            <Setter Property="Background" Value="{StaticResource Dd.Green}" />
+            <Setter Property="Foreground" Value="#0C1116" />
+        </Style>
+        <Style Selector="Button.install:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Green.Hover}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="{StaticResource Dd.Panel}" BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" Height="36">
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="12,0" VerticalAlignment="Center">
+                    <Path Data="M4,0 L8,6 L0,6 Z" Fill="#7AA2F7" Width="10" Height="10" />
+                    <TextBlock x:Name="TitleText" Text="Select a Version" VerticalAlignment="Center" FontWeight="SemiBold" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0" Spacing="6">
+                    <Button Classes="title" Click="OnClose" ToolTip.Tip="Close">
+                        <Grid Width="12" Height="12">
+                            <Path Data="M1,1 L11,11" Stroke="White" StrokeThickness="1.7" StrokeLineCap="Round" />
+                            <Path Data="M11,1 L1,11" Stroke="White" StrokeThickness="1.7" StrokeLineCap="Round" />
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Padding="10" Background="{StaticResource Dd.Panel}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="Rows" />
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>
