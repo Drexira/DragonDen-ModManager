@@ -1,17 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DragonDen.ModManager.Services;
 using DragonDen.ModManager.Storage;
+using DragonDen.ModManager.Utils;
 using Color = Avalonia.Media.Color;
 using Size = Avalonia.Size;
 
@@ -28,7 +34,7 @@ public partial class MainWindow : Window
         
         Opened += (_, __) => { 
             var scale = this.RenderScaling;
-            Console.WriteLine($"Client={ClientSize.Width}x{ClientSize.Height}  " +
+            Console.WriteLine($"[MainWindow] Client={ClientSize.Width}x{ClientSize.Height}  " +
                             $"Outer={Width}x{Height}  Scale={scale:0.##}");
             ClientSize = new Size(1280, 720); 
         };
@@ -84,6 +90,8 @@ public partial class MainWindow : Window
                 return;
             }
         }
+        
+        await SelfUpdateChecker.CheckOnStartupAsync(this);
 
         try
         {
@@ -91,8 +99,9 @@ public partial class MainWindow : Window
             App.Db = new Db(modsDbPath);
             App.Db.Init();
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"[MainWindow] Error initializing mods db: {ex.Message}");
         }
 
         if (Spt.TryGetServerVersionThree(out var _three, out var majorTwo))
@@ -120,7 +129,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Failed", "Unable to open the Ko-Fi page. Check your internet connection or default browser.");
-            Console.WriteLine($"Failed to open Ko-Fi link: {ex.Message}");
+            Console.WriteLine($"[MainWindow] Failed to open Ko-Fi link: {ex.Message}");
         }
     }
 

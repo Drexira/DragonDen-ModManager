@@ -1,0 +1,149 @@
+﻿<Window
+    x:Class="DragonDen.ModManager.Views.UpdateAvailableDialog"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Update Available"
+    Width="650" Height="550"
+    CanResize="True"
+    ShowInTaskbar="False"
+    WindowStartupLocation="CenterOwner"
+    SystemDecorations="None"
+    SizeToContent="Manual"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    Background="{StaticResource Dd.Panel}">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
+    <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+    <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+    <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+    <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Accent" Color="#FF8A00" />
+    <SolidColorBrush x:Key="Dd.Cyan" Color="#7AA2F7" />
+    <LinearGradientBrush x:Key="Header.Gradient" StartPoint="0,0" EndPoint="1,0">
+      <GradientStop Color="#19202A" Offset="0"/>
+      <GradientStop Color="#15202B" Offset="0.5"/>
+      <GradientStop Color="#11171D" Offset="1"/>
+    </LinearGradientBrush>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="Button.title">
+      <Setter Property="Width" Value="28"/>
+      <Setter Property="Height" Value="28"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.title:pointerover">
+      <Setter Property="Background" Value="#2E2E2E"/>
+    </Style>
+
+    <Style Selector="Button.action">
+      <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinWidth" Value="150" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.action.primary">
+      <Setter Property="Background" Value="{StaticResource Dd.Accent}" />
+      <Setter Property="Foreground" Value="#0C1116" />
+      <Setter Property="BorderBrush" Value="#D87300" />
+    </Style>
+    <Style Selector="Button.action.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFA347" />
+    </Style>
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="#151B21"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="12"/>
+    </Style>
+    <Style Selector="Border.subtle">
+      <Setter Property="Background" Value="#0F1419"/>
+      <Setter Property="BorderBrush" Value="#232B33"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="10"/>
+    </Style>
+
+    <Style Selector="Border.chip">
+      <Setter Property="Background" Value="#222934"/>
+      <Setter Property="BorderBrush" Value="#2E3744"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="999"/>
+      <Setter Property="Padding" Value="8,3"/>
+      <Setter Property="Margin" Value="4,0,0,0"/>
+    </Style>
+    <Style Selector="Border.chip.primary">
+      <Setter Property="Background" Value="#1F2A38"/>
+      <Setter Property="BorderBrush" Value="#38506E"/>
+    </Style>
+
+    <Style Selector="Expander.clean">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="12">
+    <Border Grid.Row="0" Background="{StaticResource Header.Gradient}" CornerRadius="10" BorderBrush="{StaticResource Dd.Border}"
+            BorderThickness="1" Padding="10" PointerPressed="OnDragWindow">
+      <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+        <Grid Width="24" Height="24" Margin="0,0,8,0">
+          <Path Data="M4,0 L8,6 L0,6 Z" Fill="{StaticResource Dd.Cyan}" Width="16" Height="12" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        </Grid>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock x:Name="TitleText" Text="Update Available" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}" />
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Border Classes="chip primary">
+              <TextBlock x:Name="LatestChip" Text="v0.0.0" Foreground="{StaticResource Dd.Text}" FontWeight="SemiBold" FontSize="12"/>
+            </Border>
+            <Border Classes="chip">
+              <TextBlock x:Name="CurrentChip" Text="Current v0.0.0" Foreground="{StaticResource Dd.Subtle}" FontSize="12"/>
+            </Border>
+          </StackPanel>
+        </StackPanel>
+
+        <Button Grid.Column="2" Classes="title" ToolTip.Tip="Close" Click="OnCloseClick">
+          <Grid Width="12" Height="12">
+            <Path Data="M1,1 L11,11" Stroke="{StaticResource Dd.Text}" StrokeThickness="1.7" StrokeLineCap="Round" />
+            <Path Data="M11,1 L1,11" Stroke="{StaticResource Dd.Text}" StrokeThickness="1.7" StrokeLineCap="Round" />
+          </Grid>
+        </Button>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1" Classes="card" Margin="0,12,0,12">
+      <StackPanel Spacing="10">
+        <TextBlock Text="A newer version of Dragon Den Mod Manager is available." Foreground="{StaticResource Dd.Text}" />
+        <Border Background="{StaticResource Dd.Panel}" BorderBrush="{StaticResource Dd.Border}" 
+                BorderThickness="1" CornerRadius="6" Padding="10">
+          <TextBlock Text="Changelog" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}" />
+        </Border>
+
+        <Border Classes="subtle">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="260">
+            <TextBlock x:Name="ChangelogText" TextWrapping="Wrap" Foreground="{StaticResource Dd.Text}" Opacity="0.95"/>
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,2">
+      <TextBlock/>
+      <Button x:Name="ShowPageBtn" Classes="action primary" Content="Show Update Page" Grid.Column="1" Margin="0,0,8,0"/>
+      <Button x:Name="LaterBtn" Classes="action" Content="I'll install later" Grid.Column="2"/>
+    </Grid>
+  </Grid>
+</Window>
