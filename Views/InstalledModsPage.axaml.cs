@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -9,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -99,13 +99,13 @@ public partial class InstalledModsPage : UserControl
             else
             {
                 Notifications.Current.ShowError("Missing Folder", $"The folder '{path}' could not be found.");
-                Console.WriteLine($"OpenFolder: target folder missing → {path}");
+                Console.WriteLine($"[InstalledModsPage] OpenFolder: target folder missing → {path}");
             }
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Folder Failed", $"Could not open '{path}'. Check if the folder exists or is accessible.");
-            Console.WriteLine($"OpenFolder exception: {ex.Message}");
+            Console.WriteLine($"[InstalledModsPage] OpenFolder exception: {ex.Message}");
         }
     }
 
@@ -346,7 +346,7 @@ public partial class InstalledModsPage : UserControl
             }
             catch
             {
-                Console.WriteLine($"ShowFilesDialog: failed to list files for mod ID {id}");
+                Console.WriteLine($"[InstalledModsPage] ShowFilesDialog: failed to list files for mod ID {id}");
             }
 
         var files = merged
@@ -398,7 +398,7 @@ public partial class InstalledModsPage : UserControl
             }
             catch
             {
-                Console.WriteLine($"ShowConfigDialog: failed to list files for mod ID {id}");
+                Console.WriteLine($"[InstalledModsPage] ShowConfigDialog: failed to list files for mod ID {id}");
             }
 
         var items = new List<ConfigDialog.ConfigItem>();
@@ -449,7 +449,7 @@ public partial class InstalledModsPage : UserControl
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Source Link Failed", $"Could not open source link for '{b.Content}'.");
-                Console.WriteLine($"OpenSource link error: {ex.Message}");
+                Console.WriteLine($"[InstalledModsPage] OpenSource link error: {ex.Message}");
             }
     }
 
@@ -534,7 +534,55 @@ public partial class InstalledModsPage : UserControl
         var updatesFirst = UpdatesFirstChk?.IsChecked ?? false;
         var hideDisabled = HideDisabledChk?.IsChecked ?? false;
 
-        var (allRows, statusText) = await BuildRowsAsync(sortTag, updatesFirst);
+        var visible = new ObservableCollection<InstalledModRow>();
+        ModsList.ItemsSource = visible;
+
+        var totalCount = 0;
+        var visibleCount = 0;
+        var loading = true;
+        const string Suffix = " (updating in progress)";
+
+        bool PassesFilters(InstalledModRow r)
+        {
+            var single = new[] { r };
+            var matched = ApplySearchFilter(single, _searchText).Any();
+            if (hideDisabled) matched = matched && !r.IsDisabled;
+            return matched;
+        }
+
+        void UpdateStatusLive()
+        {
+            var baseText = totalCount == 0
+                ? "Loading installed mods..."
+                : (visibleCount == totalCount
+                    ? $"{visibleCount} installed mods"
+                    : $"Showing {visibleCount} of {totalCount} installed");
+
+            StatusText.Text = loading ? (baseText + Suffix) : baseText;
+        }
+
+        var (allRows, statusText) = await BuildRowsStreamingAsync(
+            sortTag,
+            updatesFirst,
+            row =>
+            {
+                Interlocked.Increment(ref totalCount);
+                if (PassesFilters(row))
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        visible.Add(row);
+                        visibleCount++;
+                        UpdateStatusLive();
+                    });
+                }
+                else
+                {
+                    Dispatcher.UIThread.Post(UpdateStatusLive);
+                }
+            });
+
+        loading = false;
 
         var filtered = ApplySearchFilter(allRows, _searchText).ToList();
         if (hideDisabled)
@@ -542,16 +590,10 @@ public partial class InstalledModsPage : UserControl
 
         ModsList.ItemsSource = filtered;
 
-        StatusText.Text = filtered.Count == allRows.Count
-            ? statusText
-            : $"Showing {filtered.Count} of {allRows.Count} installed";
-
-        _emptyState = this.FindControl<StackPanel>("EmptyState");
-        if (_emptyState != null)
-            _emptyState.IsVisible = allRows.Count == 0;
+        StatusText.Text = filtered.Count == allRows.Count ? $"{statusText}" : $"Showing {filtered.Count} of {allRows.Count} installed";
     }
 
-    private async Task<(List<InstalledModRow> final, string statusText)> BuildRowsAsync(string sortTag, bool updatesFirst)
+    private async Task<(List<InstalledModRow> final, string statusText)> BuildRowsStreamingAsync(string sortTag, bool updatesFirst, Action<InstalledModRow>? onProgress)
     {
         await Task.Yield();
 
@@ -605,8 +647,7 @@ public partial class InstalledModsPage : UserControl
 
             var safeName = Uri.EscapeDataString(name ?? "");
             var thumbnail = this.FindControl<Border>("Thumbnail");
-            string thumbSize;
-            thumbSize = thumbnail != null ? thumbnail.Width + "x" + thumbnail.Height : "120x120";
+            string thumbSize = thumbnail != null ? $"{thumbnail.Width}x{thumbnail.Height}" : "120x120";
             return $"https://placehold.co/{thumbSize}/31343C/EEE.png?text={safeName}&font=source-sans-pro";
         }
 
@@ -657,7 +698,7 @@ public partial class InstalledModsPage : UserControl
                 var installedAt = newestUnix > 0 ? DateTimeOffset.FromUnixTimeSeconds(newestUnix) : (DateTimeOffset?)null;
 
                 var installedBest = g.Select(x => x.version).Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
-                var installedVersion = installedBest.FirstOrDefault() ?? "Custom Install";
+                var installedVersion = installedBest.FirstOrDefault() ?? "0.0.0";
                 foreach (var v in installedBest)
                     if (SemverUtil.TryParseStrict(v, out var vs) &&
                         SemverUtil.TryParseStrict(installedVersion, out var vb) &&
@@ -682,7 +723,7 @@ public partial class InstalledModsPage : UserControl
                     }
                     catch
                     {
-                        Console.WriteLine($"BuildRowsAsync: version cache failed for {name}");
+                        Console.WriteLine($"[InstalledModsPage] BuildRowsStreamingAsync: version cache failed for {name}");
                     }
 
                 var sorted = OrderVersionsForRow(versionsForRow);
@@ -711,7 +752,7 @@ public partial class InstalledModsPage : UserControl
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"BuildRowsAsync: IsDisabled check failed for {name}: {ex}");
+                    Console.WriteLine($"[InstalledModsPage] BuildRowsStreamingAsync: IsDisabled check failed for {name}: {ex}");
                 }
 
                 var hasEditableConfigs = false;
@@ -736,10 +777,10 @@ public partial class InstalledModsPage : UserControl
                 }
                 catch
                 {
-                    Console.WriteLine($"BuildRowsAsync: failed checking editable configs for {name}");
+                    Console.WriteLine($"[InstalledModsPage] BuildRowsStreamingAsync: failed checking editable configs for {name}");
                 }
 
-                rows.Add(new InstalledModRow
+                var row = new InstalledModRow
                 {
                     ModIds = modIds,
                     Name = name,
@@ -763,7 +804,11 @@ public partial class InstalledModsPage : UserControl
                     LatestPublishedText = latestForAB?.PublishedAt.HasValue == true ? latestForAB!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd") : "",
                     HasEditableConfigs = hasEditableConfigs,
                     IsDisabled = isDisabled
-                });
+                };
+
+                rows.Add(row);
+
+                onProgress?.Invoke(row);
             }
             finally
             {
@@ -866,7 +911,7 @@ public partial class InstalledModsPage : UserControl
         else
         {
             Notifications.Current.ShowError("No Update Link", $"The mod '{row.Name}' has no downloadable update link.");
-            Console.WriteLine($"Update badge click failed: no update link for {row.Name}");
+            Console.WriteLine($"[InstalledModsPage] Update badge click failed: no update link for {row.Name}");
         }
     }
 
@@ -947,7 +992,7 @@ public partial class InstalledModsPage : UserControl
         if (string.IsNullOrWhiteSpace(url))
         {
             Notifications.Current.ShowError("Missing Page URL", "No valid mod page URL is available for this mod.");
-            Console.WriteLine("OnOpenPageFromTitle: missing URL.");
+            Console.WriteLine("[InstalledModsPage] OnOpenPageFromTitle: missing URL.");
             return;
         }
 
@@ -958,7 +1003,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Page Open Failed", $"Could not open mod page: {url}");
-            Console.WriteLine($"OnOpenPageFromTitle error: {ex.Message}");
+            Console.WriteLine($"[InstalledModsPage] OnOpenPageFromTitle error: {ex.Message}");
         }
     }
 
@@ -969,7 +1014,7 @@ public partial class InstalledModsPage : UserControl
         if (string.IsNullOrWhiteSpace(url))
         {
             Notifications.Current.ShowError("Missing Page URL", "No valid mod page URL is available for this mod.");
-            Console.WriteLine("OnOpenPageFromContext: missing URL.");
+            Console.WriteLine("[InstalledModsPage] OnOpenPageFromContext: missing URL.");
             return;
         }
 
@@ -980,7 +1025,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Page Open Failed", $"Could not open mod page: {url}");
-            Console.WriteLine($"OnOpenPageFromContext error: {ex.Message}");
+            Console.WriteLine($"[InstalledModsPage] OnOpenPageFromContext error: {ex.Message}");
         }
     }
 
@@ -1005,7 +1050,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Copy Failed", "Unable to copy the link to clipboard.");
-            Console.WriteLine($"CopyLink exception: {ex.Message}");
+            Console.WriteLine($"[InstalledModsPage] CopyLink exception: {ex.Message}");
         }
     }
 
@@ -1026,7 +1071,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Copy Failed", "Unable to copy the GUID to clipboard.");
-            Console.WriteLine($"CopyGuid exception: {ex.Message}");
+            Console.WriteLine($"[InstalledModsPage] CopyGuid exception: {ex.Message}");
         }
     }
 
@@ -1043,7 +1088,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Image Open Failed", "Could not open thumbnail image in browser.");
-            Console.WriteLine($"OnOpenThumb error: {ex.Message}");
+            Console.WriteLine($"[InstalledModsPage] OnOpenThumb error: {ex.Message}");
         }
     }
 
