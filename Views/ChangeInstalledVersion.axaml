@@ -7,13 +7,13 @@
     ExtendClientAreaTitleBarHeightHint="36"
     WindowStartupLocation="CenterOwner"
     SystemDecorations="BorderOnly"
-    MinWidth="400" MinHeight="300"
-    Width="400" Height="300"
+    MinWidth="500" MinHeight="300"
+    Width="600" Height="600"
     SizeToContent="Manual"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaChromeHints="NoChrome"
     ShowInTaskbar="False"
-    CanResize="False">
+    CanResize="true">
 
     <Window.Resources>
         <SolidColorBrush x:Key="Dd.Panel" Color="#13181D" />
@@ -40,6 +40,45 @@
         </Style>
         <Style Selector="Button.title:pointerover">
             <Setter Property="Background" Value="#2E2E2E" />
+        </Style>
+
+        <Style Selector="Border.card">
+          <Setter Property="Background" Value="#151B21"/>
+          <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}"/>
+          <Setter Property="BorderThickness" Value="1"/>
+          <Setter Property="CornerRadius" Value="10"/>
+          <Setter Property="Padding" Value="12"/>
+          <Setter Property="Margin" Value="0,8,0,0"/>
+        </Style>
+
+        <Style Selector="Border.subtle">
+          <Setter Property="Background" Value="#0F1419"/>
+          <Setter Property="BorderBrush" Value="#232B33"/>
+          <Setter Property="BorderThickness" Value="1"/>
+          <Setter Property="CornerRadius" Value="8"/>
+          <Setter Property="Padding" Value="10"/>
+        </Style>
+
+        <Style Selector="Border.chip">
+          <Setter Property="Background" Value="#222934"/>
+          <Setter Property="BorderBrush" Value="#2E3744"/>
+          <Setter Property="BorderThickness" Value="1"/>
+          <Setter Property="CornerRadius" Value="999"/>
+          <Setter Property="Padding" Value="6,2"/>
+        </Style>
+
+        <Style Selector="Border.chip.primary">
+          <Setter Property="Background" Value="#1F2A38"/>
+          <Setter Property="BorderBrush" Value="#38506E"/>
+        </Style>
+
+        <Style Selector="Expander.clean">
+          <Setter Property="Padding" Value="0"/>
+          <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Expander.clean /template/ ToggleButton#PART_HeaderSite Path">
+            <Setter Property="IsVisible" Value="False"/>
         </Style>
 
         <Style Selector="Border.row">

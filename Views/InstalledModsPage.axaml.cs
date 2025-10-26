@@ -200,7 +200,7 @@ public partial class InstalledModsPage : UserControl
 
                 if (latestForAB != null && !string.IsNullOrWhiteSpace(latestForAB.Link))
                 {
-                    var lv = latestForAB.Version ?? "0.0.0";
+                    var lv = latestForAB.Version ?? "Custom Install";
                     if (IsUpdate(any.version, lv))
                     {
                         App.Queue.EnqueueRemote(any.name, latestForAB.Link!, lv, any.guid ?? "");
@@ -657,7 +657,7 @@ public partial class InstalledModsPage : UserControl
                 var installedAt = newestUnix > 0 ? DateTimeOffset.FromUnixTimeSeconds(newestUnix) : (DateTimeOffset?)null;
 
                 var installedBest = g.Select(x => x.version).Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
-                var installedVersion = installedBest.FirstOrDefault() ?? "0.0.0";
+                var installedVersion = installedBest.FirstOrDefault() ?? "Custom Install";
                 foreach (var v in installedBest)
                     if (SemverUtil.TryParseStrict(v, out var vs) &&
                         SemverUtil.TryParseStrict(installedVersion, out var vb) &&
@@ -837,7 +837,7 @@ public partial class InstalledModsPage : UserControl
 
     private void OnToggleEnabled(object? s, RoutedEventArgs e)
     {
-        if (s is not CheckBox cb || cb.Tag is not InstalledModRow row) return;
+        if (s is not CheckBox { Tag: InstalledModRow row } cb) return;
 
         var shouldEnable = cb.IsChecked == true;
 
@@ -860,7 +860,7 @@ public partial class InstalledModsPage : UserControl
         if (row.Latest?.Link is string url && !string.IsNullOrWhiteSpace(url))
         {
             b.IsEnabled = false;
-            App.Queue.EnqueueRemote(row.Name, url, row.Latest?.Version ?? "0.0.0", row.Guid ?? "");
+            App.Queue.EnqueueRemote(row.Name, url, row.Latest?.Version ?? "Custom Install", row.Guid ?? "");
             Notifications.Current.ShowSuccess("Update Queued", $"'{row.Name}' has been added to the update queue.");
         }
         else

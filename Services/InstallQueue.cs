@@ -195,7 +195,7 @@ public sealed class InstallQueue
                 job.SubPercent = 0;
             });
 
-            var cachePath = GetCachedArchivePath(name, url, string.IsNullOrWhiteSpace(version) ? "0.0.0" : version, guid ?? "");
+            var cachePath = GetCachedArchivePath(name, url, string.IsNullOrWhiteSpace(version) ? "Custom Install" : version, guid ?? "");
             string archivePath;
             if (File.Exists(cachePath))
             {
@@ -276,7 +276,7 @@ public sealed class InstallQueue
             var ctx = new Installer.InstallContext
             {
                 Name = name,
-                Version = string.IsNullOrWhiteSpace(version) ? "0.0.0" : version,
+                Version = string.IsNullOrWhiteSpace(version) ? "Custom Install" : version,
                 Guid = guid ?? "",
                 SourceUrl = url,
                 PreferredTarget = preferred,
@@ -418,6 +418,6 @@ public sealed class InstallQueue
 
     private static string GetCachedArchivePath(string name, string url, string version, string guid)
     {
-        return Path.Combine(GetDownloadsDir(), ComputeStableCacheName(name, url, version ?? "0.0.0", guid ?? ""));
+        return Path.Combine(GetDownloadsDir(), ComputeStableCacheName(name, url, version ?? "Custom Install", guid ?? ""));
     }
 }

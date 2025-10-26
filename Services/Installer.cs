@@ -125,7 +125,7 @@ public static class Installer
         }
 
         var name = ctx?.Name ?? Path.GetFileNameWithoutExtension(archivePath);
-        var version = string.IsNullOrWhiteSpace(ctx?.Version) ? "0.0.0" : ctx!.Version!;
+        var version = string.IsNullOrWhiteSpace(ctx?.Version) ? "Custom Install" : ctx!.Version!;
         var guid = ctx?.Guid ?? "";
         var sourceUrl = ctx?.SourceUrl ?? "";
 

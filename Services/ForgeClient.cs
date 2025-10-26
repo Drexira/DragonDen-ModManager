@@ -525,7 +525,9 @@ public static class ForgeClient
         foreach (var v in el.EnumerateArray())
         {
             DateTimeOffset? dto = null;
-            if (v.TryGetProperty("published_at", out var pe) && pe.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(pe.GetString(), out var p))
+            if (v.TryGetProperty("published_at", out var pe) &&
+                pe.ValueKind == JsonValueKind.String &&
+                DateTimeOffset.TryParse(pe.GetString(), out var p))
                 dto = p;
 
             var mv = new ModVersion
@@ -533,6 +535,7 @@ public static class ForgeClient
                 Id = v.GetPropertyOrDefault("id", 0),
                 Version = v.GetPropertyOrDefault("version", (string?)null),
                 Link = v.GetPropertyOrDefault("link", (string?)null),
+                Description = v.GetPropertyOrDefault("description", (string?)null),
                 SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null),
                 Downloads = v.GetPropertyOrDefault("downloads", 0L),
                 PublishedAt = dto,
@@ -555,7 +558,6 @@ public static class ForgeClient
                         is_optional = d.GetPropertyOrDefault("is_optional", false)
                     });
                 }
-
                 if (deps.Count > 0) mv.Dependencies = deps;
             }
 

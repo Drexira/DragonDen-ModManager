@@ -1217,7 +1217,7 @@ public partial class BrowseModsPage : UserControl
                 if (best is null || string.IsNullOrWhiteSpace(best.Link)) continue;
 
                 App.Queue.EnqueueRemote(string.IsNullOrWhiteSpace(dep.Name) ? dep.Guid ?? "Dependency" : dep.Name,
-                    best.Link!, best.Version ?? "0.0.0", dep.Guid ?? "");
+                    best.Link!, best.Version ?? "Custom Install", dep.Guid ?? "");
 
                 enqueued.Add((dep.ModId, dep.Name, dep.Guid));
             }
@@ -1227,7 +1227,7 @@ public partial class BrowseModsPage : UserControl
             }
         }
 
-        App.Queue.EnqueueRemote(modName, selectedVersion.Link!, selectedVersion.Version ?? "0.0.0", "");
+        App.Queue.EnqueueRemote(modName, selectedVersion.Link!, selectedVersion.Version ?? "Custom Install", "");
         enqueued.Add((0, modName, null));
 
         return enqueued;
@@ -1567,13 +1567,13 @@ public partial class BrowseModsPage : UserControl
             }
             else
             {
-                App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "0.0.0", rowCtx.Guid ?? "");
+                App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "Custom Install", rowCtx.Guid ?? "");
                 MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
             }
         }
         else
         {
-            App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "0.0.0", rowCtx.Guid ?? "");
+            App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "Custom Install", rowCtx.Guid ?? "");
             MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
         }
     }

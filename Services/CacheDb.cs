@@ -60,7 +60,7 @@ PRAGMA foreign_keys=ON;";
     );
     CREATE TABLE IF NOT EXISTS mods(
       id INTEGER PRIMARY KEY,
-      guid TEXT,                      -- NEW
+      guid TEXT,
       name TEXT,
       slug TEXT,
       teaser TEXT,
@@ -86,6 +86,7 @@ PRAGMA foreign_keys=ON;";
       mod_id INTEGER,
       version TEXT,
       link TEXT,
+      description TEXT,
       spt_version_constraint TEXT,
       downloads INTEGER,
       published_at TEXT,
@@ -99,7 +100,7 @@ PRAGMA foreign_keys=ON;";
     );
     CREATE INDEX IF NOT EXISTS idx_mods_name ON mods(name);
     CREATE INDEX IF NOT EXISTS idx_mods_slug ON mods(slug);
-    CREATE INDEX IF NOT EXISTS idx_mods_guid ON mods(guid);     -- NEW
+    CREATE INDEX IF NOT EXISTS idx_mods_guid ON mods(guid);
     CREATE INDEX IF NOT EXISTS idx_mods_updated ON mods(updated_at);
     CREATE INDEX IF NOT EXISTS idx_versions_mod ON versions(mod_id);
     CREATE INDEX IF NOT EXISTS idx_versions_sptnorm ON versions(spt_norm);
@@ -108,6 +109,7 @@ PRAGMA foreign_keys=ON;";
 
         EnsureColumn(c, "mods", "guid", "TEXT");
         EnsureColumn(c, "categories", "color_class", "TEXT");
+        EnsureColumn(c, "versions", "description", "TEXT");
         EnsureColumn(c, "versions", "spt_norm", "TEXT");
         try
         {
@@ -117,7 +119,6 @@ PRAGMA foreign_keys=ON;";
         }
         catch
         {
-            // good girl action
         }
 
         using (var fix = c.CreateCommand())
@@ -132,7 +133,6 @@ PRAGMA foreign_keys=ON;";
             }
             catch
             {
-                // good girl action
             }
         }
     }
@@ -555,11 +555,12 @@ PRAGMA foreign_keys=ON;";
         using var c = Conn();
         using var cmd = c.CreateCommand();
         cmd.CommandText = @"
-INSERT INTO versions(id,mod_id,version,link,spt_version_constraint,downloads,published_at,spt_norm)
-VALUES($id,$m,$ver,$link,$spt,$dl,$pub,$sptn)
+INSERT INTO versions(id,mod_id,version,link,description,spt_version_constraint,downloads,published_at,spt_norm)
+VALUES($id,$m,$ver,$link,$desc,$spt,$dl,$pub,$sptn)
 ON CONFLICT(id) DO UPDATE SET
  version=excluded.version,
  link=excluded.link,
+ description=excluded.description,
  spt_version_constraint=excluded.spt_version_constraint,
  downloads=excluded.downloads,
  published_at=excluded.published_at,
@@ -568,6 +569,7 @@ ON CONFLICT(id) DO UPDATE SET
         cmd.Parameters.AddWithValue("$m", modId);
         cmd.Parameters.AddWithValue("$ver", v.Version ?? "");
         cmd.Parameters.AddWithValue("$link", v.Link ?? "");
+        cmd.Parameters.AddWithValue("$desc", v.Description ?? "");
         cmd.Parameters.AddWithValue("$spt", v.SptVersionConstraint ?? "");
         cmd.Parameters.AddWithValue("$dl", v.Downloads);
         cmd.Parameters.AddWithValue("$pub", v.PublishedAt?.ToString("o", CultureInfo.InvariantCulture) ?? "");
@@ -639,13 +641,13 @@ ON CONFLICT(id) DO UPDATE SET
         var list = new List<ForgeClient.ModVersion>();
         using var cmd = c.CreateCommand();
         cmd.CommandText =
-            "SELECT id,version,link,spt_version_constraint,downloads,published_at FROM versions WHERE mod_id=$m ORDER BY COALESCE(published_at,'' ) DESC, id DESC";
+            "SELECT id,version,link,description,spt_version_constraint,downloads,published_at FROM versions WHERE mod_id=$m ORDER BY COALESCE(published_at,'' ) DESC, id DESC";
         cmd.Parameters.AddWithValue("$m", modId);
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
             DateTimeOffset? dto = null;
-            var ps = r.IsDBNull(5) ? "" : r.GetString(5);
+            var ps = r.IsDBNull(6) ? "" : r.GetString(6);
             if (DateTimeOffset.TryParse(ps, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)) dto = parsed;
 
             list.Add(new ForgeClient.ModVersion
@@ -653,8 +655,9 @@ ON CONFLICT(id) DO UPDATE SET
                 Id = r.GetInt32(0),
                 Version = r.IsDBNull(1) ? "" : r.GetString(1),
                 Link = r.IsDBNull(2) ? "" : r.GetString(2),
-                SptVersionConstraint = r.IsDBNull(3) ? "" : r.GetString(3),
-                Downloads = r.IsDBNull(4) ? 0 : r.GetInt64(4),
+                Description = r.IsDBNull(3) ? "" : r.GetString(3),
+                SptVersionConstraint = r.IsDBNull(4) ? "" : r.GetString(4),
+                Downloads = r.IsDBNull(5) ? 0 : r.GetInt64(5),
                 PublishedAt = dto
             });
         }
@@ -831,7 +834,7 @@ LIMIT 1;";
             var totalPages = 1;
             var newestSeen = since;
 
-            var delayMs = 950;
+            var delayMs = 150;
             var rnd = new Random();
 
             while (page <= maxPages)
@@ -876,7 +879,7 @@ LIMIT 1;";
                 page++;
 
                 await Task.Delay(delayMs, ct).ConfigureAwait(true);
-                delayMs = Math.Min((int)(delayMs * 1.15) + 50, 2000);
+                delayMs = Math.Min((int)(delayMs * 1.15) + 50, 1000);
             }
 
             if (newestSeen > since)
@@ -919,11 +922,12 @@ LIMIT 1;";
     public async Task EnsureVersionsCachedAsync(int modId)
     {
         var have = GetVersionsForMod(modId);
-        if (have.Count > 0) return;
+        var need = have.Count == 0 || have.Any(v => string.IsNullOrWhiteSpace(v.Description));
+        if (!need) return;
+
         var all = await ForgeClient.GetAllVersionsAsync(modId, App.ShutdownToken).ConfigureAwait(false);
         foreach (var v in all) UpsertVersion(modId, v);
     }
-
     public async Task<ForgeClient.ModVersion?> GetLatestVersionForModNameAsync(string name)
     {
         using var c = Conn();

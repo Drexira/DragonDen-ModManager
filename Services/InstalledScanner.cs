@@ -102,8 +102,8 @@ public static class InstalledScanner
                 var chosenDll = dllsInFolder.FirstOrDefault(d =>
                     string.Equals(Path.GetFileNameWithoutExtension(d), canonicalName, StringComparison.OrdinalIgnoreCase));
                 version = !string.IsNullOrWhiteSpace(chosenDll)
-                    ? DllVersion.FromDll(chosenDll) ?? "0.0.0"
-                    : DllVersion.DetectFromFolder(dir) ?? "0.0.0";
+                    ? DllVersion.FromDll(chosenDll) ?? "Custom Install"
+                    : DllVersion.DetectFromFolder(dir) ?? "Custom Install";
             }
 
             var files = Installer.Snapshot(dir)
@@ -156,7 +156,7 @@ public static class InstalledScanner
 
             var version = App.Db.TryGetInstalled(stem, out var v) && !string.IsNullOrWhiteSpace(v)
                 ? v!
-                : DllVersion.FromDll(dll) ?? "0.0.0";
+                : DllVersion.FromDll(dll) ?? "Custom Install";
 
             var files = new List<string> { rel! };
 
