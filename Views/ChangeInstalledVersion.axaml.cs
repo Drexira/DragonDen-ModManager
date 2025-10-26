@@ -160,7 +160,7 @@ public partial class ChangeInstalledVersion : Window
         
         headerBar.Children.Add(new TextBlock
         {
-            Text = isLatest ? "Latest Changelog" : "Changelog",
+            Text = "Changelog",
             FontWeight = FontWeight.SemiBold
         });
 
@@ -170,7 +170,7 @@ public partial class ChangeInstalledVersion : Window
             IsExpanded = isLatest,
             Header = new TextBlock
             {
-                Text = isLatest ? "Latest Changelog" : "Changelog",
+                Text = "Changelog",
                 FontWeight = FontWeight.SemiBold
             },
             Content = body
