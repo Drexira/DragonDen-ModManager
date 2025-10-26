@@ -4,6 +4,7 @@ using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using DragonDen.ModManager.Services;
 
 namespace DragonDen.ModManager.Views;
 
@@ -41,7 +42,8 @@ public partial class FirstRunDialog : Window
         var chosen = pick[0].Path.LocalPath;
         if (!Directory.Exists(chosen))
         {
-            App.Toasts?.Show("Folder doesn't exist.");
+            Notifications.Current.ShowError("Folder Missing", "The selected folder doesn't exist.");
+            Console.WriteLine("[FirstRunDialog] Folder does not exist: " + chosen);
             return;
         }
 
@@ -52,7 +54,8 @@ public partial class FirstRunDialog : Window
         if (!File.Exists(exe))
         {
             VersionText.Text = "Invalid folder. SPT.Server.exe not found.";
-            App.Toasts?.Show("Invalid SPT folder. Please pick the game root (contains SPT.Server.exe).");
+            Notifications.Current.ShowError("Invalid Folder", "SPT.Server.exe not found. Please select the SPT root folder.");
+            Console.WriteLine("[FirstRunDialog] Invalid folder selected: " + chosen);
             return;
         }
 
@@ -66,10 +69,11 @@ public partial class FirstRunDialog : Window
             threePart = $"{Safe(parts, 0)}.{Safe(parts, 1)}.{Safe(parts, 2)}";
             majorTwo = $"{Safe(parts, 0)}.{Safe(parts, 1)}";
         }
-        catch
+        catch (Exception ex)
         {
             VersionText.Text = "Could not read SPT version from executable.";
-            App.Toasts?.Show("Could not read version. Try another folder.");
+            Notifications.Current.ShowError("Read Failed", "Could not read SPT version. Try selecting another folder.");
+            Console.WriteLine("[FirstRunDialog] Could not read version info: " + ex);
             return;
         }
 
@@ -79,9 +83,9 @@ public partial class FirstRunDialog : Window
             var major = int.TryParse(majorTwo.Split('.')[0], out var mj) ? mj : 0;
             App.Config.Paths.ServerModsRelative = major >= 4 ? "SPT/user/mods" : "user/mods";
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[FirstRunDialog] Failed to set ServerModsRelative: " + ex);
         }
 
         App.SaveConfig();
@@ -90,7 +94,8 @@ public partial class FirstRunDialog : Window
         VersionText.Text = $"Detected SPT {threePart} — filter set to {majorTwo}";
         HintText.Text = $"{exe}";
 
-        App.Toasts?.Show("SPT folder set.");
+        Notifications.Current.ShowSuccess("SPT Folder Set", $"SPT {threePart} detected and saved.");
+        Console.WriteLine("[FirstRunDialog] SPT folder set successfully: " + chosen);
         Close(Result.Select);
 
         static string Safe(string[] a, int i)

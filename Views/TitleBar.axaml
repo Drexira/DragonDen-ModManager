@@ -47,7 +47,7 @@
             <Setter Property="Background" Value="{StaticResource Dd.Red.Hover}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
-        
+
         <Style Selector="Button.btn-github">
             <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
             <Setter Property="Foreground" Value="#0C1116" />
@@ -94,9 +94,9 @@
                                Foreground="{StaticResource Dd.Text}" />
                 </WrapPanel>
             </Border>
-            
-            <Button Grid.Column="0" Content="Report Issues and Feedback Here" FontWeight="Bold" Classes="btn btn-github" Width="250"
-                    Click="OnOpenIssuesPage"  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+            <Button Grid.Column="0" x:Name="GithubButton" Content="Report Issues and Feedback Here" FontWeight="Bold" Classes="btn btn-github" Width="250"
+                    Click="OnOpenIssuesPage" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
             <Button Grid.Column="1" Classes="chrome-btn"
                     IsVisible="{Binding ShowMinimize, RelativeSource={RelativeSource AncestorType=views:TitleBar}}"

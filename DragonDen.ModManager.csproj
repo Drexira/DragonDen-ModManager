@@ -7,7 +7,7 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
-        <Version>0.0.2</Version>
+        <Version>0.0.3</Version>
         <Authors>Drexira</Authors>
         <Copyright>Drexira</Copyright>
         <Title>Dragon Den Mod Manager</Title>
@@ -21,6 +21,7 @@
         <Product>ModManager</Product>
         <NeutralLanguage>en</NeutralLanguage>
         <PublishTrimmed>false</PublishTrimmed>
+        <LangVersion>preview</LangVersion>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -49,7 +50,7 @@
 
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="11.3.6"/>
-        <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
+        <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0"/>
         <PackageReference Include="Avalonia.Desktop" Version="11.3.6"/>
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.6"/>
         <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.6"/>
@@ -62,6 +63,7 @@
         <PackageReference Include="Mono.Cecil" Version="0.11.6"/>
         <PackageReference Include="Semver" Version="3.0.0"/>
         <PackageReference Include="System.Net.Http.Json" Version="9.0.0"/>
+        <PackageReference Include="Vanara.PInvoke.Shell32" Version="4.2.1"/>
     </ItemGroup>
 
     <Target Name="CreateDataOnBuild" AfterTargets="Build">

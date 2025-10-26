@@ -1,8 +1,10 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using DragonDen.ModManager.Services;
 
 namespace DragonDen.ModManager.Views;
 
@@ -24,6 +26,8 @@ public partial class TitleBar : UserControl
             {
                 if (e.Property == Window.WindowStateProperty) UpdateMaxIcon();
             };
+
+        GithubButton.IsVisible = host is InstallationQueueDialog;
     }
 
     public bool ShowMinimize
@@ -79,7 +83,7 @@ public partial class TitleBar : UserControl
         if (icon is null) return;
         icon.Text = Host.WindowState == WindowState.Maximized ? "❐" : "▢";
     }
-    
+
     private void OnOpenIssuesPage(object? sender, RoutedEventArgs e)
     {
         var url = "https://github.com/Drexira/DragonDen-ModManager/issues";
@@ -89,10 +93,13 @@ public partial class TitleBar : UserControl
             {
                 _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
             }
-            catch
+            catch (Exception ex)
             {
-                App.Toasts.Show("Could not open browser.");
+                Notifications.Current.ShowError("Open Failed", "Couldn't open issues page in browser.");
+                Console.WriteLine("[TitleBar] Failed to open issues page: " + ex);
             }
-        else App.Toasts.Show("No page URL for this mod.");
+
+        Notifications.Current.ShowWarning("Missing URL", "No valid page URL was provided.");
+        Console.WriteLine("[TitleBar] No page URL defined for issues page.");
     }
 }

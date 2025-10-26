@@ -88,13 +88,19 @@ public partial class InstalledModsPage : UserControl
         try
         {
             if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+            {
                 Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+            }
             else
-                App.Toasts.Show("Folder not found.");
+            {
+                Notifications.Current.ShowError("Missing Folder", $"The folder '{path}' could not be found.");
+                Console.WriteLine($"OpenFolder: target folder missing → {path}");
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not open folder.");
+            Notifications.Current.ShowError("Open Folder Failed", $"Could not open '{path}'. Check if the folder exists or is accessible.");
+            Console.WriteLine($"OpenFolder exception: {ex.Message}");
         }
     }
 
@@ -218,7 +224,7 @@ public partial class InstalledModsPage : UserControl
             if (b.Tag is InstalledModRow row1)
             {
                 App.Db.UninstallByModIds(row1.ModIds);
-                App.Toasts.Show($"Uninstalled {row1.Name}");
+                Notifications.Current.ShowSuccess("Mod Uninstalled", $"'{row1.Name}' was successfully removed.");
                 await RefreshRows();
             }
 
@@ -232,11 +238,12 @@ public partial class InstalledModsPage : UserControl
                 if (row2.Latest?.Link is string url && !string.IsNullOrWhiteSpace(url))
                 {
                     App.Queue.EnqueueRemote(row2.Name, url, row2.Latest?.Version ?? "0.0.0", row2.Guid ?? "");
-                    App.Toasts.Show($"Queued update: {row2.Name}");
+                    Notifications.Current.ShowSuccess("Update Queued", $"'{row2.Name}' has been added to the update queue.");
                 }
                 else
                 {
-                    App.Toasts.Show("No update link.");
+                    Notifications.Current.ShowError("No Update Link", $"The mod '{row2.Name}' has no downloadable update link.");
+                    Console.WriteLine($"Update click failed: no update link found for {row2.Name}");
                 }
             }
 
@@ -250,11 +257,12 @@ public partial class InstalledModsPage : UserControl
                 {
                     _ = Process.Start(new ProcessStartInfo { FileName = row3.DetailUrl, UseShellExecute = true });
                 }
-                catch
+                catch (Exception ex)
                 {
-                    App.Toasts.Show("Could not open browser.");
+                    Notifications.Current.ShowError("Browser Launch Failed", $"Unable to open mod page for '{row3.Name}'.");
+                    Console.WriteLine($"Mod page open error: {ex.Message}");
                 }
-            else App.Toasts.Show("No page URL for this mod.");
+            else Notifications.Current.ShowError("No Page Link", $"The mod '{b.Tag}' doesn't have a Forge page link.");
 
             return;
         }
@@ -262,15 +270,12 @@ public partial class InstalledModsPage : UserControl
         if (b.Content?.ToString()?.Equals("List Files", StringComparison.OrdinalIgnoreCase) == true)
             if (b.Tag is InstalledModRow row4)
                 await ShowFilesDialog(row4);
-        
+
         if (b.Content?.ToString()?.Equals("Edit Configs", StringComparison.OrdinalIgnoreCase) == true)
-        {
             if (b.Tag is InstalledModRow row5)
                 await ShowConfigDialog(row5);
-            return;
-        }
     }
-    
+
     public async Task RefreshFromSettingsAsync()
     {
         await ScanDiskAsync();
@@ -289,7 +294,7 @@ public partial class InstalledModsPage : UserControl
             }
             catch
             {
-                // good girl action
+                Console.WriteLine($"ShowFilesDialog: failed to list files for mod ID {id}");
             }
 
         var files = merged
@@ -334,7 +339,6 @@ public partial class InstalledModsPage : UserControl
 
         var merged = new List<(string path, string target)>();
         foreach (var id in row.ModIds)
-        {
             try
             {
                 var part = App.Db.ListFilesForModId(id);
@@ -342,9 +346,8 @@ public partial class InstalledModsPage : UserControl
             }
             catch
             {
-                // good girl action
+                Console.WriteLine($"ShowConfigDialog: failed to list files for mod ID {id}");
             }
-        }
 
         var items = new List<ConfigDialog.ConfigItem>();
         foreach (var (rel, target) in merged)
@@ -366,7 +369,7 @@ public partial class InstalledModsPage : UserControl
 
         if (items.Count == 0)
         {
-            App.Toasts.Show("No editable config files found.");
+            Notifications.Current.ShowError("No Configs Found", $"No editable config files exist for '{row.Name}'.");
             return;
         }
 
@@ -391,15 +394,16 @@ public partial class InstalledModsPage : UserControl
             {
                 _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
             }
-            catch
+            catch (Exception ex)
             {
-                App.Toasts.Show("Could not open source link.");
+                Notifications.Current.ShowError("Source Link Failed", $"Could not open source link for '{b.Content}'.");
+                Console.WriteLine($"OpenSource link error: {ex.Message}");
             }
     }
 
     private async Task ScanDiskAsync()
     {
-        StatusText.Text = "Scanning mods…";
+        StatusText.Text = "Scanning mods...";
         var stats = await Task.Run(() => InstalledScanner.ImportFromDisk());
         StatusText.Text = $"Refreshed: imported {stats.imported}, updated {stats.updated}, skipped {stats.skipped}.";
         await RefreshRows();
@@ -419,19 +423,19 @@ public partial class InstalledModsPage : UserControl
         var allIds = all.Select(t => t.mod_id).Distinct().ToList();
         if (allIds.Count == 0)
         {
-            App.Toasts.Show("No mods to uninstall.");
+            Notifications.Current.ShowWarning("No Mods Found", "There are no installed mods to uninstall.");
             return;
         }
 
         App.Db.UninstallByModIds(allIds);
-        App.Toasts.Show("Uninstalled all mods.");
+        Notifications.Current.ShowSuccess("All Mods Removed", "All installed mods have been uninstalled.");
         await RefreshRows();
     }
 
     public async Task RefreshRows()
     {
         var sortTag = ((SortBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "alpha").ToLowerInvariant();
-        var updatesFirst = (UpdatesFirstChk?.IsChecked ?? false);
+        var updatesFirst = UpdatesFirstChk?.IsChecked ?? false;
 
         var (allRows, statusText) = await BuildRowsAsync(sortTag, updatesFirst);
         var filtered = ApplySearchFilter(allRows, _searchText).ToList();
@@ -485,7 +489,10 @@ public partial class InstalledModsPage : UserControl
                 if (!string.IsNullOrWhiteSpace(u)) return u;
             }
 
-            static string Norm(string s) => new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+            static string Norm(string s)
+            {
+                return new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+            }
 
             var norm = Norm(name);
             var hit = allCache.FirstOrDefault(r =>
@@ -566,7 +573,6 @@ public partial class InstalledModsPage : UserControl
 
                 var versionsForRow = new List<ForgeClient.ModVersion>();
                 if (cacheRow != null)
-                {
                     try
                     {
                         await App.Cache.EnsureVersionsCachedAsync(cacheRow.Id).ConfigureAwait(false);
@@ -574,9 +580,8 @@ public partial class InstalledModsPage : UserControl
                     }
                     catch
                     {
-                        // good girl action
+                        Console.WriteLine($"BuildRowsAsync: version cache failed for {name}");
                     }
-                }
 
                 var sorted = OrderVersionsForRow(versionsForRow);
                 var filtered = string.IsNullOrWhiteSpace(detectedAB)
@@ -588,7 +593,7 @@ public partial class InstalledModsPage : UserControl
                 var latestVerText = latestForAB?.Version ?? "";
                 var canUpdate = latestForAB != null && !string.IsNullOrWhiteSpace(latestForAB.Version) && IsUpdate(installedVersion, latestForAB.Version!);
 
-                bool hasEditableConfigs = false;
+                var hasEditableConfigs = false;
                 try
                 {
                     var modIds = g.Select(x => x.mod_id).Distinct().ToList();
@@ -596,23 +601,19 @@ public partial class InstalledModsPage : UserControl
                     {
                         var files = App.Db.ListFilesForModId(mid);
                         if (files is { Count: > 0 })
-                        {
                             foreach (var (path, _) in files)
-                            {
                                 if (IsEditablePath(path))
                                 {
                                     hasEditableConfigs = true;
                                     break;
                                 }
-                            }
-                        }
 
                         if (hasEditableConfigs) break;
                     }
                 }
                 catch
                 {
-                    // good girl action
+                    Console.WriteLine($"BuildRowsAsync: failed checking editable configs for {name}");
                 }
 
                 rows.Add(new InstalledModRow
@@ -668,7 +669,7 @@ public partial class InstalledModsPage : UserControl
         if (rows is null) return Array.Empty<InstalledModRow>();
 
         var isOutdated = !string.IsNullOrWhiteSpace(query) &&
-                           query.IndexOf("#outdated", StringComparison.OrdinalIgnoreCase) >= 0;
+                         query.IndexOf("#outdated", StringComparison.OrdinalIgnoreCase) >= 0;
 
         if (isOutdated)
             rows = rows.Where(r => r.IsOutdated);
@@ -686,11 +687,11 @@ public partial class InstalledModsPage : UserControl
                 return r.Authors?.Any(a => a?.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) == true;
 
             return
-                (!string.IsNullOrWhiteSpace(r.Name)      && r.Name.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                (!string.IsNullOrWhiteSpace(r.Guid)      && r.Guid.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                (!string.IsNullOrWhiteSpace(r.Category)  && r.Category.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (!string.IsNullOrWhiteSpace(r.Name) && r.Name.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (!string.IsNullOrWhiteSpace(r.Guid) && r.Guid.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (!string.IsNullOrWhiteSpace(r.Category) && r.Category.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) ||
                 (!string.IsNullOrWhiteSpace(r.DetailUrl) && r.DetailUrl.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                (r.Authors?.Any(a => a?.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) == true);
+                r.Authors?.Any(a => a?.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) == true;
         });
     }
 
@@ -699,14 +700,14 @@ public partial class InstalledModsPage : UserControl
         if (sender is not Button btn) return;
         if (btn.Tag is not ForgeClient.ModVersion chosen || string.IsNullOrWhiteSpace(chosen?.Link))
         {
-            App.Toasts.Show("Pick a version to install.");
+            Notifications.Current.ShowWarning("No Version Selected", "Choose a version to install first.");
             return;
         }
 
         var row = btn.DataContext as InstalledModRow ?? ModsList.SelectedItem as InstalledModRow;
         if (row is null)
         {
-            App.Toasts.Show("No mod selected.");
+            Notifications.Current.ShowWarning("No Mod Selected", "Select a mod before changing its version.");
             return;
         }
 
@@ -715,19 +716,20 @@ public partial class InstalledModsPage : UserControl
         if (!string.IsNullOrWhiteSpace(detectedAB) &&
             !string.Equals(detectedAB, chosenAB, StringComparison.OrdinalIgnoreCase))
         {
-            App.Toasts.Show($"This version targets SPT {chosenAB}, but your install is {detectedAB}.");
+            Notifications.Current.ShowError("Version Mismatch", $"This version targets SPT {chosenAB}, but your install is {detectedAB}.");
             return;
         }
 
         var selectedVer = chosen.Version ?? "0.0.0";
+        var installedVersion = row.InstalledVersion ?? "0.0.0";
         if (string.Equals(selectedVer, row.InstalledVersion, StringComparison.OrdinalIgnoreCase))
         {
-            App.Toasts.Show("Already on this version.");
+            Notifications.Current.ShowWarning("Already Installed", $"'{row.Name}' is already on version {installedVersion}.");
             return;
         }
 
         App.Queue.EnqueueRemote(row.Name, chosen.Link!, selectedVer, row.Guid ?? "");
-        App.Toasts.Show($"Changing {row.Name} → v{selectedVer}");
+        Notifications.Current.ShowSuccess("Version Change Queued", $"'{row.Name}' will change from {installedVersion} → {selectedVer}.");
     }
 
     private void OnVersionBoxAttached(object? sender, VisualTreeAttachmentEventArgs e)
@@ -771,7 +773,8 @@ public partial class InstalledModsPage : UserControl
         var url = b.Tag?.ToString() ?? "";
         if (string.IsNullOrWhiteSpace(url))
         {
-            App.Toasts.Show("No page URL for this mod.");
+            Notifications.Current.ShowError("Missing Page URL", "No valid mod page URL is available for this mod.");
+            Console.WriteLine("OnOpenPageFromTitle: missing URL.");
             return;
         }
 
@@ -779,9 +782,10 @@ public partial class InstalledModsPage : UserControl
         {
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not open browser.");
+            Notifications.Current.ShowError("Page Open Failed", $"Could not open mod page: {url}");
+            Console.WriteLine($"OnOpenPageFromTitle error: {ex.Message}");
         }
     }
 
@@ -791,7 +795,8 @@ public partial class InstalledModsPage : UserControl
         var url = mi.Tag?.ToString() ?? "";
         if (string.IsNullOrWhiteSpace(url))
         {
-            App.Toasts.Show("No page URL for this mod.");
+            Notifications.Current.ShowError("Missing Page URL", "No valid mod page URL is available for this mod.");
+            Console.WriteLine("OnOpenPageFromContext: missing URL.");
             return;
         }
 
@@ -799,9 +804,10 @@ public partial class InstalledModsPage : UserControl
         {
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not open browser.");
+            Notifications.Current.ShowError("Page Open Failed", $"Could not open mod page: {url}");
+            Console.WriteLine($"OnOpenPageFromContext error: {ex.Message}");
         }
     }
 
@@ -810,7 +816,7 @@ public partial class InstalledModsPage : UserControl
         var url = (sender as Control)?.Tag?.ToString();
         if (string.IsNullOrWhiteSpace(url))
         {
-            App.Toasts.Show("No link to copy.");
+            Notifications.Current.ShowWarning("No Link Found", "There is no link to copy for this mod.");
             return;
         }
 
@@ -820,19 +826,16 @@ public partial class InstalledModsPage : UserControl
             if (tl?.Clipboard is not null)
             {
                 await tl.Clipboard.SetTextAsync(url);
-                App.Toasts.Show("Link copied.");
-            }
-            else
-            {
-                App.Toasts.Show(url);
+                Notifications.Current.ShowSuccess("Link Copied", "The link has been copied to your clipboard.");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not copy to clipboard.");
+            Notifications.Current.ShowError("Copy Failed", "Unable to copy the link to clipboard.");
+            Console.WriteLine($"CopyLink exception: {ex.Message}");
         }
-    }    
-    
+    }
+
     private async void OnCopyGuid(object? sender, RoutedEventArgs e)
     {
         var guid = (sender as Control)?.Tag?.ToString() ?? "";
@@ -844,15 +847,16 @@ public partial class InstalledModsPage : UserControl
             if (tl?.Clipboard != null)
             {
                 await tl.Clipboard.SetTextAsync(guid);
-                App.Toasts.Show("GUID copied.");
+                Notifications.Current.ShowSuccess("GUID Copied", "The GUID has been copied to your clipboard.");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not copy GUID.");
+            Notifications.Current.ShowError("Copy Failed", "Unable to copy the GUID to clipboard.");
+            Console.WriteLine($"CopyGuid exception: {ex.Message}");
         }
     }
-    
+
     private void OnOpenThumb(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem mi) return;
@@ -863,9 +867,10 @@ public partial class InstalledModsPage : UserControl
         {
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not open image.");
+            Notifications.Current.ShowError("Image Open Failed", "Could not open thumbnail image in browser.");
+            Console.WriteLine($"OnOpenThumb error: {ex.Message}");
         }
     }
 

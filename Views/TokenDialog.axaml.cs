@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using DragonDen.ModManager.Services;
 
 namespace DragonDen.ModManager.Views;
 
@@ -31,13 +32,14 @@ public partial class TokenDialog : Window
         var token = (TokenBox.Text ?? "").Trim();
         if (string.IsNullOrWhiteSpace(token))
         {
-            App.Toasts.Show("Please paste your Forge token.");
+            Notifications.Current.ShowWarning("Missing Token", "Please enter your Forge API token before continuing.");
+            Console.WriteLine("[TokenDialog] No token entered by user.");
             return;
         }
 
         SetBtn.IsEnabled = false;
         CloseBtn.IsEnabled = false;
-        SetBtn.Content = "Validating…";
+        SetBtn.Content = "Validating...";
 
         var apiUp = await CheckApiHealthAsync();
         var tokenOk = apiUp && await CheckTokenValidAsync(token);
@@ -47,20 +49,23 @@ public partial class TokenDialog : Window
 
         if (!apiUp)
         {
-            App.Toasts.Show("Could not reach Forge API. Try again in a moment.");
+            Notifications.Current.ShowError("Connection Failed", "Could not reach Forge API. Please try again later.");
+            Console.WriteLine("[TokenDialog] Forge API unreachable during validation.");
             return;
         }
 
         if (!tokenOk)
         {
-            App.Toasts.Show("That token didn't work. Ensure it's valid and Read-only.");
+            Notifications.Current.ShowError("Invalid Token", "Token validation failed. Ensure it’s a valid Read-only token.");
+            Console.WriteLine("[TokenDialog] Provided Forge token was invalid or rejected.");
             return;
         }
 
         App.Config.Forge.Token = token;
         App.SaveConfig();
         App.RaiseConfigChanged();
-        App.Toasts.Show("Token saved.");
+        Notifications.Current.ShowSuccess("Token Saved", "Your Forge API token has been saved successfully.");
+        Console.WriteLine("[TokenDialog] Forge token saved and config updated.");
         Close(Result.Set);
     }
 
@@ -79,8 +84,9 @@ public partial class TokenDialog : Window
                                                                         && d.TryGetProperty("message", out var m)
                                                                         && string.Equals(m.GetString(), "pong", StringComparison.OrdinalIgnoreCase);
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine("[TokenDialog] API health check failed: " + ex);
             return false;
         }
     }
@@ -107,8 +113,9 @@ public partial class TokenDialog : Window
 
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine("[TokenDialog] Token validation failed: " + ex);
             return false;
         }
     }
@@ -120,9 +127,10 @@ public partial class TokenDialog : Window
             var url = "https://forge.sp-tarkov.com/user/api-tokens";
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not open browser.");
+            Notifications.Current.ShowError("Open Failed", "Couldn't open token help page in your browser.");
+            Console.WriteLine("[TokenDialog] Failed to open token help page: " + ex);
         }
     }
 

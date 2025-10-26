@@ -77,8 +77,8 @@ public sealed class Config
         }
         catch (Exception ex)
         {
-            App.Toasts?.Show("Failed to save settings.");
-            Console.WriteLine("Save config failed: " + ex);
+            Notifications.Current.ShowError("Save Failed", "Couldn't save config file.");
+            Console.WriteLine("[Config] Save failed: " + ex);
         }
     }
 

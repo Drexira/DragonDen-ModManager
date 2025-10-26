@@ -9,6 +9,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using DragonDen.ModManager.Services;
 using DragonDen.ModManager.Storage;
+using DragonDen.ModManager.Views;
 using ServicesCacheDb = DragonDen.ModManager.Services.CacheDb;
 
 namespace DragonDen.ModManager;
@@ -23,19 +24,18 @@ public class App : Application
     private static bool _pendingInstallRefresh;
 
     private static CancellationTokenSource? _warmCts;
-    private Task? _warmTask;
     private static volatile int _warmStarted;
+    private EventWaitHandle? _activateEvent;
+    private Task? _warmTask;
     public static Config Config { get; private set; } = null!;
     public static Db Db { get; set; } = null!;
     public static SevenZip SevenZip { get; private set; } = null!;
     public static InstallQueue Queue { get; private set; } = null!;
-    public static Toasts Toasts { get; private set; } = null!;
     public static ServicesCacheDb Cache { get; private set; } = null!;
     public static CancellationToken ShutdownToken => _shutdownCts.Token;
 
     public static event Action? ConfigChanged;
     public static event Action? InstallsChanged;
-    private EventWaitHandle? _activateEvent;
 
     public static void SaveConfig()
     {
@@ -76,15 +76,14 @@ public class App : Application
 
         SevenZip = new SevenZip(Paths.SevenZipPath);
         Queue = new InstallQueue(SevenZip, Db);
-        Toasts = new Toasts();
 
         Cache = new ServicesCacheDb(Paths.CacheDbPath);
         Cache.Init();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new Views.MainWindow();
-
+            desktop.MainWindow = new MainWindow();
+            Notifications.Current.Attach(desktop.MainWindow);
             _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\DragonDen.ModManager:ACTIVATE");
 
             _ = Task.Run(() =>
@@ -221,7 +220,7 @@ public class App : Application
             // good girl action
         }
     }
-    
+
     public static void CancelWarmCache()
     {
         try

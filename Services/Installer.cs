@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DragonDen.ModManager.Services;
@@ -14,18 +15,21 @@ public static class Installer
         Server
     }
 
-    public static async Task<InstallResult> InstallAuto(string archivePath, SevenZip sevenZip, 
-        IProgress<(string phase, int pct)>? progress = null, InstallContext? ctx = null)
+    public static async Task<InstallResult> InstallAuto(string archivePath, SevenZip sevenZip,
+        IProgress<(string phase, int pct)>? progress = null, InstallContext? ctx = null, CancellationToken ct = default)
     {
-        var stage = Path.Combine(string.IsNullOrWhiteSpace(App.Config.Paths.DataFolder) ? Paths.DataDir : App.Config.Paths.DataFolder, "stage", Guid.NewGuid().ToString("N"));
+        var stage = Path.Combine(string.IsNullOrWhiteSpace(App.Config.Paths.DataFolder) ? Paths.DataDir : App.Config.Paths.DataFolder, "stage",
+            Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
 
         progress?.Report(("inspect", -1));
-        var entries = await Task.Run(() => sevenZip.ListEntries(archivePath)).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        var entries = await Task.Run(() => sevenZip.ListEntries(archivePath), ct).ConfigureAwait(false);
 
         var intent = DetectIntent(entries);
 
         progress?.Report(("extract", -1));
+        ct.ThrowIfCancellationRequested();
         await sevenZip.ExtractAsync(archivePath, stage).ConfigureAwait(false);
 
         var movedClientRel = new List<string>();
@@ -45,7 +49,6 @@ public static class Installer
             }
             catch
             {
-                // good girl action
             }
         }
 
@@ -54,6 +57,7 @@ public static class Installer
 
         foreach (var rel in all)
         {
+            ct.ThrowIfCancellationRequested();
             var unix = rel.Replace('\\', '/');
 
             if (allowClient && TryMap(unix, intent.clientRoots, out var afterClient))
@@ -117,7 +121,7 @@ public static class Installer
 
             processed++;
             var pct = all.Count == 0 ? 100 : (int)(processed * 100.0 / all.Count);
-            progress?.Report(("move", pct));
+            progress?.Report(("install", pct));
         }
 
         var name = ctx?.Name ?? Path.GetFileNameWithoutExtension(archivePath);

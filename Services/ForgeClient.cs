@@ -15,19 +15,8 @@ namespace DragonDen.ModManager.Services;
 
 public static class ForgeClient
 {
-    public static event Action<string>? StatusMessage;
-
-    private sealed record CacheEntry(byte[] Bytes, DateTimeOffset At);
-
     private static readonly SemaphoreSlim _rateGate = new(1, 1);
     private static readonly TimeSpan _perRequestDelay = TimeSpan.FromMilliseconds(550);
-
-    private sealed class FetchResult
-    {
-        public int Status;
-        public byte[] Bytes = Array.Empty<byte>();
-        public TimeSpan? RetryAfter;
-    }
 
     private static readonly ConcurrentDictionary<string, Lazy<Task<FetchResult>>> _inflight = new();
     private static readonly ConcurrentDictionary<string, CacheEntry> _cache = new();
@@ -50,6 +39,7 @@ public static class ForgeClient
     };
 
     private static string BaseUrl => App.Config.Forge.BaseUrl?.TrimEnd('/') ?? "https://forge.sp-tarkov.com";
+    public static event Action<string>? StatusMessage;
 
     private static HttpRequestMessage NewGet(string url)
     {
@@ -119,7 +109,7 @@ public static class ForgeClient
                 if (res.Status == 1015)
                 {
                     var retry = res.RetryAfter ?? TimeSpan.FromSeconds(4 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s...");
                     attempt++;
                     continue;
                 }
@@ -127,7 +117,7 @@ public static class ForgeClient
                 if (res.Status == 429)
                 {
                     var retry = res.RetryAfter ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s...");
                     attempt++;
                     continue;
                 }
@@ -135,7 +125,7 @@ public static class ForgeClient
                 if (res.Status is >= 500 and < 600)
                 {
                     var retry = TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Cloudflare error {res.Status} - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare error {res.Status} - retrying in {rem.Seconds}s...");
                     attempt++;
                     continue;
                 }
@@ -157,13 +147,13 @@ public static class ForgeClient
             {
                 last = ex;
                 var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt - 1));
-                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s…");
+                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s...");
             }
             catch (Exception ex) when (++attempt <= maxRetries)
             {
                 last = ex;
                 var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt - 1));
-                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s…");
+                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s...");
             }
         }
 
@@ -194,7 +184,6 @@ public static class ForgeClient
             $"{BaseUrl}/api/v0/mod/{modId}/versions" +
             $"?include=dependencies&filter[id]={versionId}&per_page=1";
 
-        Console.WriteLine($"[{ts()}] Fetching dependencies for mod {modId}, version {versionId}…");
         using var doc = await FetchJsonWithRetries(url, ct);
 
         var deps = new List<ModDependency>();
@@ -219,7 +208,6 @@ public static class ForgeClient
                 }
         }
 
-        Console.WriteLine($"[{ts()}] Found {deps.Count} dependencies for mod {modId}, version {versionId}.");
         return deps;
     }
 
@@ -237,7 +225,6 @@ public static class ForgeClient
 
         var url = $"{BaseUrl}/api/v0/mod/{modId}/versions?{query}";
 
-        Console.WriteLine($"[{ts()}] Fetching latest{(sptConstraint != null ? $" (SPT {sptConstraint})" : "")} dependencies for mod {modId}…");
         using var doc = await FetchJsonWithRetries(url, ct);
 
         var deps = new List<ModDependency>();
@@ -262,7 +249,6 @@ public static class ForgeClient
                 }
         }
 
-        Console.WriteLine($"[{ts()}] Found {deps.Count} dependencies for mod {modId}{(sptConstraint != null ? $" (SPT {sptConstraint})" : "")}.");
         return deps;
     }
 
@@ -445,7 +431,7 @@ public static class ForgeClient
                 if ((int)res.StatusCode == 1015 || res.StatusCode == (HttpStatusCode)429)
                 {
                     var retry = TryGetRetryAfter(res) ?? TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
-                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s…");
+                    await DelayWithStatus(retry, ct, rem => $"Cloudflare rate limited - retrying in {rem.Seconds}s...");
                     continue;
                 }
 
@@ -454,7 +440,7 @@ public static class ForgeClient
                     if ((int)res.StatusCode >= 500 && (int)res.StatusCode < 600)
                     {
                         var retry = TimeSpan.FromSeconds(1.5 * Math.Pow(2, attempt));
-                        await DelayWithStatus(retry, ct, rem => $"Forge error {(int)res.StatusCode} - retrying in {rem.Seconds}s…");
+                        await DelayWithStatus(retry, ct, rem => $"Forge error {(int)res.StatusCode} - retrying in {rem.Seconds}s...");
                         continue;
                     }
 
@@ -491,7 +477,7 @@ public static class ForgeClient
             catch
             {
                 var retry = TimeSpan.FromMilliseconds(300 * Math.Pow(2, attempt));
-                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s…");
+                await DelayWithStatus(retry, ct, rem => $"Network trouble - retrying in {rem.Seconds}s...");
             }
         }
 
@@ -678,7 +664,6 @@ public static class ForgeClient
         if (_cache.TryGetValue(url, out var hit))
             if (now - hit.At < GetTtlFor(url))
             {
-                Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → cached ({hit.Bytes.Length} bytes).");
                 return new FetchResult { Status = 200, Bytes = hit.Bytes };
             }
 
@@ -719,22 +704,25 @@ public static class ForgeClient
                 var bytesErr = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
                 var statusCode = (int)res.StatusCode;
 
-                if (statusCode == 1015)
-                    Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → 1015 (Cloudflare rate-limit).");
-                else
-                    Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {statusCode} {res.StatusCode}.");
-
                 return new FetchResult { Status = statusCode, Bytes = bytesErr, RetryAfter = retryAfter };
             }
 
             var okBytes = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-            Console.WriteLine($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}] GET {url} → {(int)res.StatusCode} OK ({okBytes.Length} bytes).");
             return new FetchResult { Status = (int)res.StatusCode, Bytes = okBytes, RetryAfter = retryAfter };
         }
         finally
         {
             _rateGate.Release();
         }
+    }
+
+    private sealed record CacheEntry(byte[] Bytes, DateTimeOffset At);
+
+    private sealed class FetchResult
+    {
+        public byte[] Bytes = Array.Empty<byte>();
+        public TimeSpan? RetryAfter;
+        public int Status;
     }
 
     public sealed class MissingDep

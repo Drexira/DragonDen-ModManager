@@ -196,21 +196,22 @@ public partial class BrowseModsPage : UserControl
     private readonly Random _rng = new();
 
     private readonly DispatcherTimer _tipsTimer = new() { Interval = TimeSpan.FromSeconds(7) };
+    private bool _ignoreNextReset;
     private CancellationTokenSource? _indexCts;
     private int _indexRunId;
     private bool _isIndexing;
+    private bool _isSearching;
 
     private DateTime _modalStart;
 
     private int _page = 1, _lastPage = 1;
 
     private string? _pendingSptMajor;
-    private int _totalMatches;
-    private bool _updatingSptFilter;
-    private bool _ignoreNextReset;
-    private bool _isSearching;
     private int _searchRunId;
     private bool _softSearch;
+    private int _totalMatches;
+    private bool _updatingSptFilter;
+    private bool _pagingInitialized;
 
     public BrowseModsPage()
     {
@@ -261,13 +262,9 @@ public partial class BrowseModsPage : UserControl
                 await PerformSearch(false);
             }
         };
+        
+        _debounce.Tick += OnDebounceTick;
 
-        _debounce.Tick += async (_, __) =>
-        {
-            _debounce.Stop();
-            await PerformSearch(true);
-            _softSearch = false;
-        };
         SearchBox.PropertyChanged += async (_, e) =>
         {
             if (e.Property == TextBox.TextProperty)
@@ -290,9 +287,9 @@ public partial class BrowseModsPage : UserControl
                 SearchBox.Text = "@" + (authorName ?? "").Trim();
                 _ = PerformSearch(true);
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[BrowseModsPage] Failed to search by author: " + ex);
             }
         };
 
@@ -303,13 +300,21 @@ public partial class BrowseModsPage : UserControl
 
         AttachedToVisualTree += (_, __) =>
         {
-            _page = 1;
-            _lastPage = 0;
+            if (_pagingInitialized) return;
+            _pagingInitialized = true;
+            _page = Math.Max(1, _page);
             UpdatePagingUi();
         };
 
         _ = LoadCategoriesThenSearch();
         App.ConfigChanged += OnAppConfigChanged;
+    }
+    
+    private async void OnDebounceTick(object? sender, EventArgs e)
+    {
+        _debounce.Stop();
+        await PerformSearch(true, softOverlay: true);
+        _softSearch = false;
     }
 
     private async void OnAppConfigChanged()
@@ -371,6 +376,7 @@ public partial class BrowseModsPage : UserControl
         }
         catch
         {
+            Console.WriteLine("[BrowseModsPage] Failed to detect SPT major version from config.");
             return "";
         }
     }
@@ -472,20 +478,21 @@ public partial class BrowseModsPage : UserControl
     private void ShowSearchOverlay(bool soft = false)
     {
         _isSearching = true;
+        BusyBar.IsVisible = true;
 
         if (soft) return;
 
-        BusyBar.IsVisible = true;
         try
         {
             SearchOverlayTip.Text = LoadingTips[_rng.Next(LoadingTips.Length)];
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[BrowseModsPage] Failed to pick random loading tip: " + ex);
         }
 
         SearchOverlay.IsVisible = true;
+        DragShield.IsVisible = true;
         SearchBox.IsEnabled = false;
         ClearBtn.IsEnabled = false;
         RefreshBtn.IsEnabled = false;
@@ -498,16 +505,6 @@ public partial class BrowseModsPage : UserControl
         AiChk.IsEnabled = false;
         HideInstalledChk.IsEnabled = false;
 
-        try
-        {
-            SearchOverlayTip.Text = LoadingTips[_rng.Next(LoadingTips.Length)];
-        }
-        catch
-        {
-            // good girl action
-        }
-
-        SearchOverlay.IsVisible = true;
         UpdatePagingUi();
         Cursor = new Cursor(StandardCursorType.Wait);
     }
@@ -515,11 +512,12 @@ public partial class BrowseModsPage : UserControl
     private void HideSearchOverlay(bool soft = false)
     {
         _isSearching = false;
+        BusyBar.IsVisible = false;
 
         if (soft) return;
 
-        BusyBar.IsVisible = false;
         SearchOverlay.IsVisible = false;
+        DragShield.IsVisible = false;
         SearchBox.IsEnabled = true;
         ClearBtn.IsEnabled = true;
         RefreshBtn.IsEnabled = true;
@@ -605,7 +603,8 @@ public partial class BrowseModsPage : UserControl
         }
         catch (Exception ex)
         {
-            App.Toasts.Show($"Categories failed: {ex.Message}");
+            Notifications.Current.ShowError("Categories Failed", "Couldn't load categories.");
+            Console.WriteLine("[BrowseModsPage] Categories failed to load: " + ex);
         }
 
         await StartIndexingAsync(true);
@@ -637,7 +636,7 @@ public partial class BrowseModsPage : UserControl
             items.AddRange(cats
                 .Select(c => new UiCategory
                 {
-                    Title = string.IsNullOrWhiteSpace(c.title) ? (string.IsNullOrWhiteSpace(c.slug) ? "(Uncategorized)" : c.slug) : c.title,
+                    Title = string.IsNullOrWhiteSpace(c.title) ? string.IsNullOrWhiteSpace(c.slug) ? "(Uncategorized)" : c.slug : c.title,
                     Slug = c.slug ?? "",
                     ColorClass = c.color_class ?? ""
                 })
@@ -666,9 +665,9 @@ public partial class BrowseModsPage : UserControl
                                                    && string.Equals(x.First.Slug, x.Second.Slug, StringComparison.OrdinalIgnoreCase));
             if (!same) SetCategories(fresh);
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[BrowseModsPage] Failed to refresh categories in background: " + ex);
         }
     }
 
@@ -853,8 +852,8 @@ public partial class BrowseModsPage : UserControl
         _page = 1;
         _lastPage = 0;
         UpdatePagingUi();
-        SearchStatusText.Text = "Refreshing cache…";
-        if (showModal) ShowModal("Refreshing", "Syncing with Forge…");
+        SearchStatusText.Text = "Refreshing cache...";
+        if (showModal) ShowModal("Refreshing", "Syncing with Forge...");
 
         void OnForgeStatus(string msg)
         {
@@ -862,9 +861,9 @@ public partial class BrowseModsPage : UserControl
             {
                 Dispatcher.UIThread.Post(() => { UpdateModal("Refreshing", msg); });
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[BrowseModsPage] Failed to update Forge status UI: " + ex);
             }
         }
 
@@ -875,7 +874,7 @@ public partial class BrowseModsPage : UserControl
             var progress = new Progress<(string phase, int current, int total)>(p =>
             {
                 var pct = p.total <= 0 ? -1 : p.current * 100.0 / Math.Max(1, p.total);
-                UpdateModal("Refreshing", $"{p.phase}…", pct, p.current, p.total);
+                UpdateModal("Refreshing", $"{p.phase}...", pct, p.current, p.total);
             });
 
             await CacheDb.RefreshModsIncrementalAsync(progress, ct);
@@ -901,7 +900,8 @@ public partial class BrowseModsPage : UserControl
             HideModal();
             _isIndexing = false;
             UpdatePagingUi();
-            App.Toasts.Show($"Refresh failed: {ex.Message}");
+            Notifications.Current.ShowError("Refresh Failed", "Couldn't refresh mod cache or Forge data.");
+            Console.WriteLine("[BrowseModsPage] Refresh failed: " + ex);
         }
         finally
         {
@@ -911,6 +911,11 @@ public partial class BrowseModsPage : UserControl
             UpdatePagingUi();
         }
     }
+    
+    private static async Task FlushUiAsync()
+    {
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
+    }
 
     private async Task PerformSearch(bool resetPage, bool softOverlay = false)
     {
@@ -919,7 +924,11 @@ public partial class BrowseModsPage : UserControl
 
         _ignoreNextReset = false;
         var myRunId = ++_searchRunId;
+
         ShowSearchOverlay(softOverlay);
+
+        // Ensure the overlay (or BusyBar for soft) actually renders before the fast query completes
+        await FlushUiAsync();
 
         var raw = (SearchBox.Text ?? "").Trim();
         var isAuthorQuery = raw.StartsWith("@");
@@ -1003,7 +1012,11 @@ public partial class BrowseModsPage : UserControl
                 if (m.source_code_links is { Length: > 0 })
                     foreach (var s in m.source_code_links)
                         if (s is { url: { } u } && !string.IsNullOrWhiteSpace(u))
-                            row.SourceButtons.Add(new SearchResultRow.SourceButton { Url = u, Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label.Trim() });
+                            row.SourceButtons.Add(new SearchResultRow.SourceButton
+                            {
+                                Url = u,
+                                Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label!.Trim()
+                            });
 
                 rows.Add(row);
             }
@@ -1058,10 +1071,7 @@ public partial class BrowseModsPage : UserControl
                     hiddenOnSeenPages += before - considered.Count;
                 }
 
-                var toMaybeShow = considered;
-                await EnsureSourcesFromApiAsync(toMaybeShow.Where(r => r.SourceButtons.Count == 0).ToList());
-
-                accVisible.AddRange(toMaybeShow);
+                accVisible.AddRange(considered);
                 rawPage++;
             }
 
@@ -1072,7 +1082,9 @@ public partial class BrowseModsPage : UserControl
             LoadedModsLabel.Text = "Loaded Mods: " + _totalMatches.ToString("N0", CultureInfo.InvariantCulture);
 
             if (visibleForPage.Count == 0)
-                SearchStatusText.Text = hideInstalled ? hiddenOnSeenPages > 0 ? "No visible results (installed hidden)." : "No results" : "No results";
+                SearchStatusText.Text = hideInstalled
+                    ? (hiddenOnSeenPages > 0 ? "No visible results (installed hidden)." : "No results")
+                    : "No results";
             else
                 SearchStatusText.Text = hideInstalled
                     ? $"Showing {visibleForPage.Count} of {_totalMatches:N0} (installed hidden)"
@@ -1082,7 +1094,8 @@ public partial class BrowseModsPage : UserControl
         }
         catch (Exception ex)
         {
-            App.Toasts.Show($"Search failed: {ex.Message}");
+            Notifications.Current.ShowError("Search Failed", "Couldn't complete search query.");
+            Console.WriteLine("[BrowseModsPage] Search failed: " + ex);
             UpdatePagingUi();
         }
         finally
@@ -1111,7 +1124,8 @@ public partial class BrowseModsPage : UserControl
         var total = list?.Count ?? 0;
         SearchStatusText.Text = total == 0 ? "No results" : $"Showing {total:N0}";
 
-        App.Toasts.Show($"Uninstalled {row.Name}");
+        Notifications.Current.ShowSuccess("Mod Uninstalled", $"{row.Name} has been removed successfully.");
+        Console.WriteLine("[BrowseModsPage] Uninstalled mod: " + row.Name);
     }
 
     private async Task<List<ForgeClient.MissingDep>> ResolveMissingDependenciesAsync(int modId, int versionId)
@@ -1168,13 +1182,16 @@ public partial class BrowseModsPage : UserControl
         }
         catch (HttpRequestException ex)
         {
-            App.Toasts.Show(ex.Message.Contains("401") || ex.Message.Contains("403")
-                ? "Forge rejected dependency lookup (invalid/expired token)."
-                : $"Failed to fetch dependencies: {ex.Message}");
+            Notifications.Current.ShowError("Dependency Fetch Failed",
+                ex.Message.Contains("401") || ex.Message.Contains("403")
+                    ? "Forge rejected dependency request (invalid or expired token)."
+                    : "Failed to fetch mod dependencies from Forge.");
+            Console.WriteLine("[BrowseModsPage] Dependency fetch failed: " + ex.Message);
         }
         catch (Exception ex)
         {
-            App.Toasts.Show($"Failed to fetch dependencies: {ex.Message}");
+            Notifications.Current.ShowError("Dependency Fetch Failed", "Couldn't retrieve dependencies for mod.");
+            Console.WriteLine("[BrowseModsPage] Dependency fetch failed: " + ex.Message);
         }
 
         return result;
@@ -1205,9 +1222,9 @@ public partial class BrowseModsPage : UserControl
 
                 enqueued.Add((dep.ModId, dep.Name, dep.Guid));
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[BrowseModsPage] Failed to enqueue dependency: " + ex);
             }
         }
 
@@ -1281,16 +1298,15 @@ public partial class BrowseModsPage : UserControl
             try
             {
                 var mod = await ForgeClient.GetModAsync(r.ModId,
-                    includeOwner: false,
-                    includeAuthors: false,
-                    includeCategory: false,
-                    includeVersions: false,
-                    includeSourceLinks: true,
-                    ct: App.ShutdownToken);
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    App.ShutdownToken);
 
                 var links = mod?.source_code_links;
                 if (links is { Length: > 0 })
-                {
                     foreach (var s in links)
                     {
                         if (string.IsNullOrWhiteSpace(s.url)) continue;
@@ -1300,11 +1316,10 @@ public partial class BrowseModsPage : UserControl
                             Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label!.Trim()
                         });
                     }
-                }
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[BrowseModsPage] Failed to fetch or attach source links: " + ex);
             }
 
             await Task.Delay(250);
@@ -1323,9 +1338,9 @@ public partial class BrowseModsPage : UserControl
                     ResultsScroll.Offset = new Vector(0, 0);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[BrowseModsPage] Failed to scroll results to top: " + ex);
             }
         }, DispatcherPriority.Background);
     }
@@ -1338,9 +1353,10 @@ public partial class BrowseModsPage : UserControl
         {
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not open source link.");
+            Notifications.Current.ShowError("Open Failed", "Couldn't open mod source link.");
+            Console.WriteLine("[BrowseModsPage] Couldn't open source link: " + ex.Message);
         }
     }
 
@@ -1351,15 +1367,22 @@ public partial class BrowseModsPage : UserControl
         else if (sender is MenuItem mi && mi.Tag is SearchResultRow row2) url = row2.ModPageUrl ?? "";
 
         if (!string.IsNullOrWhiteSpace(url))
+        {
             try
             {
                 _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
             }
-            catch
+            catch (Exception ex)
             {
-                App.Toasts.Show("Could not open browser.");
+                Notifications.Current.ShowError("Open Failed", "Couldn't open mod page in browser.");
+                Console.WriteLine("[BrowseModsPage] Couldn't open mod page: " + ex.Message);
             }
-        else App.Toasts.Show("No page URL for this mod.");
+        }
+        else
+        {
+            Notifications.Current.ShowWarning("Missing Link", "No Forge page URL found for this mod.");
+            Console.WriteLine("[BrowseModsPage] Missing mod page URL.");
+        }
     }
 
     private async void OnCopyLink(object? sender, RoutedEventArgs e)
@@ -1367,7 +1390,8 @@ public partial class BrowseModsPage : UserControl
         var url = (sender as Control)?.Tag?.ToString();
         if (string.IsNullOrWhiteSpace(url))
         {
-            App.Toasts.Show("No link to copy.");
+            Notifications.Current.ShowWarning("Missing Link", "No link to copy.");
+            Console.WriteLine("[BrowseModsPage] No link to copy.");
             return;
         }
 
@@ -1377,16 +1401,13 @@ public partial class BrowseModsPage : UserControl
             if (tl?.Clipboard is not null)
             {
                 await tl.Clipboard.SetTextAsync(url);
-                App.Toasts.Show("Link copied.");
-            }
-            else
-            {
-                App.Toasts.Show(url);
+                Notifications.Current.ShowSuccess("Copied", "Mod link copied to clipboard.");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not copy to clipboard.");
+            Notifications.Current.ShowError("Copy Failed", "Couldn't copy mod link to clipboard.");
+            Console.WriteLine("[BrowseModsPage] Failed to copy mod link: " + ex.Message);
         }
     }
 
@@ -1400,12 +1421,13 @@ public partial class BrowseModsPage : UserControl
             if (tl?.Clipboard != null)
             {
                 await tl.Clipboard.SetTextAsync(name);
-                App.Toasts.Show("Name copied.");
+                Notifications.Current.ShowSuccess("Copied", "Mod name copied to clipboard.");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not copy name.");
+            Notifications.Current.ShowError("Copy Failed", "Couldn't copy mod name to clipboard.");
+            Console.WriteLine("[BrowseModsPage] Failed to copy mod name: " + ex.Message);
         }
     }
 
@@ -1420,12 +1442,13 @@ public partial class BrowseModsPage : UserControl
             if (tl?.Clipboard != null)
             {
                 await tl.Clipboard.SetTextAsync(guid);
-                App.Toasts.Show("GUID copied.");
+                Notifications.Current.ShowSuccess("Copied", "Mod GUID copied to clipboard.");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not copy GUID.");
+            Notifications.Current.ShowError("Copy Failed", "Couldn't copy GUID to clipboard.");
+            Console.WriteLine("[BrowseModsPage] Failed to copy GUID: " + ex.Message);
         }
     }
 
@@ -1439,9 +1462,10 @@ public partial class BrowseModsPage : UserControl
         {
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
-        catch
+        catch (Exception ex)
         {
-            App.Toasts.Show("Could not open image.");
+            Notifications.Current.ShowError("Open Failed", "Couldn't open thumbnail image.");
+            Console.WriteLine("[BrowseModsPage] Failed to open image: " + ex.Message);
         }
     }
 
@@ -1464,14 +1488,15 @@ public partial class BrowseModsPage : UserControl
         if (sender is not Button btn) return;
         if (btn.Tag is not SearchResultRow.VersionDisplay vd)
         {
-            App.Toasts.Show("Pick a version first.");
+            Notifications.Current.ShowWarning("Missing Version", "Select a version before installing.");
             return;
         }
 
         var model = vd.Model;
         if (string.IsNullOrWhiteSpace(model.Link))
         {
-            App.Toasts.Show("This version has no download link.");
+            Notifications.Current.ShowWarning("Missing Link", "This version has no download link available.");
+            Console.WriteLine("[BrowseModsPage] No download link for version.");
             return;
         }
 
@@ -1496,7 +1521,9 @@ public partial class BrowseModsPage : UserControl
             if (!ok)
             {
                 var exp = string.IsNullOrWhiteSpace(selTag) ? detectedAB : selTag;
-                App.Toasts.Show($"This version targets SPT {(string.IsNullOrWhiteSpace(verSpt) ? "—" : verSpt)}, expected {exp}.");
+                Notifications.Current.ShowWarning("SPT Version Mismatch",
+                    $"Version targets SPT {(string.IsNullOrWhiteSpace(verSpt) ? "—" : verSpt)}, expected {exp}.");
+                Console.WriteLine($"[BrowseModsPage] SPT version mismatch (targets {verSpt}, expected {exp}).");
                 return;
             }
         }
@@ -1508,7 +1535,8 @@ public partial class BrowseModsPage : UserControl
         var row = btn.DataContext as SearchResultRow ?? ResultsList.SelectedItem as SearchResultRow;
         if (row is null) return;
 
-        App.Toasts.Show("Queued download.");
+        Notifications.Current.ShowSuccess("Queued", $"{rowCtx.Name} added to download queue.");
+        Console.WriteLine("[BrowseModsPage] Queued download: " + rowCtx.Name);
         MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
 
         List<ForgeClient.MissingDep> rawMissing = new();
@@ -1519,6 +1547,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch
             {
+                Console.WriteLine("[BrowseModsPage] Failed to resolve missing dependencies.");
                 rawMissing = new List<ForgeClient.MissingDep>();
             }
 
@@ -1549,7 +1578,7 @@ public partial class BrowseModsPage : UserControl
             MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
         }
     }
-    
+
     private void OnInstallsChanged()
     {
         if (ResultsList?.ItemsSource is not IEnumerable<SearchResultRow> rows) return;
@@ -1574,18 +1603,18 @@ public partial class BrowseModsPage : UserControl
         {
             if (!string.IsNullOrWhiteSpace(g) && App.Db.HasRealInstall(g)) return true;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[BrowseModsPage] Install check by GUID failed: " + ex);
         }
 
         try
         {
             if (!string.IsNullOrWhiteSpace(n) && App.Db.HasRealInstall(n)) return true;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[BrowseModsPage] Install check by Name failed: " + ex);
         }
 
         return false;
@@ -1649,9 +1678,9 @@ public partial class BrowseModsPage : UserControl
                 var v = await App.Cache.GetLatestVersionForModGuidAsync(dep.Guid);
                 if (v is not null) return v;
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[BrowseModsPage] Failed to get latest version for dependency (GUID): " + ex);
             }
 
         if (dep.ModId > 0)
@@ -1665,9 +1694,9 @@ public partial class BrowseModsPage : UserControl
                     .FirstOrDefault();
                 if (best is not null) return best;
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[BrowseModsPage] Failed to get latest version for dependency (ModId): " + ex);
             }
 
         return null;

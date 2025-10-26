@@ -42,12 +42,13 @@ public partial class SettingsPage : UserControl
         {
             if (e.Property == TextBox.TextProperty) UpdateComputed();
         };
-        
+
         ShowTokenToggle.Checked += (_, __) => ToggleTokenVisibility(true);
         ShowTokenToggle.Unchecked += (_, __) => ToggleTokenVisibility(false);
 
         ClearCacheBtn.Click += OnClearCache;
         ClearTempFilesBtn.Click += OnClearTemp;
+        ClearLogFilesBtn.Click += (_,__) => Logger.CleanAllLogs();
     }
 
     private void ToggleTokenVisibility(bool show)
@@ -75,7 +76,8 @@ public partial class SettingsPage : UserControl
         App.Config.Paths.DataFolder = "";
         DataBox.Text = Paths.DataDir;
         App.SaveConfig();
-        App.Toasts.Show("Data Folder reset to default.");
+        Notifications.Current.ShowSuccess("Data Folder Reset", "Data folder has been reset to default location.");
+        Console.WriteLine("[SettingsPage] Data folder reset to default.");
     }
 
     private async void OnBrowseDataFolder(object? s, RoutedEventArgs e)
@@ -94,13 +96,15 @@ public partial class SettingsPage : UserControl
         var chosen = pick[0].Path.LocalPath;
         if (!Directory.Exists(chosen))
         {
-            App.Toasts.Show("Folder doesn't exist.");
+            Notifications.Current.ShowError("Invalid Folder", "Selected folder doesn't exist.");
+            Console.WriteLine("[SettingsPage] Selected data folder doesn't exist: " + chosen);
             return;
         }
-        
+
         App.Config.Paths.DataFolder = chosen;
         App.SaveConfig();
-        App.Toasts.Show("Data Folder changed.");
+        Notifications.Current.ShowSuccess("Data Folder Changed", "Data folder updated successfully.");
+        Console.WriteLine("[SettingsPage] Data folder changed to: " + chosen);
     }
 
     private async void OnBrowseSptSptFolder(object? s, RoutedEventArgs e)
@@ -119,13 +123,15 @@ public partial class SettingsPage : UserControl
         var chosen = pick[0].Path.LocalPath;
         if (!Directory.Exists(chosen))
         {
-            App.Toasts.Show("Folder doesn't exist.");
+            Notifications.Current.ShowError("Invalid Folder", "Selected SPT folder doesn't exist.");
+            Console.WriteLine("[SettingsPage] Selected SPT folder doesn't exist: " + chosen);
             return;
         }
 
         if (!TryFindSptExe(chosen, out var exePath))
         {
-            App.Toasts.Show("Invalid SPT folder. Could not find SPT.Server.exe in the selected folder (or SPT\\).");
+            Notifications.Current.ShowError("Invalid SPT Folder", "Could not locate SPT.Server.exe in selected directory.");
+            Console.WriteLine("[SettingsPage] Invalid SPT folder: missing SPT.Server.exe in " + chosen);
             return;
         }
 
@@ -139,9 +145,9 @@ public partial class SettingsPage : UserControl
             if (parts.Length > 0) int.TryParse(parts[0], out major);
             friendly = parts.Length >= 3 ? $"{parts[0]}.{parts[1]}.{parts[2]}" : fv;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[SettingsPage] Failed to read SPT version: " + ex);
         }
 
         var clientRel = "BepInEx/plugins";
@@ -168,11 +174,13 @@ public partial class SettingsPage : UserControl
                 var newDbPath = Paths.ModsDbPath;
                 App.Db = new Db(newDbPath);
                 App.Db.Init();
-                App.Toasts.Show($"Switched mods DB → {Path.GetFileName(newDbPath)}");
+                Notifications.Current.ShowSuccess("Database Switched", $"Switched mods DB → {Path.GetFileName(newDbPath)}");
+                Console.WriteLine("[SettingsPage] Mods DB switched to: " + newDbPath);
             }
-            catch
+            catch (Exception ex)
             {
-                App.Toasts.Show("Could not switch mods database.");
+                Notifications.Current.ShowError("Database Error", "Failed to switch mods database.");
+                Console.WriteLine("[SettingsPage] Failed to switch mods database: " + ex);
             }
 
         SptRootBox.Text = chosen;
@@ -181,10 +189,11 @@ public partial class SettingsPage : UserControl
         UpdateComputed();
         UpdateSptDetectionStatus();
 
-        App.Toasts.Show(string.IsNullOrWhiteSpace(friendly)
-            ? "SPT folder saved."
+        Notifications.Current.ShowSuccess("SPT Folder Saved", string.IsNullOrWhiteSpace(friendly)
+            ? "SPT folder saved successfully."
             : $"SPT {friendly} detected and saved.");
-        
+        Console.WriteLine("[SettingsPage] SPT folder saved and config updated.");
+
         var main = (MainWindow?)TopLevel.GetTopLevel(this);
         var tabs = main.FindDescendantOfType<TabControl>();
         if (tabs is not null) tabs.SelectedIndex = 1;
@@ -231,15 +240,18 @@ public partial class SettingsPage : UserControl
                 var newDbPath = Paths.ModsDbPath;
                 App.Db = new Db(newDbPath);
                 App.Db.Init();
-                App.Toasts.Show($"Switched mods DB → {Path.GetFileName(newDbPath)}");
+                Notifications.Current.ShowSuccess("Database Switched", $"Switched mods DB → {Path.GetFileName(newDbPath)}");
+                Console.WriteLine("[SettingsPage] Mods DB switched to: " + newDbPath);
             }
-            catch
+            catch (Exception ex)
             {
-                App.Toasts.Show("Could not switch mods database.");
+                Notifications.Current.ShowError("Database Error", "Failed to switch mods database.");
+                Console.WriteLine("[SettingsPage] Failed to switch mods database: " + ex);
             }
 
         RefreshFromConfig();
-        App.Toasts.Show("Settings saved.");
+        Notifications.Current.ShowSuccess("Settings Saved", "All settings have been saved successfully.");
+        Console.WriteLine("[SettingsPage] Settings saved and configuration updated.");
 
         var main = (MainWindow?)TopLevel.GetTopLevel(this);
         var installed = main?.FindDescendantOfType<InstalledModsPage>();
@@ -294,10 +306,10 @@ public partial class SettingsPage : UserControl
             {
                 App.Cache?.Close();
             }
-            catch  (Exception ex)
+            catch (Exception ex)
             {
-                App.Toasts.Show("Could not clear cache.");
-                Console.WriteLine($"Could  not clear cache: {ex}");
+                Notifications.Current.ShowError("Cache Error", "Failed to clear cache database connection.");
+                Console.WriteLine("[SettingsPage] Failed to close cache: " + ex);
             }
 
             var dbPath = Paths.CacheDbPath;
@@ -309,26 +321,27 @@ public partial class SettingsPage : UserControl
                 }
                 catch (Exception ex)
                 {
-                    App.Toasts.Show("Could not delete cache.");
-                    Console.WriteLine($"Could  not delete cache: {ex}");
+                    Notifications.Current.ShowError("Cache Error", "Failed to delete cache files.");
+                    Console.WriteLine("[SettingsPage] Failed to delete cache file: " + ex);
                 }
 
             try
             {
                 App.Cache?.Init();
             }
-            catch  (Exception ex)
+            catch (Exception ex)
             {
-                App.Toasts.Show("Could not initialize cache.");
-                Console.WriteLine($"Could  not initialize cache: {ex}");
+                Notifications.Current.ShowError("Cache Error", "Failed to reinitialize cache database.");
+                Console.WriteLine("[SettingsPage] Failed to initialize cache: " + ex);
             }
 
-            App.Toasts?.Show("Cache cleared.");
+            Notifications.Current.ShowSuccess("Cache Cleared", "All cached data has been removed successfully.");
+            Console.WriteLine("[SettingsPage] Cache cleared successfully.");
         }
         catch (Exception ex)
         {
-            App.Toasts?.Show("Could not clear cache files.");
-            Console.WriteLine($"Could  not clear cache: {ex}");
+            Notifications.Current.ShowError("Cache Error", "Unexpected error while clearing cache.");
+            Console.WriteLine("[SettingsPage] Unexpected cache clear error: " + ex);
         }
 
         var main = (MainWindow?)TopLevel.GetTopLevel(this);
@@ -346,36 +359,38 @@ public partial class SettingsPage : UserControl
     {
         var baseDir = string.IsNullOrWhiteSpace(App.Config.Paths.DataFolder) ? Paths.DataDir : App.Config.Paths.DataFolder;
         var downloads = Path.Combine(baseDir, "downloads");
+        var thumbs = Path.Combine(baseDir, "thumbs");
         var stage = Path.Combine(baseDir, "stage");
 
         TryDeleteDir(downloads);
+        TryDeleteDir(thumbs);
         TryDeleteDir(stage);
 
-        App.Toasts.Show("Temporary files cleared.");
+        Notifications.Current.ShowSuccess("Temp Files Cleared", "All temporary files have been removed.");
+        Console.WriteLine("[SettingsPage] Temporary files cleared successfully.");
     }
-    
+
     private static void TryDeleteDir(string dir)
     {
         try
         {
             if (!Directory.Exists(dir)) return;
             foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-            {
                 try
                 {
                     File.SetAttributes(f, FileAttributes.Normal);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // good girl action
+                    Console.WriteLine("[SettingsPage] Failed to reset file attributes: " + ex);
                 }
-            }
 
             Directory.Delete(dir, true);
+            Console.WriteLine("[SettingsPage] Deleted directory: " + dir);
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[SettingsPage] Failed to delete directory: " + dir + " | " + ex);
         }
     }
 }

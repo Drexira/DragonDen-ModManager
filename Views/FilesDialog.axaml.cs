@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using DragonDen.ModManager.Models;
+using DragonDen.ModManager.Services;
 
 namespace DragonDen.ModManager.Views;
 
@@ -24,9 +26,9 @@ public partial class FilesDialog : Window
                 {
                     BeginMoveDrag(e);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // good girl action
+                    Console.WriteLine($"BeginMoveDrag failed: {ex.Message}");
                 }
         };
 
@@ -67,7 +69,7 @@ public partial class FilesDialog : Window
     {
         if (FilesList?.SelectedItem is ModFile mf)
         {
-            var path = (App.Config.Paths.SptRoot + mf.GetFileLocation(mf.Target, mf.Path) ?? string.Empty).Replace('/', System.IO.Path.DirectorySeparatorChar);
+            var path = (App.Config.Paths.SptRoot + mf.GetFileLocation(mf.Target, mf.Path) ?? string.Empty).Replace('/', Path.DirectorySeparatorChar);
             if (string.IsNullOrWhiteSpace(path)) return;
 
             try
@@ -79,10 +81,10 @@ public partial class FilesDialog : Window
                 };
                 Process.Start(process);
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine("Failed to open file: " + path);
-                // good girl action
+                Notifications.Current.ShowError("Open Failed", $"Couldn't open the file '{Path.GetFileName(path)}'.");
+                Console.WriteLine($"Failed to open file: {path} ({ex.Message})");
             }
         }
     }

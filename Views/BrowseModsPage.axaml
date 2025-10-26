@@ -364,46 +364,24 @@
                                                 </ItemsControl>
                                             </WrapPanel>
                                             <WrapPanel Orientation="Horizontal" Margin="2,5,0,0">
-                                                <Button Content="Install"
-                                                        FontWeight="Bold"
-                                                        Margin="0,0,5,0"
-                                                        Classes="btn btn-success"
-                                                        Width="96"
-                                                        Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
-                                                        Click="OnInstallSelected"
-                                                        IsVisible="{Binding ShowInstall}"/>
-                                                
-                                                <Button Content="Queued"
-                                                        IsEnabled="False"
-                                                        FontWeight="Bold"
-                                                        Margin="0,0,5,0"
-                                                        Classes="btn btn-neutral"
-                                                        Width="96"
-                                                        Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
-                                                        Click="OnInstallSelected"
-                                                        IsVisible="{Binding ShowQueued}"/>
+                                                <Button Content="Install" FontWeight="Bold" Margin="0,0,5,0" Classes="btn btn-success"
+                                                        Width="96" Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
+                                                        Click="OnInstallSelected" IsVisible="{Binding ShowInstall}"/>
 
-                                                <ComboBox x:Name="VerBox"
-                                                          Width="297"
-                                                          ItemsSource="{Binding VersionsDisplay}"
-                                                          SelectedIndex="0"
-                                                          ItemTemplate="{StaticResource VersionTemplate}"
+                                                <Button Content="Queued" IsEnabled="False" FontWeight="Bold" Margin="0,0,5,0" Classes="btn btn-neutral"
+                                                        Width="96" Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
+                                                        Click="OnInstallSelected" IsVisible="{Binding ShowQueued}"/>
+
+                                                <ComboBox x:Name="VerBox" Width="297" ItemsSource="{Binding VersionsDisplay}"
+                                                          SelectedIndex="0" ItemTemplate="{StaticResource VersionTemplate}"
                                                           IsVisible="{Binding ShowVersionPicker}"/>
 
-                                                <Button Content="Uninstall"
-                                                        Margin="0,0,5,0"
-                                                        Classes="btn btn-danger"
-                                                        Width="96"
-                                                        Click="OnUninstallSelected"
-                                                        IsVisible="{Binding ShowUninstall}"/>
+                                                <Button Content="Uninstall" Margin="0,0,5,0" Classes="btn btn-danger" Width="96"
+                                                        Click="OnUninstallSelected" IsVisible="{Binding ShowUninstall}"/>
 
                                                 <StackPanel Margin="68,0,0,0"/>
-                                                <Button Content="Mod Page"
-                                                        Margin="5,0,0,0"
-                                                        Classes="btn btn-neutral"
-                                                        Width="96"
-                                                        Tag="{Binding .}"
-                                                        Click="OnOpenModPage"/>
+                                                <Button Content="Mod Page" Margin="5,0,0,0" Classes="btn btn-neutral" Width="96"
+                                                        Tag="{Binding .}" Click="OnOpenModPage"/>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Grid>
@@ -421,36 +399,42 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </ScrollViewer>
-            <Border x:Name="SearchOverlay"
-                    IsVisible="False"
-                    Background="#66000000"
-                    ZIndex="10">
-                <StackPanel HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Spacing="10"
-                            Width="360">
-                    <Border Background="#151A20"
-                            CornerRadius="12"
-                            Padding="14"
-                            BorderBrush="{StaticResource Dd.Border}"
-                            BorderThickness="1">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Loading results…"
-                                       FontSize="16"
-                                       FontWeight="SemiBold" />
-                            <TextBlock x:Name="SearchOverlayTip"
-                                       Foreground="{StaticResource Dd.Subtle}"
-                                       TextWrapping="Wrap" />
-                            <ProgressBar IsIndeterminate="True"
-                                         Height="6"
-                                         CornerRadius="3"
-                                         Foreground="{StaticResource Dd.Orange}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Border>
             </Grid>
         </Grid>
+
+        <Border x:Name="SearchOverlay"
+                Grid.RowSpan="3"
+                IsVisible="False"
+                Background="#66000000"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsHitTestVisible="True"
+                ZIndex="1880">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="10"
+                        Width="360">
+                <Border Background="#151A20"
+                        CornerRadius="12"
+                        Padding="14"
+                        BorderBrush="{StaticResource Dd.Border}"
+                        BorderThickness="1">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Loading results…"
+                                   FontSize="16"
+                                   FontWeight="SemiBold" />
+                        <TextBlock x:Name="SearchOverlayTip"
+                                   Foreground="{StaticResource Dd.Subtle}"
+                                   TextWrapping="Wrap" />
+                        <ProgressBar x:Name="SearchOverlayBar"
+                                     IsIndeterminate="True"
+                                     Height="6"
+                                     CornerRadius="3"
+                                     Foreground="{StaticResource Dd.Orange}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
 
         <Border x:Name="DimOverlay" Background="#88000000" IsVisible="False" ZIndex="900" />
         <Border x:Name="LoadingModal" IsVisible="False" ZIndex="901"

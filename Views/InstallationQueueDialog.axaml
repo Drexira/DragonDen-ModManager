@@ -1,0 +1,132 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:DragonDen.ModManager.Views"
+        x:Class="DragonDen.ModManager.Views.InstallationQueueDialog"
+        Title="Installation Queue"
+        MinWidth="720" MinHeight="420"
+        Width="720" Height="420"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="BorderOnly"
+        SizeToContent="Manual"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ShowInTaskbar="true"
+        CanResize="False"
+        Background="#0F1317">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />
+        <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
+        <SolidColorBrush x:Key="Dd.Card" Color="#1B1F24" />
+        <SolidColorBrush x:Key="Dd.Card.Hover" Color="#1E2329" />
+        <SolidColorBrush x:Key="Dd.Border" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="Dd.Subtle" Color="#99FFFFFF" />
+        <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+
+        <SolidColorBrush x:Key="Dd.Orange" Color="#FF8A00" />
+        <SolidColorBrush x:Key="Dd.Green" Color="#1faa33" />
+        <SolidColorBrush x:Key="Dd.Grey" Color="#2A313A" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.btn">
+            <Setter Property="Background" Value="#2A2F36" />
+            <Setter Property="Foreground" Value="#EDEDED" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="MinWidth" Value="84" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="Foreground" Value="#111111" />
+        </Style>
+
+        <Style Selector="Button.btn-muted">
+            <Setter Property="Background" Value="#262A30" />
+            <Setter Property="Foreground" Value="#B7BDC7" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="MinWidth" Value="84" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource Dd.Card}" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Grey}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.card:pointerover">
+            <Setter Property="Background" Value="{StaticResource Dd.Card.Hover}" />
+        </Style>
+
+        <Style Selector="Border.card.state-queued">
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Grey}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.card.state-active">
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Orange}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="Border.card.state-done">
+            <Setter Property="BorderBrush" Value="{StaticResource Dd.Green}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{StaticResource Dd.Background}" Margin="0">
+        <v:TitleBar Grid.Row="0" />
+
+        <TabControl Grid.Row="1">
+            <TabItem Header="Install Queue">
+                <Border BorderBrush="{StaticResource Dd.Border}" BorderThickness="1" CornerRadius="8"
+                        Padding="8" Background="{StaticResource Dd.Panel}">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="ActiveList">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+
+            <TabItem Header="Completed">
+                <Border BorderBrush="{StaticResource Dd.Border}" BorderThickness="1" CornerRadius="8"
+                        Padding="8" Background="{StaticResource Dd.Panel}">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="CompletedList">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0" VerticalAlignment="Center">
+            <Button x:Name="ClearCompletedBtn" Margin="12,0,0,0" Content="Clear Completed" Classes="btn-muted" />
+            <WrapPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12">
+                <TextBlock Text="Current:" Foreground="{StaticResource Dd.Subtle}" />
+                <TextBlock x:Name="CurrentCount" Margin="5,0,0,0" Foreground="{StaticResource Dd.Text}" />
+                <TextBlock Text="Queue:" Margin="35,0,0,0" Foreground="{StaticResource Dd.Subtle}" />
+                <TextBlock x:Name="QueueCount" Margin="5,0,0,0" Foreground="{StaticResource Dd.Text}" />
+                <TextBlock Text="Completed:" Margin="35,0,0,0" Foreground="{StaticResource Dd.Subtle}" />
+                <TextBlock x:Name="CompletedCount" Margin="5,0,0,0" Foreground="{StaticResource Dd.Text}" />
+            </WrapPanel>
+            <Button Grid.Column="2" Margin="0,0,12,0" Content="Close" x:Name="CloseBtn" Width="90" Classes="btn" />
+        </Grid>
+    </Grid>
+</Window>

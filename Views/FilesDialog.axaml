@@ -3,17 +3,16 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="clr-namespace:DragonDen.ModManager.Models"
-
-    MinWidth="650" MinHeight="360"
-    MaxWidth="650" MaxHeight="800"
-    SizeToContent="WidthAndHeight"
     TransparencyLevelHint="AcrylicBlur,Blur,Transparent"
     Background="{DynamicResource PanelBrush}"
-    SystemDecorations="None"
-    ExtendClientAreaToDecorationsHint="True"
-    ExtendClientAreaChromeHints="NoChrome"
     ExtendClientAreaTitleBarHeightHint="36"
     WindowStartupLocation="CenterOwner"
+    SystemDecorations="BorderOnly"
+    MinWidth="600" MinHeight="300"
+    Width="600" Height="300"
+    SizeToContent="Manual"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
     ShowInTaskbar="False"
     CanResize="False">
 
@@ -117,7 +116,7 @@
                                 <TextBlock x:Name="HintText"
                                            Foreground="{StaticResource Dd.Subtle}"
                                            FontSize="12"
-                                           Text="Tip: double clicking files will open them. (.dll files won't open)" />
+                                           Text="Tip: double clicking will open them. (or use config editor for built-in editor)" />
                                 <TextBlock x:Name="HintText2"
                                            Foreground="{StaticResource Dd.Subtle}"
                                            FontSize="12"

@@ -8,9 +8,8 @@ namespace DragonDen.ModManager.ViewModels;
 
 public sealed class SearchResultRow : INotifyPropertyChanged
 {
-    public event PropertyChangedEventHandler? PropertyChanged;
-    void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-    void OnPropsChanged(params string[] names) { foreach (var n in names) OnPropertyChanged(n); }
+    private bool _isInstalled;
+    private bool _isQueued;
 
     public int ModId { get; set; }
     public string Guid { get; set; } = "";
@@ -33,7 +32,7 @@ public sealed class SearchResultRow : INotifyPropertyChanged
     public bool IsLatestVersion { get; set; } = false;
     public bool HasSources => SourceButtons is { Count: > 0 };
     public string DownloadsText => Downloads.ToString("N0", CultureInfo.InvariantCulture);
-    private bool _isInstalled;
+
     public bool IsInstalled
     {
         get => _isInstalled;
@@ -44,7 +43,6 @@ public sealed class SearchResultRow : INotifyPropertyChanged
             OnPropsChanged(nameof(IsInstalled), nameof(ShowUninstall), nameof(ShowInstall), nameof(ShowVersionPicker));
         }
     }
-    private bool _isQueued;
 
     public bool IsQueued
     {
@@ -56,10 +54,22 @@ public sealed class SearchResultRow : INotifyPropertyChanged
             OnPropsChanged(nameof(IsQueued), nameof(IsInstalled), nameof(ShowQueued), nameof(ShowInstall));
         }
     }
+
     public bool ShowUninstall => IsInstalled;
     public bool ShowInstall => !IsInstalled && !IsQueued;
-    public bool ShowVersionPicker=> !IsInstalled;
+    public bool ShowVersionPicker => !IsInstalled;
     public bool ShowQueued => IsQueued && !IsInstalled;
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
+    private void OnPropsChanged(params string[] names)
+    {
+        foreach (var n in names) OnPropertyChanged(n);
+    }
 
     public sealed class VersionDisplay
     {

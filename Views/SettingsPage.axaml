@@ -116,7 +116,7 @@
                                Text="Pick the game root. It will auto-detect the spt version and configure plugins and mods folders." />
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <TextBox x:Name="SptRootBox" Classes="dd" />
-                        <Button x:Name="BrowseSPTBtn" Grid.Column="1" Content="Browse…" Classes="btn" />
+                        <Button x:Name="BrowseSPTBtn" Grid.Column="1" Content="Browse..." Classes="btn" />
                     </Grid>
 
                     <Border Classes="chip">
@@ -133,7 +133,7 @@
                     <TextBlock Classes="note" Text="(will use data folder in manager folder if empty)" />
                     <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10">
                         <TextBox x:Name="DataBox" Classes="dd" />
-                        <Button x:Name="BrowseDataBtn" Grid.Column="1" Content="Browse…" Classes="btn" />
+                        <Button x:Name="BrowseDataBtn" Grid.Column="1" Content="Browse..." Classes="btn" />
                         <Button x:Name="ResetDataBtn" Grid.Column="2" Content="Reset to Default" Classes="btn" />
                     </Grid>
                 </StackPanel>
@@ -173,8 +173,9 @@
                 <Button x:Name="SaveBtn" Content="Save" Classes="btn" />
                 <Button x:Name="ClearCacheBtn" Content="Clear Cache" Classes="btn btn-danger" />
                 <Button x:Name="ClearTempFilesBtn" Content="Clear Temp Files" Classes="btn btn-danger" />
+                <Button x:Name="ClearLogFilesBtn" Content="Clear Log Files" Classes="btn btn-danger" />
                 <TextBlock x:Name="StatusText" Foreground="{StaticResource Dd.Subtle}" VerticalAlignment="Center" />
             </StackPanel>
         </StackPanel>
-        </ScrollViewer>
+    </ScrollViewer>
 </UserControl>
