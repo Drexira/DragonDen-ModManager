@@ -47,9 +47,9 @@ public static class Spt
             {
                 extra.AddRange(Directory.EnumerateFiles(root, "*Server*.exe", SearchOption.TopDirectoryOnly));
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[Spt] Error enumerating files in root: {ex}");
             }
 
             var sptDir = Path.Combine(root, "SPT");
@@ -58,9 +58,9 @@ public static class Spt
                 {
                     extra.AddRange(Directory.EnumerateFiles(sptDir, "*Server*.exe", SearchOption.TopDirectoryOnly));
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // good girl action
+                    Console.WriteLine($"[Spt] Error enumerating files in SPT dir: {ex}");
                 }
 
             var hit = extra.FirstOrDefault(File.Exists);
@@ -70,9 +70,9 @@ public static class Spt
                 return true;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[Spt] Error finding server exe: {ex}");
         }
 
         return false;

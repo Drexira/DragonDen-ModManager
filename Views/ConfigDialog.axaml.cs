@@ -226,6 +226,7 @@ public partial class ConfigDialog : Window
             SaveBtn.IsEnabled = false;
             ResetBtn.IsEnabled = false;
             Notifications.Current.ShowSuccess("Saved", Path.GetFileName(_currentFile));
+            Console.WriteLine($"[ConfigDialog] Saved file: {_currentFile}");
         }
         catch (Exception ex)
         {

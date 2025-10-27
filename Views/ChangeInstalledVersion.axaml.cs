@@ -27,7 +27,14 @@ public partial class ChangeInstalledVersion : Window
             var pos = e.GetPosition(this);
             if (pos.Y <= 36 && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
-                try { BeginMoveDrag(e); } catch { }
+                try
+                {
+                    BeginMoveDrag(e);
+                }
+                catch
+                {
+                    // good girl action
+                }
             }
         };
 
@@ -230,6 +237,7 @@ public partial class ChangeInstalledVersion : Window
             !string.Equals(detectedAB, chosenAB, StringComparison.OrdinalIgnoreCase))
         {
             Notifications.Current.ShowError("Version Mismatch", $"This version targets SPT {chosenAB}, but your install is {detectedAB}.");
+            Console.WriteLine($"[ChangeInstalledVersion] Aborting install due to SPT AB mismatch: detected={detectedAB}, chosen={chosenAB}");
             return;
         }
 
@@ -238,11 +246,13 @@ public partial class ChangeInstalledVersion : Window
         if (string.Equals(selectedVer, installedVersion, StringComparison.OrdinalIgnoreCase))
         {
             Notifications.Current.ShowWarning("Already Installed", $"'{_row.Name}' is already on version {installedVersion}.");
+            Console.WriteLine($"[ChangeInstalledVersion] Aborting install because selected version is already installed: {installedVersion}");
             return;
         }
 
         App.Queue.EnqueueRemote(_row.Name, chosen.Link!, selectedVer, _row.Guid ?? "");
         Notifications.Current.ShowSuccess("Version Change Queued", $"'{_row.Name}' will change from {installedVersion} → {selectedVer}.");
+        Console.WriteLine($"[ChangeInstalledVersion] Queued version change for '{_row.Name}': {installedVersion} → {selectedVer}");
         Close();
     }
 

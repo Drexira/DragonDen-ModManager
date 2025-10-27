@@ -17,9 +17,9 @@ public static class DllGuidExtractor
             if (bep is not null && !string.IsNullOrWhiteSpace(bep.Guid))
                 return bep.Guid;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Failed to extract mod guid from {dllPath}: {ex.Message}");
         }
 
         return FallbackScanBinary(dllPath);
@@ -32,9 +32,9 @@ public static class DllGuidExtractor
             var g = DllIntrospector.TryGetServerModGuid(dllPath);
             if (!string.IsNullOrWhiteSpace(g)) return g;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {dllPath}: {ex.Message}");
         }
 
         return FallbackScanBinary(dllPath);
@@ -88,9 +88,9 @@ public static class DllGuidExtractor
                 if (!string.IsNullOrWhiteSpace(g)) return g;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Failed to extract mod guid from {folder}: {ex.Message}");
         }
 
         return null;
@@ -106,9 +106,9 @@ public static class DllGuidExtractor
                 if (!string.IsNullOrWhiteSpace(g)) return g;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
         }
 
         return null;
@@ -148,9 +148,9 @@ public static class DllGuidExtractor
                 if (m2.Success) return m2.Groups[1].Value;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
         }
 
         return null;
@@ -242,9 +242,9 @@ public static class DllGuidExtractor
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
         }
 
         return (null, resultNames);
@@ -286,9 +286,9 @@ public static class DllGuidExtractor
                     return contains.Guid;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Failed ");
         }
 
         return null;
@@ -308,9 +308,9 @@ public static class DllGuidExtractor
 
             if (m.Success) return m.Groups["id"].Value;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Fallback scan failed for {dllPath}: {ex.Message}");
         }
 
         return null;
@@ -327,9 +327,9 @@ public static class DllGuidExtractor
                 RegexOptions.CultureInvariant);
             if (m.Success) return m.Groups["id"].Value;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllGuidExtractor] Fallback scan failed for {path}: {ex.Message}");
         }
 
         return null;

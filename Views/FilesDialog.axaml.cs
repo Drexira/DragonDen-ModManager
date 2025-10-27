@@ -28,7 +28,7 @@ public partial class FilesDialog : Window
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"BeginMoveDrag failed: {ex.Message}");
+                    Console.WriteLine($"[FilesDialog] BeginMoveDrag failed: {ex.Message}");
                 }
         };
 
@@ -84,7 +84,7 @@ public partial class FilesDialog : Window
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Open Failed", $"Couldn't open the file '{Path.GetFileName(path)}'.");
-                Console.WriteLine($"Failed to open file: {path} ({ex.Message})");
+                Console.WriteLine($"[FilesDialog] Failed to open file: {path} ({ex.Message})");
             }
         }
     }

@@ -30,9 +30,9 @@ public static class DllIntrospector
                     return new BepInResult(guid, name, ver);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllIntrospector] Error reading BepInEx info from {dllPath}: {ex}");
         }
 
         return null;
@@ -58,9 +58,9 @@ public static class DllIntrospector
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[DllIntrospector] Error reading Server Mod GUID from {dllPath}: {ex}");
         }
 
         return null;

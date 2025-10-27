@@ -235,9 +235,9 @@ namespace DragonDen.ModManager.Services
             {
                 Directory.CreateDirectory(dir);
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[ModDisabler] EnsureDir failed for '{dir}': {ex.Message}");
             }
         }
 
@@ -266,8 +266,14 @@ namespace DragonDen.ModManager.Services
         private static string NormalizeDir(string? p)
         {
             if (string.IsNullOrWhiteSpace(p)) return "";
-            try { return Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar); }
-            catch { return p.TrimEnd(Path.DirectorySeparatorChar); }
+            try
+            {
+                return Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar);
+            }
+            catch
+            {
+                return p.TrimEnd(Path.DirectorySeparatorChar); 
+            }
         }
 
         private sealed class DetailScope : IDisposable

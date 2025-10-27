@@ -147,6 +147,7 @@ public sealed class InstallQueue
             App.NotifyInstallsChanged();
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowSuccess("Install Done", $"{job.Title}: {result.ToHuman()}");
+            Console.WriteLine($"[InstallQueue] Local install done: {job.Title} | {result.ToHuman()}");
         }
         catch (OperationCanceledException)
         {
@@ -160,6 +161,7 @@ public sealed class InstallQueue
             });
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowWarning("Install Cancelled", job.Title);
+            Console.WriteLine($"[InstallQueue] Local install cancelled: {job.Title}");
         }
         catch (Exception ex)
         {
@@ -173,9 +175,15 @@ public sealed class InstallQueue
             });
             Notifications.Current.UnbindInstall(job);
             if (ex.Message.Contains("7za list failed"))
+            {
                 Notifications.Current.ShowError("Install Failed", job.Title + "This mod does not have direct download.");
-            else 
+                Console.WriteLine($"[InstallQueue] Local install failed due to direct download missing: {job.Title} | {ex}");
+            }
+            else
+            {
                 Notifications.Current.ShowError("Install Failed", job.Title);
+                Console.WriteLine($"[InstallQueue] Local install failed: {job.Title} | {ex}");
+            }
             Console.WriteLine("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
         }
     }
@@ -326,6 +334,7 @@ public sealed class InstallQueue
             App.NotifyInstallsChanged();
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowSuccess("Install Done", $"{name}: {result.ToHuman()}");
+            Console.WriteLine($"[InstallQueue] Remote install done: {name} | {result.ToHuman()}");
         }
         catch (OperationCanceledException)
         {
@@ -353,9 +362,15 @@ public sealed class InstallQueue
             });
             Notifications.Current.UnbindInstall(job);
             if (ex.Message.Contains("7za list failed"))
+            {
                 Notifications.Current.ShowError("Install Failed", job.Title + "This mod does not have direct download.");
-            else 
+                Console.WriteLine($"[InstallQueue] Local install failed due to direct download missing: {job.Title} | {ex}");
+            }
+            else
+            {
                 Notifications.Current.ShowError("Install Failed", job.Title);
+                Console.WriteLine($"[InstallQueue] Local install failed: {job.Title} | {ex}");
+            }
             Console.WriteLine("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
         }
     }

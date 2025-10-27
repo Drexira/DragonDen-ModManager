@@ -126,9 +126,9 @@ public sealed class WebImage : Image
                 await using var fs = File.OpenRead(cachePath);
                 return await Task.Run(() => Bitmap.DecodeToWidth(fs, 512, BitmapInterpolationMode.MediumQuality), ct);
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[WebImage] failed loading cached image: {ex}");
             }
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
@@ -153,9 +153,9 @@ public sealed class WebImage : Image
         {
             _loadCts?.Cancel();
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[WebImage] OnDetachedFromVisualTree cancel error: {ex}");
         }
     }
 }

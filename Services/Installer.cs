@@ -245,9 +245,9 @@ public static class Installer
                 var rel = Path.GetRelativePath(root, f).Replace('\\', '/');
                 if (!string.IsNullOrWhiteSpace(rel)) set.Add(rel);
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[Installer] Failed to snapshot file '{f}': {ex}");
             }
 
         return set;
@@ -259,9 +259,9 @@ public static class Installer
         {
             if (Directory.Exists(dir)) Directory.Delete(dir, true);
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[Installer] Failed to delete staging dir '{dir}': {ex}");
         }
     }
 
@@ -277,9 +277,9 @@ public static class Installer
             var p = Directory.GetParent(Spt.ClientModsPath);
             if (p != null) return p.FullName;
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[Installer] Failed to get BepInEx root: {ex}");
         }
         return Path.GetFullPath(Path.Combine(Spt.ClientModsPath, ".."));
     }

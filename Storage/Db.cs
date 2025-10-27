@@ -67,9 +67,9 @@ public sealed class Db
             {
                 c.Execute("ALTER TABLE files ADD COLUMN target TEXT DEFAULT 'client'");
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[Db] Failed to add 'target' column to 'files' table: {ex}");
             }
     }
 
@@ -87,9 +87,9 @@ public sealed class Db
             {
                 c.Execute($"ALTER TABLE {table} ADD COLUMN {col} {type}");
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[Db] Failed to add '{col}' column to '{table}' table: {ex}");
             }
     }
 
@@ -333,9 +333,9 @@ LIMIT 1";
                     {
                         if (File.Exists(full)) File.Delete(full);
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // good girl action
+                        Console.WriteLine($"[Db] Failed to delete file '{full}': {ex}");
                     }
 
                     try
@@ -351,9 +351,9 @@ LIMIT 1";
                                 StringComparison.OrdinalIgnoreCase);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // good girl action
+                        Console.WriteLine($"[Db] Failed to delete directory for file '{full}': {ex}");
                     }
                 }
             }
@@ -443,9 +443,9 @@ WHERE f.mod_id = @modId
             {
                 tx.Rollback();
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[Db] Failed to rollback transaction in RemoveInstall: {ex}");
             }
 
             throw;

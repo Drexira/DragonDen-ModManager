@@ -27,9 +27,9 @@ public static class ForgeClient
         {
             StatusMessage?.Invoke(msg);
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[ForgeClient] Exception in StatusMessage handler: {ex}");
         }
     }
 
@@ -637,9 +637,9 @@ public static class ForgeClient
                 if (v.ValueKind == JsonValueKind.Null) return def;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[ForgeClient] Exception in GetPropertyOrDefault for property '{name}': {ex}");
         }
 
         return def;

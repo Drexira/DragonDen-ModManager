@@ -119,9 +119,9 @@ public sealed class Notifications
             await Task.Delay(ms).ConfigureAwait(false);
             Dispatch(() => Others.Remove(n));
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[Notifications] Failed to dismiss notification: {ex}");
         }
     }
 

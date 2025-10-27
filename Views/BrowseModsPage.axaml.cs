@@ -1421,6 +1421,7 @@ public partial class BrowseModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(name);
                 Notifications.Current.ShowSuccess("Copied", "Mod name copied to clipboard.");
+                Console.WriteLine($"[BrowseModsPage] Copied mod name: {name}");
             }
         }
         catch (Exception ex)
@@ -1442,6 +1443,7 @@ public partial class BrowseModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(guid);
                 Notifications.Current.ShowSuccess("Copied", "Mod GUID copied to clipboard.");
+                Console.WriteLine($"[BrowseModsPage] Copied mod GUID: {guid}");
             }
         }
         catch (Exception ex)
@@ -1488,6 +1490,7 @@ public partial class BrowseModsPage : UserControl
         if (btn.Tag is not SearchResultRow.VersionDisplay vd)
         {
             Notifications.Current.ShowWarning("Missing Version", "Select a version before installing.");
+            Console.WriteLine($"[BrowseModsPage] No version selected for install.");
             return;
         }
 

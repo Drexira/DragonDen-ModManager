@@ -153,9 +153,9 @@ PRAGMA foreign_keys=ON;";
                 alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {type}";
                 alter.ExecuteNonQuery();
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[CacheDb] Error: " + ex.Message);
             }
     }
 
@@ -977,9 +977,9 @@ LIMIT 1";
             cmd.CommandText = "PRAGMA wal_checkpoint(FULL);";
             cmd.ExecuteNonQuery();
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[CacheDb] Close failed: " + ex);
         }
         finally
         {
@@ -987,9 +987,9 @@ LIMIT 1";
             {
                 SqliteConnection.ClearAllPools();
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine("[CacheDb] Close failed: " + ex);
             }
         }
     }

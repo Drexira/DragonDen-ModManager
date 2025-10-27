@@ -228,6 +228,7 @@ public partial class InstalledModsPage : UserControl
         if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("Nothing To Disable", "All visible mods are already disabled or custom installs.");
+            Console.WriteLine($"[InstalledModsPage] DisableAllAsync: no eligible mods to disable.");
             return;
         }
 
@@ -247,6 +248,7 @@ public partial class InstalledModsPage : UserControl
         }
 
         Notifications.Current.ShowSuccess("Bulk Disable Complete", $"Disabled {count} mod(s).");
+        Console.WriteLine($"[InstalledModsPage] DisableAllAsync: disabled {count} mods.");
         App.NotifyInstallsChanged();
     }
 
@@ -258,6 +260,7 @@ public partial class InstalledModsPage : UserControl
         if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("Nothing To Enable", "No disabled mods in the current view.");
+            Console.WriteLine($"[InstalledModsPage] EnableAllAsync: no eligible mods to enable.");
             return;
         }
 
@@ -277,6 +280,7 @@ public partial class InstalledModsPage : UserControl
         }
 
         Notifications.Current.ShowSuccess("Bulk Enable Complete", $"Enabled {count} mod(s).");
+        Console.WriteLine($"[InstalledModsPage] EnableAllAsync: enabled {count} mods.");
         App.NotifyInstallsChanged();
     }
 
@@ -286,13 +290,16 @@ public partial class InstalledModsPage : UserControl
 
         if (b.DataContext is InstalledModRow dc && dc.IsDisabled)
         {
-            // good girl action
+            Notifications.Current.ShowWarning("Mod Disabled", "Enable the mod to use this button.");
+            Console.WriteLine($"[InstalledModsPage] Button click blocked: mod disabled → {dc.Name}");
+            return;
         }
 
         if (b.Classes?.Contains("btn-trash") == true && b.Tag is InstalledModRow rowTrash)
         {
             App.Db.UninstallByModIds(rowTrash.ModIds);
             Notifications.Current.ShowSuccess("Mod Uninstalled", $"'{rowTrash.Name}' was successfully removed.");
+            Console.WriteLine($"[InstalledModsPage] Uninstalled mod → {rowTrash.Name}");
             await RefreshRows();
             return;
         }
@@ -306,6 +313,7 @@ public partial class InstalledModsPage : UserControl
                 if (row4.IsDisabled)
                 {
                     Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod to list its files.");
+                    Console.WriteLine($"[InstalledModsPage] List Files click blocked: mod disabled → {row4.Name}");
                     return;
                 }
                 await ShowFilesDialog(row4);
@@ -320,6 +328,7 @@ public partial class InstalledModsPage : UserControl
                 if (row5.IsDisabled)
                 {
                     Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod to edit its configs.");
+                    Console.WriteLine($"[InstalledModsPage] Edit Configs click blocked: mod disabled → {row5.Name}");
                     return;
                 }
                 await ShowConfigDialog(row5);
@@ -422,6 +431,7 @@ public partial class InstalledModsPage : UserControl
         if (items.Count == 0)
         {
             Notifications.Current.ShowError("No Configs Found", $"No editable config files exist for '{row.Name}'.");
+            Console.WriteLine($"[InstalledModsPage] ShowConfigDialog: no editable configs for {row.Name}");
             return;
         }
 
@@ -480,11 +490,13 @@ public partial class InstalledModsPage : UserControl
         if (allIds.Count == 0)
         {
             Notifications.Current.ShowWarning("No Mods Found", "There are no installed mods to uninstall.");
+            Console.WriteLine($"[InstalledModsPage] UninstallAllAsync: no mods to uninstall.");
             return;
         }
 
         App.Db.UninstallByModIds(allIds);
         Notifications.Current.ShowSuccess("All Mods Removed", "All installed mods have been uninstalled.");
+        Console.WriteLine($"[InstalledModsPage] UninstallAllAsync: uninstalled all mods.");
         await RefreshRows();
     }
 
@@ -499,6 +511,7 @@ public partial class InstalledModsPage : UserControl
 
             row.IsDisabled = true;
             Notifications.Current.ShowSuccess("Disabled", $"{row.Name} moved to Disabled Mods.");
+            Console.WriteLine($"[InstalledModsPage] Disabled mod → {row.Name}");
             App.NotifyInstallsChanged();
         }
         catch (Exception ex)
@@ -519,6 +532,7 @@ public partial class InstalledModsPage : UserControl
 
             row.IsDisabled = false;
             Notifications.Current.ShowSuccess("Enabled", $"{row.Name} restored.");
+            Console.WriteLine($"[InstalledModsPage] Enabled mod → {row.Name}");
             App.NotifyInstallsChanged();
         }
         catch (Exception ex)
@@ -899,6 +913,7 @@ public partial class InstalledModsPage : UserControl
         if (row.IsDisabled)
         {
             Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod before updating.");
+            Console.WriteLine($"[InstalledModsPage] Update badge click blocked: mod disabled → {row.Name}");
             return;
         }
 
@@ -907,6 +922,7 @@ public partial class InstalledModsPage : UserControl
             b.IsEnabled = false;
             App.Queue.EnqueueRemote(row.Name, url, row.Latest?.Version ?? "Custom Install", row.Guid ?? "");
             Notifications.Current.ShowSuccess("Update Queued", $"'{row.Name}' has been added to the update queue.");
+            Console.WriteLine($"[InstalledModsPage] Update badge clicked: queued update for {row.Name}");
         }
         else
         {
@@ -921,6 +937,7 @@ public partial class InstalledModsPage : UserControl
         if (row.IsDisabled)
         {
             Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod before changing its version.");
+            Console.WriteLine($"[InstalledModsPage] Open version modal blocked: mod disabled → {row.Name}");
             return;
         }
 
@@ -937,6 +954,7 @@ public partial class InstalledModsPage : UserControl
         if (chosen is null || string.IsNullOrWhiteSpace(chosen.Link))
         {
             Notifications.Current.ShowWarning("No Version Selected", "Choose a version to install first.");
+            Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: no version chosen for {row.Name}");
             return;
         }
 
@@ -946,6 +964,7 @@ public partial class InstalledModsPage : UserControl
             !string.Equals(detectedAB, chosenAB, StringComparison.OrdinalIgnoreCase))
         {
             Notifications.Current.ShowError("Version Mismatch", $"This version targets SPT {chosenAB}, but your install is {detectedAB}.");
+            Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: AB mismatch for {row.Name} (detected {detectedAB}, chosen {chosenAB})");
             return;
         }
 
@@ -954,20 +973,17 @@ public partial class InstalledModsPage : UserControl
         if (string.Equals(selectedVer, installedVersion, StringComparison.OrdinalIgnoreCase))
         {
             Notifications.Current.ShowWarning("Already Installed", $"'{row.Name}' is already on version {installedVersion}.");
+            Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: selected version same as installed for {row.Name}");
             return;
         }
 
         App.Queue.EnqueueRemote(row.Name, chosen.Link!, selectedVer, row.Guid ?? "");
         Notifications.Current.ShowSuccess("Version Change Queued", $"'{row.Name}' will change from {installedVersion} → {selectedVer}.");
+        Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: queued version change for {row.Name} from {installedVersion} to {selectedVer}");
 
         var host = this.GetVisualAncestors().OfType<Window>().FirstOrDefault(w => w.Title?.StartsWith("Choose version", StringComparison.OrdinalIgnoreCase) == true
                                                                                  || w.Title?.StartsWith("Select a Version", StringComparison.OrdinalIgnoreCase) == true);
         host?.Close();
-    }
-
-    private void OnVersionBoxAttached(object? sender, VisualTreeAttachmentEventArgs e)
-    {
-        // good girl action
     }
 
     private void OnAuthorClick(object? sender, RoutedEventArgs e)
@@ -1035,6 +1051,7 @@ public partial class InstalledModsPage : UserControl
         if (string.IsNullOrWhiteSpace(url))
         {
             Notifications.Current.ShowWarning("No Link Found", "There is no link to copy for this mod.");
+            Console.WriteLine($"[InstalledModsPage] OnCopyLink: no URL to copy.");
             return;
         }
 
@@ -1045,6 +1062,7 @@ public partial class InstalledModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(url);
                 Notifications.Current.ShowSuccess("Link Copied", "The link has been copied to your clipboard.");
+                Console.WriteLine($"[InstalledModsPage] OnCopyLink: copied URL to clipboard.");
             }
         }
         catch (Exception ex)
@@ -1066,6 +1084,7 @@ public partial class InstalledModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(guid);
                 Notifications.Current.ShowSuccess("GUID Copied", "The GUID has been copied to your clipboard.");
+                Console.WriteLine($"[InstalledModsPage] OnCopyGuid: copied GUID to clipboard.");
             }
         }
         catch (Exception ex)

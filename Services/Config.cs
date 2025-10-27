@@ -51,9 +51,9 @@ public sealed class Config
                 return cfg;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[Config] Loading config failed: " + ex.Message);
         }
 
         var created = CreateDefault();

@@ -54,18 +54,18 @@ public class App : Application
         {
             Directory.CreateDirectory(Paths.CacheDir);
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[App] Failed to create cache directory: {ex.Message}");
         }
 
         try
         {
             Directory.CreateDirectory(Paths.ModsDir);
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[App] Failed to create mods directory: {ex.Message}");
         }
 
         Config = Config.Load(Paths.AppSettingsPath);
@@ -169,13 +169,13 @@ public class App : Application
         {
             await Cache.RefreshAllAsync(null, ct);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException e)
         {
             // good girl action
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[App] Failed to warmup cache: {ex.Message}");
         }
     }
 
@@ -195,9 +195,9 @@ public class App : Application
                 await Task.Delay(150).ConfigureAwait(true);
                 InstallsChanged?.Invoke();
             }
-            catch
+            catch (Exception ex)
             {
-                // good girl action
+                Console.WriteLine($"[App] Failed to install installs: {ex.Message}");
             }
             finally
             {
@@ -215,9 +215,9 @@ public class App : Application
         {
             ConfigChanged?.Invoke();
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[App] Failed to raise config changed: " + ex.Message);
         }
     }
 
@@ -227,9 +227,9 @@ public class App : Application
         {
             _warmCts?.Cancel();
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine("[App] Failed to cancel warm cache: " + ex.Message);
         }
     }
 

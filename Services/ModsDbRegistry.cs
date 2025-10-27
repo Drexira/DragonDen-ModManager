@@ -39,9 +39,9 @@ public static class ModsDbRegistry
                 if (m is not null) return m;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[ModsDbRegistry] Failed to load registry: {ex}");
         }
 
         return new Model();
@@ -55,9 +55,9 @@ public static class ModsDbRegistry
             Directory.CreateDirectory(dir);
             File.WriteAllText(Paths.ModsRegistryPath, JsonSerializer.Serialize(m, JsonOpts));
         }
-        catch
+        catch (Exception ex)
         {
-            // good girl action
+            Console.WriteLine($"[ModsDbRegistry] Failed to save registry: {ex}");
         }
     }
 
