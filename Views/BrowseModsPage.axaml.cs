@@ -1487,23 +1487,70 @@ public partial class BrowseModsPage : UserControl
     private async void OnInstallSelected(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
-        if (btn.Tag is not SearchResultRow.VersionDisplay vd)
+
+        var row =
+            btn.DataContext as SearchResultRow
+            ?? (btn.Parent as Panel)?.DataContext as SearchResultRow
+            ?? ResultsList.SelectedItem as SearchResultRow;
+
+        if (row is null)
         {
-            Notifications.Current.ShowWarning("Missing Version", "Select a version before installing.");
-            Console.WriteLine($"[BrowseModsPage] No version selected for install.");
+            Notifications.Current.ShowWarning("No Mod Selected", "Couldn't determine which mod to install.");
             return;
         }
 
-        var model = vd.Model;
-        if (string.IsNullOrWhiteSpace(model.Link))
+        try
+        {
+            await App.Cache.EnsureVersionsCachedAsync(row.ModId);
+            var freshVersions = App.Cache.GetVersionsForMod(row.ModId);
+
+            var hydrated = new SearchResultRow
+            {
+                ModId = row.ModId,
+                Guid = row.Guid,
+                Name = row.Name,
+                Teaser = row.Teaser,
+                Category = row.Category,
+                CategoryColorClass = row.CategoryColorClass,
+                OwnerNames = new List<string>(row.OwnerNames),
+                Thumbnail = row.Thumbnail,
+                Slug = row.Slug,
+                ModPageUrl = row.ModPageUrl,
+                Downloads = row.Downloads,
+                Versions = freshVersions,
+                VersionsDisplay = row.VersionsDisplay,
+                LatestVersionText = row.LatestVersionText,
+                SptConstraintText = row.SptConstraintText,
+                SourceButtons = row.SourceButtons,
+                IsInstalled = row.IsInstalled,
+                IsQueued = row.IsQueued,
+                IsLatestVersion = row.IsLatestVersion
+            };
+
+            row = hydrated;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[BrowseModsPage] Failed to hydrate versions with descriptions: " + ex);
+        }
+
+        var owner = TopLevel.GetTopLevel(this) as Window
+                    ?? this.FindAncestorOfType<Window>()
+                    ?? (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+
+        ForgeClient.ModVersion? chosen = null;
+        if (owner is not null)
+        {
+            var dlg = new BrowseModInstallDialog(row);
+            chosen = await dlg.ShowDialog<ForgeClient.ModVersion?>(owner);
+        }
+
+        if (chosen is null) return;
+        if (string.IsNullOrWhiteSpace(chosen!.Link))
         {
             Notifications.Current.ShowWarning("Missing Link", "This version has no download link available.");
-            Console.WriteLine("[BrowseModsPage] No download link for version.");
             return;
         }
-
-        var detectedAB = App.GetDetectedSptAB();
-        var verSpt = vd.SptNormalized ?? "";
 
         static string MajorAB(string s)
         {
@@ -1512,72 +1559,60 @@ public partial class BrowseModsPage : UserControl
             return p.Length >= 2 ? $"{p[0]}.{p[1]}" : "";
         }
 
+        var detectedAB = App.GetDetectedSptAB();
+        var chosenSpt = SemverUtil.NormalizeToThreeParts(chosen.SptVersionConstraint) ?? "";
         if (!string.IsNullOrWhiteSpace(detectedAB))
         {
             var selTag = (SptFilterBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
             var needFullMatch = !string.IsNullOrWhiteSpace(selTag) && selTag.Count(c => c == '.') >= 2;
             var ok =
-                (!needFullMatch && string.Equals(MajorAB(verSpt), detectedAB, StringComparison.OrdinalIgnoreCase)) ||
-                (needFullMatch && string.Equals(verSpt, selTag, StringComparison.OrdinalIgnoreCase));
+                (!needFullMatch && string.Equals(MajorAB(chosenSpt), detectedAB, StringComparison.OrdinalIgnoreCase)) ||
+                (needFullMatch && string.Equals(chosenSpt, selTag, StringComparison.OrdinalIgnoreCase));
 
             if (!ok)
             {
                 var exp = string.IsNullOrWhiteSpace(selTag) ? detectedAB : selTag;
                 Notifications.Current.ShowWarning("SPT Version Mismatch",
-                    $"Version targets SPT {(string.IsNullOrWhiteSpace(verSpt) ? "—" : verSpt)}, expected {exp}.");
-                Console.WriteLine($"[BrowseModsPage] SPT version mismatch (targets {verSpt}, expected {exp}).");
+                    $"Version targets SPT {(string.IsNullOrWhiteSpace(chosenSpt) ? "—" : chosenSpt)}, expected {exp}.");
                 return;
             }
         }
 
-        var rowCtx = (btn.Parent as Panel)?.DataContext as SearchResultRow ??
-                     ResultsList.SelectedItem as SearchResultRow ??
-                     new SearchResultRow { Name = "Mod", Guid = "" };
+        Notifications.Current.ShowSuccess("Queued", $"{row.Name} added to download queue.");
+        MarkRowsQueued(new[] { (row.ModId, row.Name, row.Guid) });
 
-        var row = btn.DataContext as SearchResultRow ?? ResultsList.SelectedItem as SearchResultRow;
-        if (row is null) return;
-
-        Notifications.Current.ShowSuccess("Queued", $"{rowCtx.Name} added to download queue.");
-        Console.WriteLine("[BrowseModsPage] Queued download: " + rowCtx.Name);
-        MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
-
-        List<ForgeClient.MissingDep> rawMissing = new();
-        if (!row.IsInstalled)
-            try
-            {
-                rawMissing = await ResolveMissingDependenciesAsync(rowCtx.ModId, model.Id);
-            }
-            catch
-            {
-                Console.WriteLine("[BrowseModsPage] Failed to resolve missing dependencies.");
-                rawMissing = new List<ForgeClient.MissingDep>();
-            }
+        List<ForgeClient.MissingDep> rawMissing;
+        try
+        {
+            rawMissing = await ResolveMissingDependenciesAsync(row.ModId, chosen.Id);
+        }
+        catch
+        {
+            rawMissing = new List<ForgeClient.MissingDep>();
+        }
 
         var missing = rawMissing.Where(d => !IsInstalledByNameOrGuid(d.Name, d.Guid)).ToList();
-        var owner = TopLevel.GetTopLevel(this) as Window ??
-                    this.FindAncestorOfType<Window>() ??
-                    (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
-        if (missing is { Count: > 0 } && !row.IsInstalled && owner is not null)
+        if (missing.Count > 0 && !row.IsInstalled && owner is not null)
         {
-            var choice = await DependenciesDialog.ShowAsync(owner!, rowCtx.Name, missing);
+            var choice = await DependenciesDialog.ShowAsync(owner, row.Name, missing);
             if (choice == DependenciesDialog.InstallChoice.Cancel) return;
 
             if (choice == DependenciesDialog.InstallChoice.InstallWithDeps)
             {
-                var enq = await QueueDependenciesThenModAsync(rowCtx.Name, model, missing);
+                var enq = await QueueDependenciesThenModAsync(row.Name, chosen, missing);
                 MarkRowsQueued(enq);
             }
             else
             {
-                App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "Custom Install", rowCtx.Guid ?? "");
-                MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
+                App.Queue.EnqueueRemote(row.Name, chosen.Link!, chosen.Version ?? "Custom Install", row.Guid ?? "");
+                MarkRowsQueued(new[] { (row.ModId, row.Name, row.Guid) });
             }
         }
         else
         {
-            App.Queue.EnqueueRemote(rowCtx.Name, model.Link!, model.Version ?? "Custom Install", rowCtx.Guid ?? "");
-            MarkRowsQueued(new[] { (rowCtx.ModId, rowCtx.Name, rowCtx.Guid) });
+            App.Queue.EnqueueRemote(row.Name, chosen.Link!, chosen.Version ?? "Custom Install", row.Guid ?? "");
+            MarkRowsQueued(new[] { (row.ModId, row.Name, row.Guid) });
         }
     }
 

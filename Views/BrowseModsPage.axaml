@@ -180,7 +180,7 @@
                     BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
                 <DockPanel LastChildFill="True">
                     <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
-                        <TextBox x:Name="SearchBox" Width="400" Watermark="Search mods or type @Author…" />
+                        <TextBox x:Name="SearchBox" Width="400" Watermark="Search mods or type @Author..." />
                         <Button x:Name="ClearBtn" Content="Clear" Classes="btn btn-neutral" />
                         <Button x:Name="RefreshBtn" Content="Refresh" Classes="btn btn-neutral" />
                     </StackPanel>
@@ -241,11 +241,7 @@
             </Border>
             <Grid Grid.Row="2" x:Name="ResultsHost">
                 <ScrollViewer x:Name="ResultsScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
-                    <ListBox x:Name="ResultsList"
-                             SelectionMode="Single"
-                             Background="Transparent"
-                             BorderBrush="Transparent"
-                             SelectionChanged="OnResultsSelectionChanged">
+                    <ListBox x:Name="ResultsList" SelectionMode="Single" Background="Transparent" BorderBrush="Transparent" SelectionChanged="OnResultsSelectionChanged">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel HorizontalAlignment="Center" Orientation="Horizontal" />
@@ -256,20 +252,17 @@
                             <DataTemplate DataType="vm:SearchResultRow">
                                 <Border Classes="card" MinWidth="600" MaxWidth="600">
                                     <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,*,Auto">
-                                        <Border Grid.Row="0" Grid.Column="0"
-                                                Width="165" Height="165"
-                                                CornerRadius="12" Margin="0"
-                                                Background="#101418" BorderBrush="{StaticResource Dd.Border}" BorderThickness="1"
-                                                ClipToBounds="True">
+                                        <Border Grid.Row="0" Grid.Column="0" Width="165" Height="165" CornerRadius="12" Margin="0" Background="#101418" 
+                                                BorderBrush="{StaticResource Dd.Border}" BorderThickness="1" ClipToBounds="True">
                                             <Grid>
                                                 <services:WebImage x:Name="Thumb" Url="{Binding ThumbnailOrPlaceholder}" Stretch="UniformToFill" />
                                                 <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="8,2"
                                                         CornerRadius="10" Background="{StaticResource Dd.SptBadge}"
-                                                        IsVisible="{Binding IsLatestVersion}">
+                                                         IsVisible="{Binding IsLatestVersion}">
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <Path Data="M12,2 L14.5,8.0 21,8.8 16.0,13.0 17.2,19.6 12,16.3 6.8,19.6 8.0,13.0 3,8.8 9.5,8.0 z"
                                                               Width="12" Height="12" Fill="#1E2329" Stretch="Uniform" />
-                                                        <TextBlock Foreground="#1E2329" FontWeight="Bold" FontSize="11"
+                                                        <TextBlock Foreground="#1E2329" FontWeight="Bold" FontSize="11" 
                                                                    Text="{Binding SptConstraintText, StringFormat=SPT {0}}" />
                                                     </StackPanel>
                                                 </Border>
@@ -277,34 +270,25 @@
                                         </Border>
 
                                         <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" ClipToBounds="True">
-                                            <Button Classes="mod-title"
-                                                    Click="OnOpenModPage"
-                                                    Tag="{Binding .}">
+                                            <Button Classes="mod-title" Click="OnOpenModPage" Tag="{Binding .}">
                                                 <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"
                                                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                                             </Button>
 
                                             <Button Classes="guid-pill"
                                                     IsVisible="{Binding Guid, Converter={StaticResource StringHasTextConverter}}"
-                                                    Tag="{Binding Guid}"
-                                                    ToolTip.Tip="Click to copy"
-                                                    Click="OnCopyGuid">
+                                                    Tag="{Binding Guid}" ToolTip.Tip="Click to copy" Click="OnCopyGuid">
                                                 <TextBlock Text="{Binding Guid, StringFormat=(\{0\})}" />
                                             </Button>
 
                                             <Grid Margin="2,2,0,0" ColumnDefinitions="Auto,6,*">
-                                                <Border Grid.Column="0"
-                                                        Padding="10,2,10,2"
-                                                        Classes="pill"
+                                                <Border Grid.Column="0" Padding="10,2,10,2" Classes="pill" 
                                                         IsVisible="{Binding Category, Converter={StaticResource StringHasTextConverter}}">
                                                     <TextBlock Text="{Binding Category}" />
                                                 </Border>
                                                 
-                                                <ScrollViewer Grid.Column="2"
-                                                              HorizontalScrollBarVisibility="Hidden"
-                                                              VerticalScrollBarVisibility="Disabled"
-                                                              PointerWheelChanged="OnAuthorsWheel"
-                                                              ClipToBounds="True">
+                                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" 
+                                                              PointerWheelChanged="OnAuthorsWheel" ClipToBounds="True">
                                                     <ItemsControl ItemsSource="{Binding OwnerNames}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
@@ -313,11 +297,8 @@
                                                         </ItemsControl.ItemsPanel>
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Button Classes="owner-pill"
-                                                                        Padding="10,2,10,2"
-                                                                        Content="{Binding .}"
-                                                                        Tag="{Binding .}"
-                                                                        Click="OnOwnerPillClick" />
+                                                                <Button Classes="owner-pill" Padding="10,2,10,2" Content="{Binding .}"
+                                                                        Tag="{Binding .}" Click="OnOwnerPillClick" />
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
@@ -333,12 +314,8 @@
                                                 </StackPanel>
                                             </Border>
 
-                                            <TextBlock Margin="0,6,6,0"
-                                                       Text="{Binding Teaser}"
-                                                       TextWrapping="Wrap"
-                                                       MaxLines="3"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       ToolTip.Tip="{Binding Teaser}" />
+                                            <TextBlock Margin="0,6,6,0" Text="{Binding Teaser}" TextWrapping="Wrap"
+                                                       MaxLines="3" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Teaser}" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Grid.Column="0"
@@ -354,33 +331,24 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Button Classes="btn btn-neutral"
-                                                                    Margin="0,0,5,0"
-                                                                    Content="{Binding Label}"
-                                                                    Tag="{Binding Url}"
-                                                                    Click="OnOpenSource" />
+                                                            <Button Classes="btn btn-neutral" Margin="0,0,5,0" Content="{Binding Label}"
+                                                                    Tag="{Binding Url}" Click="OnOpenSource" />
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
                                             </WrapPanel>
                                             <WrapPanel Orientation="Horizontal" Margin="2,5,0,0">
-                                                <Button Content="Install" FontWeight="Bold" Margin="0,0,5,0" Classes="btn btn-success"
-                                                        Width="96" Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
-                                                        Click="OnInstallSelected" IsVisible="{Binding ShowInstall}"/>
+                                                <Button Content="Install" FontWeight="Bold" Margin="0,0,5,0" Classes="btn btn-success" 
+                                                        Width="96" Click="OnInstallSelected" IsVisible="{Binding ShowInstall}"/>
 
                                                 <Button Content="Queued" IsEnabled="False" FontWeight="Bold" Margin="0,0,5,0" Classes="btn btn-neutral"
-                                                        Width="96" Tag="{Binding ElementName=VerBox, Path=SelectedItem}"
-                                                        Click="OnInstallSelected" IsVisible="{Binding ShowQueued}"/>
+                                                        Width="96" Click="OnInstallSelected" IsVisible="{Binding ShowQueued}"/>
 
-                                                <ComboBox x:Name="VerBox" Width="297" ItemsSource="{Binding VersionsDisplay}"
-                                                          SelectedIndex="0" ItemTemplate="{StaticResource VersionTemplate}"
-                                                          IsVisible="{Binding ShowVersionPicker}"/>
-
-                                                <Button Content="Uninstall" Margin="0,0,5,0" Classes="btn btn-danger" Width="96"
+                                                <Button Content="Uninstall" Margin="0,0,0,0" Classes="btn btn-danger" Width="96"
                                                         Click="OnUninstallSelected" IsVisible="{Binding ShowUninstall}"/>
 
-                                                <StackPanel Margin="68,0,0,0"/>
-                                                <Button Content="Mod Page" Margin="5,0,0,0" Classes="btn btn-neutral" Width="96"
+                                                <StackPanel Margin="5,0,0,0"/>
+                                                <Button Content="Mod Page" Margin="0,0,0,0" Classes="btn btn-neutral" Width="96"
                                                         Tag="{Binding .}" Click="OnOpenModPage"/>
                                             </WrapPanel>
                                         </StackPanel>
@@ -402,51 +370,24 @@
             </Grid>
         </Grid>
 
-        <Border x:Name="SearchOverlay"
-                Grid.RowSpan="3"
-                IsVisible="False"
-                Background="#66000000"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch"
-                IsHitTestVisible="True"
-                ZIndex="1880">
-            <StackPanel HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Spacing="10"
-                        Width="360">
-                <Border Background="#151A20"
-                        CornerRadius="12"
-                        Padding="14"
-                        BorderBrush="{StaticResource Dd.Border}"
-                        BorderThickness="1">
+        <Border x:Name="SearchOverlay" Grid.RowSpan="3" IsVisible="False" Background="#66000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                IsHitTestVisible="True" ZIndex="1880">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Width="360">
+                <Border Background="#151A20" CornerRadius="12" Padding="14" BorderBrush="{StaticResource Dd.Border}" BorderThickness="1">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Loading results…"
-                                   FontSize="16"
-                                   FontWeight="SemiBold" />
-                        <TextBlock x:Name="SearchOverlayTip"
-                                   Foreground="{StaticResource Dd.Subtle}"
-                                   TextWrapping="Wrap" />
-                        <ProgressBar x:Name="SearchOverlayBar"
-                                     IsIndeterminate="True"
-                                     Height="6"
-                                     CornerRadius="3"
-                                     Foreground="{StaticResource Dd.Orange}" />
+                        <TextBlock Text="Loading results..." FontSize="16" FontWeight="SemiBold" /> <TextBlock x:Name="SearchOverlayTip"
+                                   Foreground="{StaticResource Dd.Subtle}" TextWrapping="Wrap" />
+                        <ProgressBar x:Name="SearchOverlayBar" IsIndeterminate="True" Height="6" CornerRadius="3" Foreground="{StaticResource Dd.Orange}" />
                     </StackPanel>
                 </Border>
             </StackPanel>
         </Border>
 
         <Border x:Name="DimOverlay" Background="#88000000" IsVisible="False" ZIndex="900" />
-        <Border x:Name="LoadingModal" IsVisible="False" ZIndex="901"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
-                Padding="20" CornerRadius="14"
-                Background="#151A20"
-                BorderBrush="{StaticResource Dd.Border}" BorderThickness="1">
+        <Border x:Name="LoadingModal" IsVisible="False" ZIndex="901" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="14"
+                Background="#151A20" BorderBrush="{StaticResource Dd.Border}" BorderThickness="1">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="18"
-                                  OffsetX="0"
-                                  OffsetY="6"
-                                  Color="#AA000000" />
+                <DropShadowEffect BlurRadius="18" OffsetX="0" OffsetY="6" Color="#AA000000" />
             </Border.Effect>
             <StackPanel Width="420" Spacing="10">
                 <Grid ColumnDefinitions="6,*">
@@ -477,7 +418,6 @@
             </StackPanel>
         </Border>
         <Border x:Name="DragShield" Background="Transparent" IsVisible="False" IsHitTestVisible="True" ZIndex="850" />
-        <ProgressBar x:Name="BusyBar" IsIndeterminate="True" IsVisible="False"
-                     HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="2" ZIndex="902" />
+        <ProgressBar x:Name="BusyBar" IsIndeterminate="True" IsVisible="False" HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="2" ZIndex="902" />
     </Grid>
 </UserControl>
