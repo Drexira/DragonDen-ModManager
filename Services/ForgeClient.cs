@@ -288,10 +288,7 @@ public static class ForgeClient
         using var doc = await FetchJsonWithRetries(url, ct);
 
         var root = doc.RootElement;
-        var el = root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object
-            ? data
-            : root;
-
+        var el = root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object ? data : root;
         if (el.ValueKind != JsonValueKind.Object) return null;
 
         DateTimeOffset? upd = null;
@@ -314,9 +311,9 @@ public static class ForgeClient
             downloads = el.GetPropertyOrDefault("downloads", 0L),
             thumbnail = ResolveImageUrl(el.GetPropertyOrDefault("thumbnail", (string?)null)),
             detail_url = el.GetPropertyOrDefault("detail_url", (string?)null),
-            featured = el.GetPropertyOrDefault("featured", 0) == 1 || el.GetPropertyOrDefault("featured", false),
-            contains_ads = el.GetPropertyOrDefault("contains_ads", 0) == 1 || el.GetPropertyOrDefault("contains_ads", false),
-            contains_ai_content = el.GetPropertyOrDefault("contains_ai_content", 0) == 1 || el.GetPropertyOrDefault("contains_ai_content", false),
+            featured = el.GetPropertyAsBool("featured", false),
+            contains_ads = el.GetPropertyAsBool("contains_ads", false),
+            contains_ai_content = el.GetPropertyAsBool("contains_ai_content", false),
             versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
             owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
             authors = ParsePersons(el.TryGetProperty("authors", out var au) ? au : default),
@@ -339,7 +336,6 @@ public static class ForgeClient
         var inc = includes.Count > 0 ? "&include=" + string.Join(",", includes) : "";
 
         var q = string.IsNullOrWhiteSpace(query) ? "" : "&query=" + Uri.EscapeDataString(query);
-        var fields = includeSourceLinks ? "&fields=source_code_links" : "";
         var url = $"{BaseUrl}/api/v0/mods?per_page={perPage}&page={page}&sort={Uri.EscapeDataString(sortApi)}{inc}{q}";
         using var doc = await FetchJsonWithRetries(url, ct);
 
@@ -371,9 +367,9 @@ public static class ForgeClient
                     downloads = el.GetPropertyOrDefault("downloads", 0L),
                     thumbnail = ResolveImageUrl(el.GetPropertyOrDefault("thumbnail", (string?)null)),
                     detail_url = el.GetPropertyOrDefault("detail_url", (string?)null),
-                    featured = el.GetPropertyOrDefault("featured", 0) == 1 || el.GetPropertyOrDefault("featured", false),
-                    contains_ads = el.GetPropertyOrDefault("contains_ads", 0) == 1 || el.GetPropertyOrDefault("contains_ads", false),
-                    contains_ai_content = el.GetPropertyOrDefault("contains_ai_content", 0) == 1 || el.GetPropertyOrDefault("contains_ai_content", false),
+                    featured = el.GetPropertyAsBool("featured", false),
+                    contains_ads = el.GetPropertyAsBool("contains_ads", false),
+                    contains_ai_content = el.GetPropertyAsBool("contains_ai_content", false),
                     versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
                     owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
                     authors = ParsePersons(el.TryGetProperty("authors", out var au) ? au : default),
@@ -610,36 +606,71 @@ public static class ForgeClient
             }
             : null;
     }
+    
+    private static bool GetPropertyAsBool(this JsonElement el, string name, bool def)
+    {
+        if (!el.TryGetProperty(name, out var v)) return def;
+        switch (v.ValueKind)
+        {
+            case JsonValueKind.True: return true;
+            case JsonValueKind.False: return false;
+            case JsonValueKind.Number:
+                return v.TryGetInt64(out var n) ? n != 0 : def;
+            case JsonValueKind.String:
+                var s = v.GetString();
+                if (bool.TryParse(s, out var b)) return b;
+                if (long.TryParse(s, out var n2)) return n2 != 0;
+                return def;
+            default:
+                return def;
+        }
+    }
 
     private static T GetPropertyOrDefault<T>(this JsonElement el, string name, T def)
     {
         if (!el.TryGetProperty(name, out var v)) return def;
         try
         {
-            if (typeof(T) == typeof(int))
-                if (v.TryGetInt32(out var i))
-                    return (T)(object)i;
+            var t = typeof(T);
+            if (t == typeof(int))
+            {
+                if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i)) return (T)(object)i;
+                if (v.ValueKind == JsonValueKind.True) return (T)(object)1;
+                if (v.ValueKind == JsonValueKind.False) return (T)(object)0;
+                if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var si)) return (T)(object)si;
+                return def;
+            }
 
-            if (typeof(T) == typeof(long))
-                if (v.TryGetInt64(out var l))
-                    return (T)(object)l;
+            if (t == typeof(long))
+            {
+                if (v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var l)) return (T)(object)l;
+                if (v.ValueKind == JsonValueKind.True) return (T)(object)1L;
+                if (v.ValueKind == JsonValueKind.False) return (T)(object)0L;
+                if (v.ValueKind == JsonValueKind.String && long.TryParse(v.GetString(), out var sl)) return (T)(object)sl;
+                return def;
+            }
 
-            if (typeof(T) == typeof(bool))
+            if (t == typeof(bool))
             {
                 if (v.ValueKind == JsonValueKind.True) return (T)(object)true;
                 if (v.ValueKind == JsonValueKind.False) return (T)(object)false;
-                if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var bnum)) return (T)(object)(bnum != 0);
+                if (v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var nb)) return (T)(object)(nb != 0);
+                if (v.ValueKind == JsonValueKind.String && bool.TryParse(v.GetString(), out var sb)) return (T)(object)sb;
+                if (v.ValueKind == JsonValueKind.String && long.TryParse(v.GetString(), out var lb)) return (T)(object)(lb != 0);
+                return def;
             }
 
-            if (typeof(T) == typeof(string))
+            if (t == typeof(string))
             {
                 if (v.ValueKind == JsonValueKind.String) return (T)(object)(v.GetString() ?? "");
-                if (v.ValueKind == JsonValueKind.Null) return def;
+                if (v.ValueKind == JsonValueKind.True) return (T)(object)"true";
+                if (v.ValueKind == JsonValueKind.False) return (T)(object)"false";
+                return (T)(object)v.GetRawText();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ForgeClient] Exception in GetPropertyOrDefault for property '{name}': {ex}");
+            Logger.Debug($"[ForgeClient] GetPropertyOrDefault('{name}', {typeof(T).Name}) fell back to default: {ex.Message}");
         }
 
         return def;
