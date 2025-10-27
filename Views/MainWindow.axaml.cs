@@ -174,6 +174,19 @@ public partial class MainWindow : Window
 
     private async void OnFooterCenterClick(object? sender, PointerPressedEventArgs e)
     {
+        var existing = (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+            ?.Windows.OfType<InstallationQueueDialog>().FirstOrDefault();
+
+        try
+        {
+            if (existing is not null)
+                existing.Close();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MainWindow] Error closing existing InstallationQueueDialog: {ex.Message}");
+        }
+
         var dlg = new InstallationQueueDialog
         {
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
