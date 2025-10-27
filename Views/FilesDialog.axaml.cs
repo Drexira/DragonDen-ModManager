@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -65,27 +66,115 @@ public partial class FilesDialog : Window
         Close();
     }
 
+    private static string NormalizeWeirdPath(string? sptRoot, string raw)
+    {
+        var root = (sptRoot ?? "").Replace('/', '\\').TrimEnd('\\');
+        var p = (raw ?? "").Replace('/', '\\').Trim();
+
+        if (string.IsNullOrWhiteSpace(p)) return "";
+
+        var m = Regex.Match(p, @"[A-Za-z]:\\");
+        if (m.Success)
+        {
+            var idx = m.Index;
+            var sliced = p.Substring(idx);
+            try { return Path.GetFullPath(sliced); } catch { return sliced; }
+        }
+
+        if (Path.IsPathRooted(p))
+        {
+            try { return Path.GetFullPath(p); } catch { return p; }
+        }
+
+        if (!string.IsNullOrWhiteSpace(root))
+        {
+            var withSep = root + "\\";
+            if (p.StartsWith(withSep, StringComparison.OrdinalIgnoreCase))
+            {
+                try { return Path.GetFullPath(p); } catch { return p; }
+            }
+
+            var pos = p.IndexOf(withSep, StringComparison.OrdinalIgnoreCase);
+            if (pos > 0)
+            {
+                var sliced = p.Substring(pos);
+                try { return Path.GetFullPath(sliced); } catch { return sliced; }
+            }
+
+            var combined = Path.Combine(root, p.TrimStart('\\'));
+            try { return Path.GetFullPath(combined); } catch { return combined; }
+        }
+
+        try { return Path.GetFullPath(p); } catch { return p; }
+    }
+
     private void OnFilesListDoubleTapped(object? s, TappedEventArgs e)
     {
-        if (FilesList?.SelectedItem is ModFile mf)
+        if (FilesList?.SelectedItem is not ModFile mf) return;
+
+        try
         {
-            var path = (App.Config.Paths.SptRoot + mf.GetFileLocation(mf.Target, mf.Path) ?? string.Empty).Replace('/', Path.DirectorySeparatorChar);
-            if (string.IsNullOrWhiteSpace(path)) return;
+            var loc = mf.GetFileLocation(mf.Target, mf.Path) ?? "";
+            var path = NormalizeWeirdPath(App.Config.Paths.SptRoot, loc);
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                Notifications.Current.ShowWarning("Open Failed", "Invalid file path.");
+                return;
+            }
+
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                Notifications.Current.ShowWarning("Open Failed", "File not found on disk.");
+                Console.WriteLine($"[FilesDialog] Path does not exist: {path}");
+                return;
+            }
 
             try
             {
-                var process = new ProcessStartInfo
+                var psi = new ProcessStartInfo
                 {
                     FileName = path,
-                    UseShellExecute = true
+                    UseShellExecute = true,
+                    Verb = "open"
                 };
-                Process.Start(process);
+                Process.Start(psi);
             }
-            catch (Exception ex)
+            catch (Exception first)
             {
-                Notifications.Current.ShowError("Open Failed", $"Couldn't open the file '{Path.GetFileName(path)}'.");
-                Console.WriteLine($"[FilesDialog] Failed to open file: {path} ({ex.Message})");
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        var psiReveal = new ProcessStartInfo
+                        {
+                            FileName = "explorer.exe",
+                            Arguments = "/select,\"" + path + "\"",
+                            UseShellExecute = true
+                        };
+                        Process.Start(psiReveal);
+                    }
+                    else
+                    {
+                        var psiFolder = new ProcessStartInfo
+                        {
+                            FileName = path,
+                            UseShellExecute = true
+                        };
+                        Process.Start(psiFolder);
+                    }
+                }
+                catch (Exception second)
+                {
+                    Notifications.Current.ShowError("Open Failed", $"Couldn't open the file '{Path.GetFileName(path)}'.");
+                    Console.WriteLine($"[FilesDialog] Failed to open file: {path} ({first.Message}; fallback: {second.Message})");
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            Notifications.Current.ShowError("Open Failed", "Unexpected error while opening file.");
+            Console.WriteLine($"[FilesDialog] Unexpected error: {ex}");
         }
     }
 }
