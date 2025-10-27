@@ -175,7 +175,7 @@ public sealed class InstallQueue
             App.NotifyInstallsChanged();
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowSuccess("Install Done", $"{job.Title}: {result.ToHuman()}");
-            Console.WriteLine($"[InstallQueue] Local install done: {job.Title} | {result.ToHuman()}");
+            Logger.Info($"[InstallQueue] Local install done: {job.Title} | {result.ToHuman()}");
         }
         catch (OperationCanceledException)
         {
@@ -189,7 +189,7 @@ public sealed class InstallQueue
             });
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowWarning("Install Cancelled", job.Title);
-            Console.WriteLine($"[InstallQueue] Local install cancelled: {job.Title}");
+            Logger.Info($"[InstallQueue] Local install cancelled: {job.Title}");
         }
         catch (Exception ex)
         {
@@ -205,14 +205,14 @@ public sealed class InstallQueue
             if (ex.Message.Contains("7za list failed"))
             {
                 Notifications.Current.ShowError("Install Failed", job.Title + "This mod does not have direct download.");
-                Console.WriteLine($"[InstallQueue] Local install failed due to direct download missing: {job.Title} | {ex}");
+                Logger.Error($"[InstallQueue] Local install failed due to direct download missing: {job.Title} | {ex}");
             }
             else
             {
                 Notifications.Current.ShowError("Install Failed", job.Title);
-                Console.WriteLine($"[InstallQueue] Local install failed: {job.Title} | {ex}");
+                Logger.Error($"[InstallQueue] Local install failed: {job.Title} | {ex}");
             }
-            Console.WriteLine("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
+            Logger.Error("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
         }
     }
 
@@ -276,7 +276,7 @@ public sealed class InstallQueue
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("[InstallQueue] Failed to copy mod archive to cache: " + ex);
+                    Logger.Error("[InstallQueue] Failed to copy mod archive to cache: " + ex);
                     archivePath = temp;
                 }
 
@@ -286,7 +286,7 @@ public sealed class InstallQueue
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("[InstallQueue] Failed to delete temp file: " + ex);
+                    Logger.Error("[InstallQueue] Failed to delete temp file: " + ex);
                 }
             }
 
@@ -362,7 +362,7 @@ public sealed class InstallQueue
             App.NotifyInstallsChanged();
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowSuccess("Install Done", $"{name}: {result.ToHuman()}");
-            Console.WriteLine($"[InstallQueue] Remote install done: {name} | {result.ToHuman()}");
+            Logger.Info($"[InstallQueue] Remote install done: {name} | {result.ToHuman()}");
         }
         catch (OperationCanceledException)
         {
@@ -376,7 +376,7 @@ public sealed class InstallQueue
             });
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowWarning("Install Cancelled", name);
-            Console.WriteLine("[InstallQueue] Remote install cancelled: " + name);
+            Logger.Info("[InstallQueue] Remote install cancelled: " + name);
         }
         catch (Exception ex)
         {
@@ -392,14 +392,14 @@ public sealed class InstallQueue
             if (ex.Message.Contains("7za list failed"))
             {
                 Notifications.Current.ShowError("Install Failed", job.Title + "This mod does not have direct download.");
-                Console.WriteLine($"[InstallQueue] Local install failed due to direct download missing: {job.Title} | {ex}");
+                Logger.Error($"[InstallQueue] Local install failed due to direct download missing: {job.Title} | {ex}");
             }
             else
             {
                 Notifications.Current.ShowError("Install Failed", job.Title);
-                Console.WriteLine($"[InstallQueue] Local install failed: {job.Title} | {ex}");
+                Logger.Error($"[InstallQueue] Local install failed: {job.Title} | {ex}");
             }
-            Console.WriteLine("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
+            Logger.Error("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
         }
     }
 
@@ -456,7 +456,7 @@ public sealed class InstallQueue
             App.NotifyInstallsChanged();
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowSuccess("Enable Complete", modName);
-            Console.WriteLine($"[InstallQueue] Enable done: {modName}");
+            Logger.Info($"[InstallQueue] Enable done: {modName}");
         }
         catch (OperationCanceledException)
         {
@@ -471,7 +471,7 @@ public sealed class InstallQueue
             
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowWarning("Enable Cancelled", modName);
-            Console.WriteLine($"[InstallQueue] Enable cancelled: {modName}");
+            Logger.Info($"[InstallQueue] Enable cancelled: {modName}");
         }
         catch (Exception ex)
         {
@@ -485,7 +485,7 @@ public sealed class InstallQueue
             });
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowError("Enable Failed", modName);
-            Console.WriteLine($"[InstallQueue] Enable failed: {modName} | {ex}");
+            Logger.Error($"[InstallQueue] Enable failed: {modName} | {ex}");
         }
     }
 
@@ -541,7 +541,7 @@ public sealed class InstallQueue
             App.NotifyInstallsChanged();
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowSuccess("Disable Complete", modName);
-            Console.WriteLine($"[InstallQueue] Disable done: {modName}");
+            Logger.Info($"[InstallQueue] Disable done: {modName}");
         }
         catch (OperationCanceledException)
         {
@@ -556,7 +556,7 @@ public sealed class InstallQueue
             
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowWarning("Disable Cancelled", modName);
-            Console.WriteLine($"[InstallQueue] Disable cancelled: {modName}");
+            Logger.Info($"[InstallQueue] Disable cancelled: {modName}");
         }
         catch (Exception ex)
         {
@@ -571,7 +571,7 @@ public sealed class InstallQueue
             
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowError("Disable Failed", modName);
-            Console.WriteLine($"[InstallQueue] Disable failed: {modName} | {ex}");
+            Logger.Error($"[InstallQueue] Disable failed: {modName} | {ex}");
         }
     }
 
@@ -628,7 +628,7 @@ public sealed class InstallQueue
             App.NotifyInstallsChanged();
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowSuccess("Uninstall Complete", modName);
-            Console.WriteLine($"[InstallQueue] Uninstall done: {modName}");
+            Logger.Info($"[InstallQueue] Uninstall done: {modName}");
         }
         catch (OperationCanceledException)
         {
@@ -643,7 +643,7 @@ public sealed class InstallQueue
             
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowWarning("Uninstall Cancelled", modName);
-            Console.WriteLine($"[InstallQueue] Uninstall cancelled: {modName}");
+            Logger.Info($"[InstallQueue] Uninstall cancelled: {modName}");
         }
         catch (Exception ex)
         {
@@ -658,7 +658,7 @@ public sealed class InstallQueue
             
             Notifications.Current.UnbindInstall(job);
             Notifications.Current.ShowError("Uninstall Failed", modName);
-            Console.WriteLine($"[InstallQueue] Uninstall failed: {modName} | {ex}");
+            Logger.Error($"[InstallQueue] Uninstall failed: {modName} | {ex}");
         }
     }
 
@@ -697,7 +697,7 @@ public sealed class InstallQueue
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[InstallQueue] Failed to parse archive URL: " + ex);
+            Logger.Error("[InstallQueue] Failed to parse archive URL: " + ex);
         }
 
         return clean.ToLowerInvariant() + ext.ToLowerInvariant();
@@ -712,7 +712,7 @@ public sealed class InstallQueue
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[InstallQueue] Failed to create downloads folder: " + ex);
+            Logger.Error("[InstallQueue] Failed to create downloads folder: " + ex);
         }
 
         return dir;

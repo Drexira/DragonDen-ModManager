@@ -23,8 +23,8 @@ internal sealed class DetailScope : IDisposable
     {
         if ((_failed || _alwaysDump) && _lines.Count > 0)
         {
-            Console.Error.WriteLine($"[{_name}] details:");
-            foreach (var l in _lines) Console.Error.WriteLine("  " + l);
+            Logger.Error($"[{_name}] details:");
+            foreach (var l in _lines) Logger.Error("  " + l);
         }
     }
 }

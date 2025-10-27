@@ -50,7 +50,7 @@ public static class Installer
         {
             Notifications.Current.ShowError("Installation Failed",
                 $"The mod '{Path.GetFileName(archivePath)}' is invalid or not structured properly, install cancelled.");
-            Console.WriteLine(
+            Logger.Error(
                 $"[Installer] Unsupported mod '{Path.GetFileName(archivePath)}' The mod '{archivePath}' does not have proper folder structure and should be reported to the mod author. (unless this is a 3rd party tool and not an actual mod)");
             return new InstallResult(0, 0);
         }
@@ -236,7 +236,7 @@ public static class Installer
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Installer] Failed to snapshot file '{f}': {ex}");
+                Logger.Error($"[Installer] Failed to snapshot file '{f}': {ex}");
             }
 
         return set;
@@ -250,7 +250,7 @@ public static class Installer
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Installer] Failed to delete staging dir '{dir}': {ex}");
+            Logger.Error($"[Installer] Failed to delete staging dir '{dir}': {ex}");
         }
     }
 
@@ -268,7 +268,7 @@ public static class Installer
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Installer] Failed to get BepInEx root: {ex}");
+            Logger.Error($"[Installer] Failed to get BepInEx root: {ex}");
         }
         return Path.GetFullPath(Path.Combine(Spt.ClientModsPath, ".."));
     }

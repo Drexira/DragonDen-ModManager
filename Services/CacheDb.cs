@@ -156,7 +156,7 @@ PRAGMA foreign_keys=ON;";
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[CacheDb] Error: " + ex.Message);
+                Logger.Error("[CacheDb] Error: " + ex.Message);
             }
     }
 
@@ -897,7 +897,7 @@ LIMIT 1;";
         catch (Exception ex)
         {
             Debug.WriteLine("[CacheDb] RefreshAllAsync failed: " + ex);
-            Console.WriteLine("[CacheDb] RefreshAllAsync failed: " + ex);
+            Logger.Error("[CacheDb] RefreshAllAsync failed: " + ex);
             throw;
         }
     }
@@ -980,7 +980,7 @@ LIMIT 1";
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[CacheDb] Close failed: " + ex);
+            Logger.Error("[CacheDb] Close failed: " + ex);
         }
         finally
         {
@@ -990,7 +990,7 @@ LIMIT 1";
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[CacheDb] Close failed: " + ex);
+                Logger.Error("[CacheDb] Close failed: " + ex);
             }
         }
     }

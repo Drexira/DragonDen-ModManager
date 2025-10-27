@@ -29,7 +29,7 @@ public partial class FilesDialog : Window
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[FilesDialog] BeginMoveDrag failed: {ex.Message}");
+                    Logger.Info($"[FilesDialog] BeginMoveDrag failed: {ex.Message}");
                 }
         };
 
@@ -126,7 +126,7 @@ public partial class FilesDialog : Window
             if (!File.Exists(path) && !Directory.Exists(path))
             {
                 Notifications.Current.ShowWarning("Open Failed", "File not found on disk.");
-                Console.WriteLine($"[FilesDialog] Path does not exist: {path}");
+                Logger.Info($"[FilesDialog] Path does not exist: {path}");
                 return;
             }
 
@@ -167,14 +167,14 @@ public partial class FilesDialog : Window
                 catch (Exception second)
                 {
                     Notifications.Current.ShowError("Open Failed", $"Couldn't open the file '{Path.GetFileName(path)}'.");
-                    Console.WriteLine($"[FilesDialog] Failed to open file: {path} ({first.Message}; fallback: {second.Message})");
+                    Logger.Info($"[FilesDialog] Failed to open file: {path} ({first.Message}; fallback: {second.Message})");
                 }
             }
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Failed", "Unexpected error while opening file.");
-            Console.WriteLine($"[FilesDialog] Unexpected error: {ex}");
+            Logger.Info($"[FilesDialog] Unexpected error: {ex}");
         }
     }
 }

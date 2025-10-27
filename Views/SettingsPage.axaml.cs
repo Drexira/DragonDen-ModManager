@@ -77,7 +77,7 @@ public partial class SettingsPage : UserControl
         DataBox.Text = Paths.DataDir;
         App.SaveConfig();
         Notifications.Current.ShowSuccess("Data Folder Reset", "Data folder has been reset to default location.");
-        Console.WriteLine("[SettingsPage] Data folder reset to default.");
+        Logger.Info("[SettingsPage] Data folder reset to default.");
     }
 
     private async void OnBrowseDataFolder(object? s, RoutedEventArgs e)
@@ -97,14 +97,14 @@ public partial class SettingsPage : UserControl
         if (!Directory.Exists(chosen))
         {
             Notifications.Current.ShowError("Invalid Folder", "Selected folder doesn't exist.");
-            Console.WriteLine("[SettingsPage] Selected data folder doesn't exist: " + chosen);
+            Logger.Error("[SettingsPage] Selected data folder doesn't exist: " + chosen);
             return;
         }
 
         App.Config.Paths.DataFolder = chosen;
         App.SaveConfig();
         Notifications.Current.ShowSuccess("Data Folder Changed", "Data folder updated successfully.");
-        Console.WriteLine("[SettingsPage] Data folder changed to: " + chosen);
+        Logger.Info("[SettingsPage] Data folder changed to: " + chosen);
     }
 
     private async void OnBrowseSptSptFolder(object? s, RoutedEventArgs e)
@@ -124,14 +124,14 @@ public partial class SettingsPage : UserControl
         if (!Directory.Exists(chosen))
         {
             Notifications.Current.ShowError("Invalid Folder", "Selected SPT folder doesn't exist.");
-            Console.WriteLine("[SettingsPage] Selected SPT folder doesn't exist: " + chosen);
+            Logger.Error("[SettingsPage] Selected SPT folder doesn't exist: " + chosen);
             return;
         }
 
         if (!TryFindSptExe(chosen, out var exePath))
         {
             Notifications.Current.ShowError("Invalid SPT Folder", "Could not locate SPT.Server.exe in selected directory.");
-            Console.WriteLine("[SettingsPage] Invalid SPT folder: missing SPT.Server.exe in " + chosen);
+            Logger.Error("[SettingsPage] Invalid SPT folder: missing SPT.Server.exe in " + chosen);
             return;
         }
 
@@ -147,7 +147,7 @@ public partial class SettingsPage : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[SettingsPage] Failed to read SPT version: " + ex);
+            Logger.Error("[SettingsPage] Failed to read SPT version: " + ex);
         }
 
         var clientRel = "BepInEx/plugins";
@@ -175,12 +175,12 @@ public partial class SettingsPage : UserControl
                 App.Db = new Db(newDbPath);
                 App.Db.Init();
                 Notifications.Current.ShowSuccess("Database Switched", $"Switched mods DB → {Path.GetFileName(newDbPath)}");
-                Console.WriteLine("[SettingsPage] Mods DB switched to: " + newDbPath);
+                Logger.Info("[SettingsPage] Mods DB switched to: " + newDbPath);
             }
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Database Error", "Failed to switch mods database.");
-                Console.WriteLine("[SettingsPage] Failed to switch mods database: " + ex);
+                Logger.Error("[SettingsPage] Failed to switch mods database: " + ex);
             }
 
         SptRootBox.Text = chosen;
@@ -192,7 +192,7 @@ public partial class SettingsPage : UserControl
         Notifications.Current.ShowSuccess("SPT Folder Saved", string.IsNullOrWhiteSpace(friendly)
             ? "SPT folder saved successfully."
             : $"SPT {friendly} detected and saved.");
-        Console.WriteLine("[SettingsPage] SPT folder saved and config updated.");
+        Logger.Info("[SettingsPage] SPT folder saved and config updated.");
 
         var main = (MainWindow?)TopLevel.GetTopLevel(this);
         var tabs = main.FindDescendantOfType<TabControl>();
@@ -241,17 +241,17 @@ public partial class SettingsPage : UserControl
                 App.Db = new Db(newDbPath);
                 App.Db.Init();
                 Notifications.Current.ShowSuccess("Database Switched", $"Switched mods DB → {Path.GetFileName(newDbPath)}");
-                Console.WriteLine("[SettingsPage] Mods DB switched to: " + newDbPath);
+                Logger.Info("[SettingsPage] Mods DB switched to: " + newDbPath);
             }
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Database Error", "Failed to switch mods database.");
-                Console.WriteLine("[SettingsPage] Failed to switch mods database: " + ex);
+                Logger.Error("[SettingsPage] Failed to switch mods database: " + ex);
             }
 
         RefreshFromConfig();
         Notifications.Current.ShowSuccess("Settings Saved", "All settings have been saved successfully.");
-        Console.WriteLine("[SettingsPage] Settings saved and configuration updated.");
+        Logger.Info("[SettingsPage] Settings saved and configuration updated.");
 
         var main = (MainWindow?)TopLevel.GetTopLevel(this);
         var installed = main?.FindDescendantOfType<InstalledModsPage>();
@@ -309,7 +309,7 @@ public partial class SettingsPage : UserControl
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Cache Error", "Failed to clear cache database connection.");
-                Console.WriteLine("[SettingsPage] Failed to close cache: " + ex);
+                Logger.Error("[SettingsPage] Failed to close cache: " + ex);
             }
 
             var dbPath = Paths.CacheDbPath;
@@ -322,7 +322,7 @@ public partial class SettingsPage : UserControl
                 catch (Exception ex)
                 {
                     Notifications.Current.ShowError("Cache Error", "Failed to delete cache files.");
-                    Console.WriteLine("[SettingsPage] Failed to delete cache file: " + ex);
+                    Logger.Error("[SettingsPage] Failed to delete cache file: " + ex);
                 }
 
             try
@@ -332,16 +332,16 @@ public partial class SettingsPage : UserControl
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Cache Error", "Failed to reinitialize cache database.");
-                Console.WriteLine("[SettingsPage] Failed to initialize cache: " + ex);
+                Logger.Error("[SettingsPage] Failed to initialize cache: " + ex);
             }
 
             Notifications.Current.ShowSuccess("Cache Cleared", "All cached data has been removed successfully.");
-            Console.WriteLine("[SettingsPage] Cache cleared successfully.");
+            Logger.Info("[SettingsPage] Cache cleared successfully.");
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Cache Error", "Unexpected error while clearing cache.");
-            Console.WriteLine("[SettingsPage] Unexpected cache clear error: " + ex);
+            Logger.Error("[SettingsPage] Unexpected cache clear error: " + ex);
         }
 
         var main = (MainWindow?)TopLevel.GetTopLevel(this);
@@ -367,7 +367,7 @@ public partial class SettingsPage : UserControl
         TryDeleteDir(stage);
 
         Notifications.Current.ShowSuccess("Temp Files Cleared", "All temporary files have been removed.");
-        Console.WriteLine("[SettingsPage] Temporary files cleared successfully.");
+        Logger.Info("[SettingsPage] Temporary files cleared successfully.");
     }
 
     private static void TryDeleteDir(string dir)
@@ -382,15 +382,15 @@ public partial class SettingsPage : UserControl
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("[SettingsPage] Failed to reset file attributes: " + ex);
+                    Logger.Error("[SettingsPage] Failed to reset file attributes: " + ex);
                 }
 
             Directory.Delete(dir, true);
-            Console.WriteLine("[SettingsPage] Deleted directory: " + dir);
+            Logger.Info("[SettingsPage] Deleted directory: " + dir);
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[SettingsPage] Failed to delete directory: " + dir + " | " + ex);
+            Logger.Error("[SettingsPage] Failed to delete directory: " + dir + " | " + ex);
         }
     }
 }

@@ -41,7 +41,7 @@ public static class ModsDbRegistry
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ModsDbRegistry] Failed to load registry: {ex}");
+            Logger.Error($"[ModsDbRegistry] Failed to load registry: {ex}");
         }
 
         return new Model();
@@ -57,7 +57,7 @@ public static class ModsDbRegistry
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ModsDbRegistry] Failed to save registry: {ex}");
+            Logger.Error($"[ModsDbRegistry] Failed to save registry: {ex}");
         }
     }
 

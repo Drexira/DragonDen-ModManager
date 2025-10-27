@@ -121,7 +121,7 @@ public sealed class Notifications
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Notifications] Failed to dismiss notification: {ex}");
+            Logger.Error($"[Notifications] Failed to dismiss notification: {ex}");
         }
     }
 

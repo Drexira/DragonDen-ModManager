@@ -43,7 +43,7 @@ public partial class FirstRunDialog : Window
         if (!Directory.Exists(chosen))
         {
             Notifications.Current.ShowError("Folder Missing", "The selected folder doesn't exist.");
-            Console.WriteLine("[FirstRunDialog] Folder does not exist: " + chosen);
+            Logger.Warn("[FirstRunDialog] Folder does not exist: " + chosen);
             return;
         }
 
@@ -55,7 +55,7 @@ public partial class FirstRunDialog : Window
         {
             VersionText.Text = "Invalid folder. SPT.Server.exe not found.";
             Notifications.Current.ShowError("Invalid Folder", "SPT.Server.exe not found. Please select the SPT root folder.");
-            Console.WriteLine("[FirstRunDialog] Invalid folder selected: " + chosen);
+            Logger.Warn("[FirstRunDialog] Invalid folder selected: " + chosen);
             return;
         }
 
@@ -73,7 +73,7 @@ public partial class FirstRunDialog : Window
         {
             VersionText.Text = "Could not read SPT version from executable.";
             Notifications.Current.ShowError("Read Failed", "Could not read SPT version. Try selecting another folder.");
-            Console.WriteLine("[FirstRunDialog] Could not read version info: " + ex);
+            Logger.Error("[FirstRunDialog] Could not read version info: " + ex);
             return;
         }
 
@@ -85,7 +85,7 @@ public partial class FirstRunDialog : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[FirstRunDialog] Failed to set ServerModsRelative: " + ex);
+            Logger.Error("[FirstRunDialog] Failed to set ServerModsRelative: " + ex);
         }
 
         App.SaveConfig();
@@ -95,7 +95,7 @@ public partial class FirstRunDialog : Window
         HintText.Text = $"{exe}";
 
         Notifications.Current.ShowSuccess("SPT Folder Set", $"SPT {threePart} detected and saved.");
-        Console.WriteLine("[FirstRunDialog] SPT folder set successfully: " + chosen);
+        Logger.Info("[FirstRunDialog] SPT folder set successfully: " + chosen);
         Close(Result.Select);
 
         static string Safe(string[] a, int i)

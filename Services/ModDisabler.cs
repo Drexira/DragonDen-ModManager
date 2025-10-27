@@ -46,7 +46,7 @@ namespace DragonDen.ModManager.Services
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("[ModDisabler] IsDisabled failed: " + ex.Message);
+                Logger.Error("[ModDisabler] IsDisabled failed: " + ex.Message);
                 return false;
             }
             finally
@@ -117,16 +117,16 @@ namespace DragonDen.ModManager.Services
                         scope.Detail($"DB flag set warn: {ex.Message}");
                     }
 
-                    Console.WriteLine($"[ModDisabler] Disabled '{modName}' ({modId}) - moved {moved} file(s).");
+                    Logger.Info($"[ModDisabler] Disabled '{modName}' ({modId}) - moved {moved} file(s).");
                 }
                 else
                 {
-                    Console.WriteLine($"[ModDisabler] No files moved - DB flag not changed for {modId}");
+                    Logger.Error($"[ModDisabler] No files moved - DB flag not changed for {modId}");
                 }
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"[ModDisabler] Disable failed: {ex.Message}");
+                Logger.Error($"[ModDisabler] Disable failed: {ex.Message}");
                 throw;
             }
             finally
@@ -212,16 +212,16 @@ namespace DragonDen.ModManager.Services
                         scope.Detail($"DB flag clear warn: {ex.Message}");
                     }
 
-                    Console.WriteLine($"[ModDisabler] Enabled '{modName}' ({modId}) - moved {moved} file(s).");
+                    Logger.Info($"[ModDisabler] Enabled '{modName}' ({modId}) - moved {moved} file(s).");
                 }
                 else
                 {
-                    Console.WriteLine($"[ModDisabler] No files restored for '{modName}' ({modId}); DB unchanged.");
+                    Logger.Info($"[ModDisabler] No files restored for '{modName}' ({modId}); DB unchanged.");
                 }
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"[ModDisabler] Enable failed: {ex.Message}");
+                Logger.Error($"[ModDisabler] Enable failed: {ex.Message}");
                 throw;
             }
             finally
@@ -241,7 +241,7 @@ namespace DragonDen.ModManager.Services
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("[ModDisabler] DB error: " + ex.Message);
+                Logger.Error("[ModDisabler] DB error: " + ex.Message);
                 return list;
             }
 
@@ -305,7 +305,7 @@ namespace DragonDen.ModManager.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ModDisabler] EnsureDir failed for '{dir}': {ex.Message}");
+                Logger.Error($"[ModDisabler] EnsureDir failed for '{dir}': {ex.Message}");
             }
         }
         
@@ -394,8 +394,8 @@ namespace DragonDen.ModManager.Services
             {
                 if ((_failed || _alwaysDump) && _lines.Count > 0)
                 {
-                    Console.Error.WriteLine($"[{_name}] details:");
-                    foreach (var l in _lines) Console.Error.WriteLine("  " + l);
+                    Logger.Error($"[{_name}] details:");
+                    foreach (var l in _lines) Logger.Error("  " + l);
                 }
             }
         }

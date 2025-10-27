@@ -25,20 +25,32 @@ public static class Logger
             _retentionDays = Math.Max(0, retentionDays);
             _minLevel = minLevel;
 
-            var baseDir = customBaseDir ??
-                          AppContext.BaseDirectory ??
-                          Path.GetDirectoryName(Environment.ProcessPath!) ??
-                          Directory.GetCurrentDirectory();
+            var baseDir = customBaseDir ?? AppContext.BaseDirectory ?? Path.GetDirectoryName(Environment.ProcessPath!) ?? Directory.GetCurrentDirectory();
 
             _logDir = Path.Combine(baseDir, "Logs");
             Directory.CreateDirectory(_logDir);
 
             _currentDate = DateOnly.FromDateTime(DateTime.Now);
-            _currentFilePath = Path.Combine(_logDir, $"DD-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.log");
+
+            _currentFilePath = Path.Combine(_logDir, "Latest Log File.log");
+            try
+            {
+                if (File.Exists(_currentFilePath))
+                {
+                    var attr = File.GetAttributes(_currentFilePath);
+                    if ((attr & FileAttributes.ReadOnly) != 0)
+                        File.SetAttributes(_currentFilePath, attr & ~FileAttributes.ReadOnly);
+                    File.Delete(_currentFilePath);
+                }
+            }
+            catch
+            {
+                    // good girl action
+            }
 
             OpenWriter(_currentFilePath);
             CleanOldLogs_NoLock();
-        }Console.Error.WriteLine();
+        }
 
         Info("Logger initialized");
     }
@@ -86,7 +98,7 @@ public static class Logger
 
             Directory.CreateDirectory(_logDir);
             _currentDate = DateOnly.FromDateTime(DateTime.Now);
-            _currentFilePath = Path.Combine(_logDir, $"DD-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.log");
+            _currentFilePath = Path.Combine(_logDir, "Latest Log File.log");
             OpenWriter(_currentFilePath);
 
             _writer!.WriteLine($"{TimeStamp()} | INFO  | (restarted) log wiped via CleanAllLogs()");
@@ -112,6 +124,35 @@ public static class Logger
                 // good girl action
             }
             CloseWriter_NoLock();
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(_currentFilePath) && File.Exists(_currentFilePath))
+                {
+                    var startedAt = File.GetCreationTime(_currentFilePath);
+                    var finalName = Path.Combine(_logDir, $"DD-{startedAt:yyyy-MM-dd-HH-mm-ss}.log");
+
+                    try
+                    {
+                        File.Move(_currentFilePath, finalName, overwrite: true);
+                    }
+                    catch
+                    {
+                        var i = 1;
+                        string alt;
+                        do
+                        {
+                            alt = Path.Combine(_logDir, $"DD-{startedAt:yyyy-MM-dd-HH-mm-ss}-{i}.log");
+                            i++;
+                        } while (File.Exists(alt));
+
+                        File.Move(_currentFilePath, alt);
+                    }
+                }
+            }
+            catch
+            {
+                // good girl action
+            }
         }
     }
 
@@ -134,10 +175,7 @@ public static class Logger
                 var today = DateOnly.FromDateTime(DateTime.Now);
                 if (today != _currentDate)
                 {
-                    CloseWriter_NoLock();
                     _currentDate = today;
-                    _currentFilePath = Path.Combine(_logDir, $"DD-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.log");
-                    OpenWriter(_currentFilePath);
                     CleanOldLogs_NoLock();
                 }
 
@@ -165,7 +203,6 @@ public static class Logger
             }
         }
     }
-
 
     private static void OpenWriter(string path)
     {

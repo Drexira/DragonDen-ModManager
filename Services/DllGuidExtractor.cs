@@ -19,7 +19,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Failed to extract mod guid from {dllPath}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Failed to extract mod guid from {dllPath}: {ex.Message}");
         }
 
         return FallbackScanBinary(dllPath);
@@ -34,7 +34,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {dllPath}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Failed to extract server mod guid from {dllPath}: {ex.Message}");
         }
 
         return FallbackScanBinary(dllPath);
@@ -90,7 +90,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Failed to extract mod guid from {folder}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Failed to extract mod guid from {folder}: {ex.Message}");
         }
 
         return null;
@@ -108,7 +108,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
         }
 
         return null;
@@ -150,7 +150,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
         }
 
         return null;
@@ -244,7 +244,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Failed to extract server mod guid from {folder}: {ex.Message}");
         }
 
         return (null, resultNames);
@@ -288,7 +288,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Failed ");
+            Logger.Error($"[DllGuidExtractor] Failed ");
         }
 
         return null;
@@ -310,7 +310,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Fallback scan failed for {dllPath}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Fallback scan failed for {dllPath}: {ex.Message}");
         }
 
         return null;
@@ -329,7 +329,7 @@ public static class DllGuidExtractor
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllGuidExtractor] Fallback scan failed for {path}: {ex.Message}");
+            Logger.Error($"[DllGuidExtractor] Fallback scan failed for {path}: {ex.Message}");
         }
 
         return null;

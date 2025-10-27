@@ -79,7 +79,7 @@ public sealed class Db
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Db] Failed to add 'target' to 'files': {ex}");
+                Logger.Error($"[Db] Failed to add 'target' to 'files': {ex}");
             }
     }
 
@@ -99,7 +99,7 @@ public sealed class Db
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Db] Failed to add '{col}' column to '{table}' table: {ex}");
+                Logger.Error($"[Db] Failed to add '{col}' column to '{table}' table: {ex}");
             }
     }
 
@@ -399,9 +399,9 @@ LIMIT 1";
                     cur = Normalize(next);
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Console.WriteLine($"[Db] Failed to delete empty parent directories: {e}");
+                Logger.Error($"[Db] Failed to delete empty parent directories: {ex}");
             }
         }
 
@@ -438,7 +438,7 @@ LIMIT 1";
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Db] Failed to delete file '{full}': {ex}");
+                    Logger.Error($"[Db] Failed to delete file '{full}': {ex}");
                 }
 
                 try
@@ -449,7 +449,7 @@ LIMIT 1";
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Db] Live cleanup failed for '{full}': {ex}");
+                    Logger.Error($"[Db] Live cleanup failed for '{full}': {ex}");
                 }
             }
 
@@ -498,7 +498,7 @@ LIMIT 1";
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Db] Failed to delete empty dir '{dfull}': {ex}");
+                    Logger.Error($"[Db] Failed to delete empty dir '{dfull}': {ex}");
                 }
 
                 try
@@ -617,7 +617,7 @@ WHERE f.mod_id = @modId
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Db] Failed to rollback transaction in RemoveInstall: {ex}");
+                Logger.Error($"[Db] Failed to rollback transaction in RemoveInstall: {ex}");
             }
 
             throw;

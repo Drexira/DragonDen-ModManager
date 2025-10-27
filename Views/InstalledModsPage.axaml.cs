@@ -107,13 +107,13 @@ public partial class InstalledModsPage : UserControl
             else
             {
                 Notifications.Current.ShowError("Missing Folder", $"The folder '{path}' could not be found.");
-                Console.WriteLine($"[InstalledModsPage] OpenFolder: target folder missing → {path}");
+                Logger.Error($"[InstalledModsPage] OpenFolder: target folder missing → {path}");
             }
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Folder Failed", $"Could not open '{path}'. Check if the folder exists or is accessible.");
-            Console.WriteLine($"[InstalledModsPage] OpenFolder exception: {ex.Message}");
+            Logger.Error($"[InstalledModsPage] OpenFolder exception: {ex.Message}");
         }
     }
 
@@ -244,7 +244,7 @@ public partial class InstalledModsPage : UserControl
         if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("Nothing To Disable", "All visible mods are already disabled or custom installs.");
-            Console.WriteLine($"[InstalledModsPage] DisableAllAsync: no eligible mods to disable.");
+            Logger.Error($"[InstalledModsPage] DisableAllAsync: no eligible mods to disable.");
             return;
         }
         var queued = 0;
@@ -258,7 +258,7 @@ public partial class InstalledModsPage : UserControl
             await Task.Delay(40);
         }
         Notifications.Current.ShowSuccess("Queued Disables", $"Queued {queued} disable job(s).");
-        Console.WriteLine($"[InstalledModsPage] DisableAllAsync: queued {queued} jobs.");
+        Logger.Info($"[InstalledModsPage] DisableAllAsync: queued {queued} jobs.");
     }
 
     private async Task EnableAllAsync()
@@ -269,7 +269,7 @@ public partial class InstalledModsPage : UserControl
         if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("Nothing To Enable", "No disabled mods in the current view.");
-            Console.WriteLine("[InstalledModsPage] EnableAllAsync: no eligible mods to enable.");
+            Logger.Warn("[InstalledModsPage] EnableAllAsync: no eligible mods to enable.");
             return;
         }
         var queued = 0;
@@ -283,7 +283,7 @@ public partial class InstalledModsPage : UserControl
             await Task.Delay(40);
         }
         Notifications.Current.ShowSuccess("Queued Enables", $"Queued {queued} enable job(s).");
-        Console.WriteLine($"[InstalledModsPage] EnableAllAsync: queued {queued} jobs.");
+        Logger.Info($"[InstalledModsPage] EnableAllAsync: queued {queued} jobs.");
     }
 
     private async void OnAnyButtonClick(object? sender, RoutedEventArgs e)
@@ -301,7 +301,7 @@ public partial class InstalledModsPage : UserControl
                 {
                     App.Queue.EnqueueUninstall(rowDisabledTrash.Name, rowDisabledTrash.ModIds);
                     Notifications.Current.ShowSuccess("Uninstall Queued", $"'{rowDisabledTrash.Name}' will be uninstalled.");
-                    Console.WriteLine($"[InstalledModsPage] Queued uninstall for disabled mod → {rowDisabledTrash.Name}");
+                    Logger.Info($"[InstalledModsPage] Queued uninstall for disabled mod → {rowDisabledTrash.Name}");
                     await RefreshRows();
                 }
 
@@ -321,7 +321,7 @@ public partial class InstalledModsPage : UserControl
             {
                 App.Queue.EnqueueUninstall(rowTrash.Name, rowTrash.ModIds);
                 Notifications.Current.ShowSuccess("Uninstall Queued", $"'{rowTrash.Name}' will be uninstalled.");
-                Console.WriteLine($"[InstalledModsPage] Queued uninstall → {rowTrash.Name}");
+                Logger.Info($"[InstalledModsPage] Queued uninstall → {rowTrash.Name}");
                 await RefreshRows();
             }
 
@@ -336,7 +336,7 @@ public partial class InstalledModsPage : UserControl
                 if (row4.IsDisabled)
                 {
                     Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod to list its files.");
-                    Console.WriteLine($"[InstalledModsPage] List Files click blocked: mod disabled → {row4.Name}");
+                    Logger.Warn($"[InstalledModsPage] List Files click blocked: mod disabled → {row4.Name}");
                     return;
                 }
                 await ShowFilesDialog(row4);
@@ -351,7 +351,7 @@ public partial class InstalledModsPage : UserControl
                 if (row5.IsDisabled)
                 {
                     Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod to edit its configs.");
-                    Console.WriteLine($"[InstalledModsPage] Edit Configs click blocked: mod disabled → {row5.Name}");
+                    Logger.Warn($"[InstalledModsPage] Edit Configs click blocked: mod disabled → {row5.Name}");
                     return;
                 }
                 await ShowConfigDialog(row5);
@@ -472,7 +472,7 @@ public partial class InstalledModsPage : UserControl
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Source Link Failed", $"Could not open source link for '{b.Content}'.");
-                Console.WriteLine($"[InstalledModsPage] OpenSource link error: {ex.Message}");
+                Logger.Error($"[InstalledModsPage] OpenSource link error: {ex.Message}");
             }
     }
 
@@ -503,7 +503,7 @@ public partial class InstalledModsPage : UserControl
         if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("No Mods Found", "There are no installed mods to uninstall.");
-            Console.WriteLine("[InstalledModsPage] UninstallAllAsync: no mods to uninstall.");
+            Logger.Warn("[InstalledModsPage] UninstallAllAsync: no mods to uninstall.");
             return;
         }
         var owner = (Window?)TopLevel.GetTopLevel(this);
@@ -517,7 +517,7 @@ public partial class InstalledModsPage : UserControl
             await Task.Delay(25);
         }
         Notifications.Current.ShowSuccess("Uninstalls Queued", $"Queued {queued} uninstall job(s).");
-        Console.WriteLine($"[InstalledModsPage] UninstallAllAsync: queued {queued} jobs.");
+        Logger.Info($"[InstalledModsPage] UninstallAllAsync: queued {queued} jobs.");
     }
 
     private void OnDisableMod(object? s, RoutedEventArgs e)
@@ -526,7 +526,7 @@ public partial class InstalledModsPage : UserControl
         if (row.ModIds is null || row.ModIds.Count == 0) return;
         App.Queue.EnqueueDisable(row.Name, row.ModIds);
         Notifications.Current.ShowSuccess("Disable Queued", $"{row.Name} will be moved to Disabled Mods.");
-        Console.WriteLine($"[InstalledModsPage] Queued disable → {row.Name}");
+        Logger.Info($"[InstalledModsPage] Queued disable → {row.Name}");
     }
 
     private void OnEnableMod(object? s, RoutedEventArgs e)
@@ -535,7 +535,7 @@ public partial class InstalledModsPage : UserControl
         if (row.ModIds is null || row.ModIds.Count == 0) return;
         App.Queue.EnqueueEnable(row.Name, row.ModIds);
         Notifications.Current.ShowSuccess("Enable Queued", $"{row.Name} will be restored.");
-        Console.WriteLine($"[InstalledModsPage] Queued enable → {row.Name}");
+        Logger.Info($"[InstalledModsPage] Queued enable → {row.Name}");
     }
 
     public async Task RefreshRows()
@@ -1053,7 +1053,7 @@ public partial class InstalledModsPage : UserControl
         if (row.IsDisabled)
         {
             Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod before updating.");
-            Console.WriteLine($"[InstalledModsPage] Update badge click blocked: mod disabled → {row.Name}");
+            Logger.Warn($"[InstalledModsPage] Update badge click blocked: mod disabled → {row.Name}");
             return;
         }
 
@@ -1062,12 +1062,12 @@ public partial class InstalledModsPage : UserControl
             b.IsEnabled = false;
             App.Queue.EnqueueRemote(row.Name, url, row.Latest?.Version ?? "Custom Install", row.Guid ?? "");
             Notifications.Current.ShowSuccess("Update Queued", $"'{row.Name}' has been added to the update queue.");
-            Console.WriteLine($"[InstalledModsPage] Update badge clicked: queued update for {row.Name}");
+            Logger.Warn($"[InstalledModsPage] Update badge clicked: queued update for {row.Name}");
         }
         else
         {
             Notifications.Current.ShowError("No Update Link", $"The mod '{row.Name}' has no downloadable update link.");
-            Console.WriteLine($"[InstalledModsPage] Update badge click failed: no update link for {row.Name}");
+            Logger.Warn($"[InstalledModsPage] Update badge click failed: no update link for {row.Name}");
         }
     }
 
@@ -1077,7 +1077,7 @@ public partial class InstalledModsPage : UserControl
         if (row.IsDisabled)
         {
             Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod before changing its version.");
-            Console.WriteLine($"[InstalledModsPage] Open version modal blocked: mod disabled → {row.Name}");
+            Logger.Warn($"[InstalledModsPage] Open version modal blocked: mod disabled → {row.Name}");
             return;
         }
 
@@ -1111,7 +1111,7 @@ public partial class InstalledModsPage : UserControl
         if (string.IsNullOrWhiteSpace(url))
         {
             Notifications.Current.ShowError("Missing Page URL", "No valid mod page URL is available for this mod.");
-            Console.WriteLine("[InstalledModsPage] OnOpenPageFromTitle: missing URL.");
+            Logger.Warn("[InstalledModsPage] OnOpenPageFromTitle: missing URL.");
             return;
         }
 
@@ -1122,7 +1122,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Page Open Failed", $"Could not open mod page: {url}");
-            Console.WriteLine($"[InstalledModsPage] OnOpenPageFromTitle error: {ex.Message}");
+            Logger.Error($"[InstalledModsPage] OnOpenPageFromTitle error: {ex.Message}");
         }
     }
 
@@ -1133,7 +1133,7 @@ public partial class InstalledModsPage : UserControl
         if (string.IsNullOrWhiteSpace(url))
         {
             Notifications.Current.ShowError("Missing Page URL", "No valid mod page URL is available for this mod.");
-            Console.WriteLine("[InstalledModsPage] OnOpenPageFromContext: missing URL.");
+            Logger.Error("[InstalledModsPage] OnOpenPageFromContext: missing URL.");
             return;
         }
 
@@ -1144,7 +1144,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Page Open Failed", $"Could not open mod page: {url}");
-            Console.WriteLine($"[InstalledModsPage] OnOpenPageFromContext error: {ex.Message}");
+            Logger.Error($"[InstalledModsPage] OnOpenPageFromContext error: {ex.Message}");
         }
     }
 
@@ -1154,7 +1154,7 @@ public partial class InstalledModsPage : UserControl
         if (string.IsNullOrWhiteSpace(url))
         {
             Notifications.Current.ShowWarning("No Link Found", "There is no link to copy for this mod.");
-            Console.WriteLine($"[InstalledModsPage] OnCopyLink: no URL to copy.");
+            Logger.Error($"[InstalledModsPage] OnCopyLink: no URL to copy.");
             return;
         }
 
@@ -1165,13 +1165,13 @@ public partial class InstalledModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(url);
                 Notifications.Current.ShowSuccess("Link Copied", "The link has been copied to your clipboard.");
-                Console.WriteLine($"[InstalledModsPage] OnCopyLink: copied URL to clipboard.");
+                Logger.Error($"[InstalledModsPage] OnCopyLink: copied URL to clipboard.");
             }
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Copy Failed", "Unable to copy the link to clipboard.");
-            Console.WriteLine($"[InstalledModsPage] CopyLink exception: {ex.Message}");
+            Logger.Error($"[InstalledModsPage] CopyLink exception: {ex.Message}");
         }
     }
 
@@ -1187,13 +1187,13 @@ public partial class InstalledModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(guid);
                 Notifications.Current.ShowSuccess("GUID Copied", "The GUID has been copied to your clipboard.");
-                Console.WriteLine($"[InstalledModsPage] OnCopyGuid: copied GUID to clipboard.");
+                Logger.Error($"[InstalledModsPage] OnCopyGuid: copied GUID to clipboard.");
             }
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Copy Failed", "Unable to copy the GUID to clipboard.");
-            Console.WriteLine($"[InstalledModsPage] CopyGuid exception: {ex.Message}");
+            Logger.Error($"[InstalledModsPage] CopyGuid exception: {ex.Message}");
         }
     }
 
@@ -1210,7 +1210,7 @@ public partial class InstalledModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Image Open Failed", "Could not open thumbnail image in browser.");
-            Console.WriteLine($"[InstalledModsPage] OnOpenThumb error: {ex.Message}");
+            Logger.Error($"[InstalledModsPage] OnOpenThumb error: {ex.Message}");
         }
     }
 

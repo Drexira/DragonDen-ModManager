@@ -36,9 +36,6 @@ public partial class MainWindow : Window
             var scale = this.RenderScaling;
             ClientSize = new Size(1280, 720); 
         };
-        
-        Logger.Init(mirrorToConsole: false, retentionDays: 7);
-        Logger.HookConsole();
 
         _footerLeft = this.FindControl<TextBlock>("FooterLeft");
         _footerCenter = this.FindControl<TextBlock>("FooterCenter");
@@ -99,7 +96,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainWindow] Error initializing mods db: {ex.Message}");
+            Logger.Error($"[MainWindow] Error initializing mods db: {ex.Message}");
         }
 
         if (Spt.TryGetServerVersionThree(out var _three, out var majorTwo))
@@ -127,7 +124,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Failed", "Unable to open the Ko-Fi page. Check your internet connection or default browser.");
-            Console.WriteLine($"[MainWindow] Failed to open Ko-Fi link: {ex.Message}");
+            Logger.Error($"[MainWindow] Failed to open Ko-Fi link: {ex.Message}");
         }
     }
 
@@ -184,7 +181,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[MainWindow] Error closing existing InstallationQueueDialog: {ex.Message}");
+            Logger.Error($"[MainWindow] Error closing existing InstallationQueueDialog: {ex.Message}");
         }
 
         var dlg = new InstallationQueueDialog

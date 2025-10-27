@@ -29,7 +29,7 @@ public static class ForgeClient
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ForgeClient] Exception in StatusMessage handler: {ex}");
+            Logger.Error($"[ForgeClient] Exception in StatusMessage handler: {ex}");
         }
     }
 

@@ -33,7 +33,7 @@ public partial class TokenDialog : Window
         if (string.IsNullOrWhiteSpace(token))
         {
             Notifications.Current.ShowWarning("Missing Token", "Please enter your Forge API token before continuing.");
-            Console.WriteLine("[TokenDialog] No token entered by user.");
+            Logger.Warn("[TokenDialog] No token entered by user.");
             return;
         }
 
@@ -50,14 +50,14 @@ public partial class TokenDialog : Window
         if (!apiUp)
         {
             Notifications.Current.ShowError("Connection Failed", "Could not reach Forge API. Please try again later.");
-            Console.WriteLine("[TokenDialog] Forge API unreachable during validation.");
+            Logger.Error("[TokenDialog] Forge API unreachable during validation.");
             return;
         }
 
         if (!tokenOk)
         {
             Notifications.Current.ShowError("Invalid Token", "Token validation failed. Ensure it’s a valid Read-only token.");
-            Console.WriteLine("[TokenDialog] Provided Forge token was invalid or rejected.");
+            Logger.Error("[TokenDialog] Provided Forge token was invalid or rejected.");
             return;
         }
 
@@ -65,7 +65,7 @@ public partial class TokenDialog : Window
         App.SaveConfig();
         App.RaiseConfigChanged();
         Notifications.Current.ShowSuccess("Token Saved", "Your Forge API token has been saved successfully.");
-        Console.WriteLine("[TokenDialog] Forge token saved and config updated.");
+        Logger.Info("[TokenDialog] Forge token saved and config updated.");
         Close(Result.Set);
     }
 
@@ -86,7 +86,7 @@ public partial class TokenDialog : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[TokenDialog] API health check failed: " + ex);
+            Logger.Error("[TokenDialog] API health check failed: " + ex);
             return false;
         }
     }
@@ -115,7 +115,7 @@ public partial class TokenDialog : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[TokenDialog] Token validation failed: " + ex);
+            Logger.Error("[TokenDialog] Token validation failed: " + ex);
             return false;
         }
     }
@@ -130,7 +130,7 @@ public partial class TokenDialog : Window
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Failed", "Couldn't open token help page in your browser.");
-            Console.WriteLine("[TokenDialog] Failed to open token help page: " + ex);
+            Logger.Error("[TokenDialog] Failed to open token help page: " + ex);
         }
     }
 

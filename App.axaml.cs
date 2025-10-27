@@ -56,7 +56,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[App] Failed to create cache directory: {ex.Message}");
+            Logger.Error($"[App] Failed to create cache directory: {ex.Message}");
         }
 
         try
@@ -65,7 +65,18 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[App] Failed to create mods directory: {ex.Message}");
+            Logger.Error($"[App] Failed to create mods directory: {ex.Message}");
+        }
+
+        try
+        {
+            Logger.Init(mirrorToConsole: true, retentionDays: 7, minLevel: Logger.Level.Info);
+            Logger.HookConsole();
+            Logger.Info("[Mod Manager] Logger ready.");
+        }
+        catch
+        {
+            // good girl action
         }
 
         Config = Config.Load(Paths.AppSettingsPath);
@@ -153,6 +164,16 @@ public class App : Application
                 {
                     // good girl action
                 }
+
+                try
+                {
+                    Logger.Info("[Mod Manager] Shutting down, i'm sorry i hurt you... bye bye :(");
+                    Logger.Shutdown();
+                }
+                catch
+                {
+                    // good girl action
+                }
             };
         }
 
@@ -175,7 +196,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[App] Failed to warmup cache: {ex.Message}");
+            Logger.Error($"[App] Failed to warmup cache: {ex.Message}");
         }
     }
 
@@ -197,7 +218,7 @@ public class App : Application
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[App] Failed to install installs: {ex.Message}");
+                Logger.Error($"[App] Failed to install installs: {ex.Message}");
             }
             finally
             {
@@ -217,7 +238,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[App] Failed to raise config changed: " + ex.Message);
+            Logger.Error("[App] Failed to raise config changed: " + ex.Message);
         }
     }
 
@@ -229,7 +250,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[App] Failed to cancel warm cache: " + ex.Message);
+            Logger.Error("[App] Failed to cancel warm cache: " + ex.Message);
         }
     }
 

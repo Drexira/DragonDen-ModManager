@@ -193,7 +193,7 @@ public partial class ConfigDialog : Window
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Failed", $"Could not open: {item.FullPath}");
-            Console.WriteLine($"[ConfigDialog] Open failed: {ex}");
+            Logger.Error($"[ConfigDialog] Open failed: {ex}");
             CloseEditorPane();
         }
     }
@@ -226,12 +226,12 @@ public partial class ConfigDialog : Window
             SaveBtn.IsEnabled = false;
             ResetBtn.IsEnabled = false;
             Notifications.Current.ShowSuccess("Saved", Path.GetFileName(_currentFile));
-            Console.WriteLine($"[ConfigDialog] Saved file: {_currentFile}");
+            Logger.Info($"[ConfigDialog] Saved file: {_currentFile}");
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Save Failed", Path.GetFileName(_currentFile));
-            Console.WriteLine($"[ConfigDialog] Save failed: {ex}");
+            Logger.Error($"[ConfigDialog] Save failed: {ex}");
         }
     }
 

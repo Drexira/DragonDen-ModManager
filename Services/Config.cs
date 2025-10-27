@@ -53,7 +53,7 @@ public sealed class Config
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[Config] Loading config failed: " + ex.Message);
+            Logger.Error("[Config] Loading config failed: " + ex.Message);
         }
 
         var created = CreateDefault();
@@ -78,7 +78,7 @@ public sealed class Config
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Save Failed", "Couldn't save config file.");
-            Console.WriteLine("[Config] Save failed: " + ex);
+            Logger.Error("[Config] Save failed: " + ex);
         }
     }
 

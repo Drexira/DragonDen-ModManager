@@ -96,10 +96,10 @@ public partial class TitleBar : UserControl
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Open Failed", "Couldn't open issues page in browser.");
-                Console.WriteLine("[TitleBar] Failed to open issues page: " + ex);
+                Logger.Error("[TitleBar] Failed to open issues page: " + ex);
             }
 
         Notifications.Current.ShowWarning("Missing URL", "No valid page URL was provided.");
-        Console.WriteLine("[TitleBar] No page URL defined for issues page.");
+        Logger.Warn("[TitleBar] No page URL defined for issues page.");
     }
 }

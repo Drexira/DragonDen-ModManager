@@ -78,7 +78,7 @@ public sealed class WebImage : Image
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("[WebImage] failed local/uri: " + ex.Message);
+                        Logger.Error("[WebImage] failed local/uri: " + ex.Message);
                     }
                 }
             }
@@ -88,7 +88,7 @@ public sealed class WebImage : Image
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[WebImage] load error: " + ex);
+            Logger.Error("[WebImage] load error: " + ex);
         }
     }
 
@@ -128,7 +128,7 @@ public sealed class WebImage : Image
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WebImage] failed loading cached image: {ex}");
+                Logger.Error($"[WebImage] failed loading cached image: {ex}");
             }
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
@@ -155,7 +155,7 @@ public sealed class WebImage : Image
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[WebImage] OnDetachedFromVisualTree cancel error: {ex}");
+            Logger.Error($"[WebImage] OnDetachedFromVisualTree cancel error: {ex}");
         }
     }
 }

@@ -32,7 +32,7 @@ public static class DllIntrospector
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllIntrospector] Error reading BepInEx info from {dllPath}: {ex}");
+            Logger.Error($"[DllIntrospector] Error reading BepInEx info from {dllPath}: {ex}");
         }
 
         return null;
@@ -60,7 +60,7 @@ public static class DllIntrospector
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DllIntrospector] Error reading Server Mod GUID from {dllPath}: {ex}");
+            Logger.Error($"[DllIntrospector] Error reading Server Mod GUID from {dllPath}: {ex}");
         }
 
         return null;

@@ -49,7 +49,7 @@ public partial class UpdateAvailableDialog : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[UpdateAvailableDialog] Failed to open update page: " + ex.Message);
+            Logger.Error("[UpdateAvailableDialog] Failed to open update page: " + ex.Message);
         }
     }
 

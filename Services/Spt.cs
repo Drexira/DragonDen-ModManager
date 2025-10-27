@@ -49,7 +49,7 @@ public static class Spt
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Spt] Error enumerating files in root: {ex}");
+                Logger.Error($"[Spt] Error enumerating files in root: {ex}");
             }
 
             var sptDir = Path.Combine(root, "SPT");
@@ -60,7 +60,7 @@ public static class Spt
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Spt] Error enumerating files in SPT dir: {ex}");
+                    Logger.Error($"[Spt] Error enumerating files in SPT dir: {ex}");
                 }
 
             var hit = extra.FirstOrDefault(File.Exists);
@@ -72,7 +72,7 @@ public static class Spt
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Spt] Error finding server exe: {ex}");
+            Logger.Error($"[Spt] Error finding server exe: {ex}");
         }
 
         return false;

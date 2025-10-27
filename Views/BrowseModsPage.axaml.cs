@@ -289,7 +289,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[BrowseModsPage] Failed to search by author: " + ex);
+                Logger.Error("[BrowseModsPage] Failed to search by author: " + ex);
             }
         };
 
@@ -376,7 +376,7 @@ public partial class BrowseModsPage : UserControl
         }
         catch
         {
-            Console.WriteLine("[BrowseModsPage] Failed to detect SPT major version from config.");
+            Logger.Error("[BrowseModsPage] Failed to detect SPT major version from config.");
             return "";
         }
     }
@@ -488,7 +488,7 @@ public partial class BrowseModsPage : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[BrowseModsPage] Failed to pick random loading tip: " + ex);
+            Logger.Error("[BrowseModsPage] Failed to pick random loading tip: " + ex);
         }
 
         SearchOverlay.IsVisible = true;
@@ -604,7 +604,7 @@ public partial class BrowseModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Categories Failed", "Couldn't load categories.");
-            Console.WriteLine("[BrowseModsPage] Categories failed to load: " + ex);
+            Logger.Error("[BrowseModsPage] Categories failed to load: " + ex);
         }
 
         await StartIndexingAsync(true);
@@ -667,7 +667,7 @@ public partial class BrowseModsPage : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[BrowseModsPage] Failed to refresh categories in background: " + ex);
+            Logger.Error("[BrowseModsPage] Failed to refresh categories in background: " + ex);
         }
     }
 
@@ -863,7 +863,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[BrowseModsPage] Failed to update Forge status UI: " + ex);
+                Logger.Error("[BrowseModsPage] Failed to update Forge status UI: " + ex);
             }
         }
 
@@ -901,7 +901,7 @@ public partial class BrowseModsPage : UserControl
             _isIndexing = false;
             UpdatePagingUi();
             Notifications.Current.ShowError("Refresh Failed", "Couldn't refresh mod cache or Forge data.");
-            Console.WriteLine("[BrowseModsPage] Refresh failed: " + ex);
+            Logger.Error("[BrowseModsPage] Refresh failed: " + ex);
         }
         finally
         {
@@ -1094,7 +1094,7 @@ public partial class BrowseModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Search Failed", "Couldn't complete search query.");
-            Console.WriteLine("[BrowseModsPage] Search failed: " + ex);
+            Logger.Error("[BrowseModsPage] Search failed: " + ex);
             UpdatePagingUi();
         }
         finally
@@ -1124,7 +1124,7 @@ public partial class BrowseModsPage : UserControl
         SearchStatusText.Text = total == 0 ? "No results" : $"Showing {total:N0}";
 
         Notifications.Current.ShowSuccess("Mod Uninstalled", $"{row.Name} has been removed successfully.");
-        Console.WriteLine("[BrowseModsPage] Uninstalled mod: " + row.Name);
+        Logger.Info("[BrowseModsPage] Uninstalled mod: " + row.Name);
     }
 
     private async Task<List<ForgeClient.MissingDep>> ResolveMissingDependenciesAsync(int modId, int versionId)
@@ -1185,12 +1185,12 @@ public partial class BrowseModsPage : UserControl
                 ex.Message.Contains("401") || ex.Message.Contains("403")
                     ? "Forge rejected dependency request (invalid or expired token)."
                     : "Failed to fetch mod dependencies from Forge.");
-            Console.WriteLine("[BrowseModsPage] Dependency fetch failed: " + ex.Message);
+            Logger.Error("[BrowseModsPage] Dependency fetch failed: " + ex.Message);
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Dependency Fetch Failed", "Couldn't retrieve dependencies for mod.");
-            Console.WriteLine("[BrowseModsPage] Dependency fetch failed: " + ex.Message);
+            Logger.Error("[BrowseModsPage] Dependency fetch failed: " + ex.Message);
         }
 
         return result;
@@ -1223,7 +1223,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[BrowseModsPage] Failed to enqueue dependency: " + ex);
+                Logger.Error("[BrowseModsPage] Failed to enqueue dependency: " + ex);
             }
         }
 
@@ -1318,7 +1318,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[BrowseModsPage] Failed to fetch or attach source links: " + ex);
+                Logger.Error("[BrowseModsPage] Failed to fetch or attach source links: " + ex);
             }
 
             await Task.Delay(250);
@@ -1339,7 +1339,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[BrowseModsPage] Failed to scroll results to top: " + ex);
+                Logger.Error("[BrowseModsPage] Failed to scroll results to top: " + ex);
             }
         }, DispatcherPriority.Background);
     }
@@ -1355,7 +1355,7 @@ public partial class BrowseModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Failed", "Couldn't open mod source link.");
-            Console.WriteLine("[BrowseModsPage] Couldn't open source link: " + ex.Message);
+            Logger.Error("[BrowseModsPage] Couldn't open source link: " + ex.Message);
         }
     }
 
@@ -1374,13 +1374,13 @@ public partial class BrowseModsPage : UserControl
             catch (Exception ex)
             {
                 Notifications.Current.ShowError("Open Failed", "Couldn't open mod page in browser.");
-                Console.WriteLine("[BrowseModsPage] Couldn't open mod page: " + ex.Message);
+                Logger.Error("[BrowseModsPage] Couldn't open mod page: " + ex.Message);
             }
         }
         else
         {
             Notifications.Current.ShowWarning("Missing Link", "No Forge page URL found for this mod.");
-            Console.WriteLine("[BrowseModsPage] Missing mod page URL.");
+            Logger.Warn("[BrowseModsPage] Missing mod page URL.");
         }
     }
 
@@ -1390,7 +1390,7 @@ public partial class BrowseModsPage : UserControl
         if (string.IsNullOrWhiteSpace(url))
         {
             Notifications.Current.ShowWarning("Missing Link", "No link to copy.");
-            Console.WriteLine("[BrowseModsPage] No link to copy.");
+            Logger.Warn("[BrowseModsPage] No link to copy.");
             return;
         }
 
@@ -1406,7 +1406,7 @@ public partial class BrowseModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Copy Failed", "Couldn't copy mod link to clipboard.");
-            Console.WriteLine("[BrowseModsPage] Failed to copy mod link: " + ex.Message);
+            Logger.Error("[BrowseModsPage] Failed to copy mod link: " + ex.Message);
         }
     }
 
@@ -1421,13 +1421,13 @@ public partial class BrowseModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(name);
                 Notifications.Current.ShowSuccess("Copied", "Mod name copied to clipboard.");
-                Console.WriteLine($"[BrowseModsPage] Copied mod name: {name}");
+                Logger.Info($"[BrowseModsPage] Copied mod name: {name}");
             }
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Copy Failed", "Couldn't copy mod name to clipboard.");
-            Console.WriteLine("[BrowseModsPage] Failed to copy mod name: " + ex.Message);
+            Logger.Error("[BrowseModsPage] Failed to copy mod name: " + ex.Message);
         }
     }
 
@@ -1443,13 +1443,13 @@ public partial class BrowseModsPage : UserControl
             {
                 await tl.Clipboard.SetTextAsync(guid);
                 Notifications.Current.ShowSuccess("Copied", "Mod GUID copied to clipboard.");
-                Console.WriteLine($"[BrowseModsPage] Copied mod GUID: {guid}");
+                Logger.Info($"[BrowseModsPage] Copied mod GUID: {guid}");
             }
         }
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Copy Failed", "Couldn't copy GUID to clipboard.");
-            Console.WriteLine("[BrowseModsPage] Failed to copy GUID: " + ex.Message);
+            Logger.Info("[BrowseModsPage] Failed to copy GUID: " + ex.Message);
         }
     }
 
@@ -1466,7 +1466,7 @@ public partial class BrowseModsPage : UserControl
         catch (Exception ex)
         {
             Notifications.Current.ShowError("Open Failed", "Couldn't open thumbnail image.");
-            Console.WriteLine("[BrowseModsPage] Failed to open image: " + ex.Message);
+            Logger.Info("[BrowseModsPage] Failed to open image: " + ex.Message);
         }
     }
 
@@ -1531,7 +1531,7 @@ public partial class BrowseModsPage : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[BrowseModsPage] Failed to hydrate versions with descriptions: " + ex);
+            Logger.Info("[BrowseModsPage] Failed to hydrate versions with descriptions: " + ex);
         }
 
         var owner = TopLevel.GetTopLevel(this) as Window
@@ -1646,7 +1646,7 @@ public partial class BrowseModsPage : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[BrowseModsPage] Install check by GUID failed: " + ex);
+            Logger.Info("[BrowseModsPage] Install check by GUID failed: " + ex);
         }
 
         try
@@ -1655,7 +1655,7 @@ public partial class BrowseModsPage : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[BrowseModsPage] Install check by Name failed: " + ex);
+            Logger.Info("[BrowseModsPage] Install check by Name failed: " + ex);
         }
 
         return false;
@@ -1721,7 +1721,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[BrowseModsPage] Failed to get latest version for dependency (GUID): " + ex);
+                Logger.Info("[BrowseModsPage] Failed to get latest version for dependency (GUID): " + ex);
             }
 
         if (dep.ModId > 0)
@@ -1737,7 +1737,7 @@ public partial class BrowseModsPage : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[BrowseModsPage] Failed to get latest version for dependency (ModId): " + ex);
+                Logger.Info("[BrowseModsPage] Failed to get latest version for dependency (ModId): " + ex);
             }
 
         return null;

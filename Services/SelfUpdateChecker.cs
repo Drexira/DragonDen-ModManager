@@ -45,7 +45,7 @@ public static class SelfUpdateChecker
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SelfUpdateChecker] CheckOnStartupAsync: {ex}");
+            Logger.Error($"[SelfUpdateChecker] CheckOnStartupAsync: {ex}");
         }
     }
 
