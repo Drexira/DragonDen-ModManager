@@ -25,6 +25,8 @@ public partial class InstalledModsPage : UserControl
     private readonly DispatcherTimer _searchDebounce = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private string _searchText = "";
     private StackPanel? _emptyState;
+    private volatile bool _isBuilding;
+    private int _statusEpoch;
 
     public InstalledModsPage()
     {
@@ -155,7 +157,8 @@ public partial class InstalledModsPage : UserControl
             await Task.Delay(120);
         }
 
-        StatusText.Text = updatable == 0 ? "All up to date" : $"{updatable} mod(s) have updates";
+        if (!_isBuilding)
+            SetStatus(updatable == 0 ? "All up to date" : $"{updatable} mod(s) have updates");
         await RefreshRows();
     }
 
@@ -216,7 +219,8 @@ public partial class InstalledModsPage : UserControl
             await Task.Delay(120);
         }
 
-        StatusText.Text = queued == 0 ? "No updates queued" : $"Queued {queued} update(s)";
+        if (!_isBuilding)
+            SetStatus(queued == 0 ? "No updates queued" : $"Queued {queued} update(s)");
         await RefreshRows();
     }
 
@@ -290,8 +294,6 @@ public partial class InstalledModsPage : UserControl
 
         if (b.DataContext is InstalledModRow dc && dc.IsDisabled)
         {
-            Notifications.Current.ShowWarning("Mod Disabled", "Enable the mod to use this button.");
-            Console.WriteLine($"[InstalledModsPage] Button click blocked: mod disabled → {dc.Name}");
             return;
         }
 
@@ -465,13 +467,13 @@ public partial class InstalledModsPage : UserControl
 
     private async Task ScanDiskAsync()
     {
-        StatusText.Text = "Scanning mods...";
+        if (!_isBuilding) SetStatus("Scanning mods...");
         var stats = await Task.Run(() => InstalledScanner.ImportFromDisk());
 
         var pruned = App.Db.PruneRemovedMods();
 
-        StatusText.Text = $"Refreshed: imported {stats.imported}, updated {stats.updated}, " +
-                          $"skipped {stats.skipped}, removed {pruned} missing.";
+        var msg = $"Refreshed: imported {stats.imported}, updated {stats.updated}, skipped {stats.skipped}, removed {pruned} missing.";
+        if (!_isBuilding) SetStatus(msg);
         await RefreshRows();
     }
     
@@ -551,10 +553,15 @@ public partial class InstalledModsPage : UserControl
         var visible = new ObservableCollection<InstalledModRow>();
         ModsList.ItemsSource = visible;
 
+        var comparer = BuildComparer(sortTag, updatesFirst);
+
         var totalCount = 0;
         var visibleCount = 0;
         var loading = true;
-        const string Suffix = " (updating in progress)";
+        const string suffix = " (updating in progress)";
+
+        _isBuilding = true;
+        var myEpoch = Interlocked.Increment(ref _statusEpoch);
 
         bool PassesFilters(InstalledModRow r)
         {
@@ -572,20 +579,24 @@ public partial class InstalledModsPage : UserControl
                     ? $"{visibleCount} installed mods"
                     : $"Showing {visibleCount} of {totalCount} installed");
 
-            StatusText.Text = loading ? (baseText + Suffix) : baseText;
+            SetStatus(loading ? (baseText + suffix) : baseText, myEpoch);
         }
 
-        var (allRows, statusText) = await BuildRowsStreamingAsync(
+        var allRows = new ConcurrentBag<InstalledModRow>();
+
+        var result = await BuildRowsStreamingAsync(
             sortTag,
             updatesFirst,
             row =>
             {
+                allRows.Add(row);
                 Interlocked.Increment(ref totalCount);
+
                 if (PassesFilters(row))
                 {
                     Dispatcher.UIThread.Post(() =>
                     {
-                        visible.Add(row);
+                        InsertSorted(visible, row, comparer);
                         visibleCount++;
                         UpdateStatusLive();
                     });
@@ -598,16 +609,94 @@ public partial class InstalledModsPage : UserControl
 
         loading = false;
 
-        var filtered = ApplySearchFilter(allRows, _searchText).ToList();
+        var finalList = allRows.ToList();
+        var finalFiltered = ApplySearchFilter(finalList, _searchText).ToList();
         if (hideDisabled)
-            filtered = filtered.Where(r => !r.IsDisabled).ToList();
+            finalFiltered = finalFiltered.Where(r => !r.IsDisabled).ToList();
 
-        ModsList.ItemsSource = filtered;
+        var finalSorted = finalFiltered.OrderBy(r => r, comparer).ToList();
 
-        StatusText.Text = filtered.Count == allRows.Count ? $"{statusText}" : $"Showing {filtered.Count} of {allRows.Count} installed";
+        Dispatcher.UIThread.Post(() =>
+        {
+            visible.Clear();
+            foreach (var r in finalSorted)
+                visible.Add(r);
+        });
+
+        var finalStatus = finalFiltered.Count == finalList.Count
+            ? result.statusText
+            : $"Showing {finalFiltered.Count} of {finalList.Count} installed";
+
+        _isBuilding = false;
+        SetStatus(finalStatus, myEpoch, force: true);
+
+        var detectedAB = App.GetDetectedSptAB();
+        _ = WarmAndApplyVersionsAsync(result.coldMap, detectedAB, comparer, visible, myEpoch);
     }
 
-    private async Task<(List<InstalledModRow> final, string statusText)> BuildRowsStreamingAsync(string sortTag, bool updatesFirst, Action<InstalledModRow>? onProgress)
+    private static IComparer<InstalledModRow> BuildComparer(string sortTag, bool updatesFirst)
+    {
+        int UpdatesKey(InstalledModRow r) => updatesFirst ? (r.IsOutdated ? 0 : 1) : 0;
+
+        return Comparer<InstalledModRow>.Create((a, b) =>
+        {
+            var u = UpdatesKey(a).CompareTo(UpdatesKey(b));
+            if (u != 0) return u;
+
+            switch (sortTag)
+            {
+                case "installed_desc":
+                {
+                    var c = (b.InstalledAt ?? DateTimeOffset.MinValue).CompareTo(a.InstalledAt ?? DateTimeOffset.MinValue);
+                    if (c != 0) return c;
+                    return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+                }
+                case "installed_asc":
+                {
+                    var c = (a.InstalledAt ?? DateTimeOffset.MaxValue).CompareTo(b.InstalledAt ?? DateTimeOffset.MaxValue);
+                    if (c != 0) return c;
+                    return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+                }
+                case "enabled_first":
+                {
+                    var c = (a.IsDisabled ? 1 : 0).CompareTo(b.IsDisabled ? 1 : 0);
+                    if (c != 0) return c;
+                    return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+                }
+                case "enabled_last":
+                {
+                    var c = (a.IsDisabled ? 0 : 1).CompareTo(b.IsDisabled ? 0 : 1);
+                    if (c != 0) return c;
+                    return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+                }
+                default:
+                    return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+            }
+        });
+    }
+    
+    private static void InsertSorted(ObservableCollection<InstalledModRow> col, InstalledModRow item, IComparer<InstalledModRow> cmp)
+    {
+        var lo = 0;
+        var hi = col.Count;
+        while (lo < hi)
+        {
+            var mid = (lo + hi) / 2;
+            if (cmp.Compare(item, col[mid]) > 0) lo = mid + 1; else hi = mid;
+        }
+        col.Insert(lo, item);
+    }
+
+    private void SetStatus(string text, int? epoch = null, bool force = false)
+    {
+        if (!force && _isBuilding && epoch.HasValue && epoch.Value != _statusEpoch)
+            return;
+
+        StatusText.Text = text;
+    }
+
+    private async Task<(List<InstalledModRow> final, string statusText, Dictionary<int, InstalledModRow> coldMap)> BuildRowsStreamingAsync(
+        string sortTag, bool updatesFirst, Action<InstalledModRow>? onProgress)
     {
         await Task.Yield();
 
@@ -626,6 +715,8 @@ public partial class InstalledModsPage : UserControl
             if (!string.IsNullOrWhiteSpace(m.Guid))
                 byGuid[m.Guid] = m;
         }
+
+        var coldMap = new ConcurrentDictionary<int, InstalledModRow>();
 
         string ResolveThumb(string name, string guid)
         {
@@ -660,9 +751,7 @@ public partial class InstalledModsPage : UserControl
             if (!string.IsNullOrWhiteSpace(u3)) return u3;
 
             var safeName = Uri.EscapeDataString(name ?? "");
-            var thumbnail = this.FindControl<Border>("Thumbnail");
-            string thumbSize = thumbnail != null ? $"{thumbnail.Width}x{thumbnail.Height}" : "120x120";
-            return $"https://placehold.co/{thumbSize}/31343C/EEE.png?text={safeName}&font=source-sans-pro";
+            return $"https://placehold.co/120x120/31343C/EEE.png?text={safeName}&font=source-sans-pro";
         }
 
         (string detail, bool hasPage, bool isCustom, List<string> authors, List<InstalledModRow.SourceButton> sources, string category)
@@ -698,7 +787,7 @@ public partial class InstalledModsPage : UserControl
         var detectedAB = App.GetDetectedSptAB();
 
         var rows = new ConcurrentBag<InstalledModRow>();
-        var throttler = new SemaphoreSlim(6);
+        var throttler = new SemaphoreSlim(Math.Max(16, Environment.ProcessorCount * 2));
 
         var tasks = groups.Select(async g =>
         {
@@ -730,15 +819,18 @@ public partial class InstalledModsPage : UserControl
 
                 var versionsForRow = new List<ForgeClient.ModVersion>();
                 if (cacheRow != null)
+                {
                     try
                     {
-                        await App.Cache.EnsureVersionsCachedAsync(cacheRow.Id).ConfigureAwait(false);
                         versionsForRow = await Storage.CacheDb.GetVersionsAsync(cacheRow.Id).ConfigureAwait(false);
                     }
                     catch
                     {
-                        Console.WriteLine($"[InstalledModsPage] BuildRowsStreamingAsync: version cache failed for {name}");
                     }
+
+                    if (versionsForRow.Count == 0)
+                        coldMap[cacheRow.Id] = null;
+                }
 
                 var sorted = OrderVersionsForRow(versionsForRow);
                 var filtered = string.IsNullOrWhiteSpace(detectedAB)
@@ -764,9 +856,8 @@ public partial class InstalledModsPage : UserControl
                         }
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"[InstalledModsPage] BuildRowsStreamingAsync: IsDisabled check failed for {name}: {ex}");
                 }
 
                 var hasEditableConfigs = false;
@@ -786,12 +877,12 @@ public partial class InstalledModsPage : UserControl
                                 }
                             }
                         }
+
                         if (hasEditableConfigs) break;
                     }
                 }
                 catch
                 {
-                    Console.WriteLine($"[InstalledModsPage] BuildRowsStreamingAsync: failed checking editable configs for {name}");
                 }
 
                 var row = new InstalledModRow
@@ -820,8 +911,10 @@ public partial class InstalledModsPage : UserControl
                     IsDisabled = isDisabled
                 };
 
-                rows.Add(row);
+                if (cacheRow != null && coldMap.ContainsKey(cacheRow.Id))
+                    coldMap[cacheRow.Id] = row;
 
+                rows.Add(row);
                 onProgress?.Invoke(row);
             }
             finally
@@ -860,7 +953,60 @@ public partial class InstalledModsPage : UserControl
 
         var final = ordered.ToList();
         var statusText = final.Count == 0 ? "No installed mods." : $"{final.Count} installed mods";
-        return (final, statusText);
+        return (final, statusText, coldMap.Where(kv => kv.Value != null).ToDictionary(kv => kv.Key, kv => kv.Value!));
+    }
+
+    private async Task WarmAndApplyVersionsAsync(Dictionary<int, InstalledModRow> coldMap, string detectedAB, IComparer<InstalledModRow> comparer,
+        ObservableCollection<InstalledModRow> visible, int epoch)
+    {
+        if (coldMap == null || coldMap.Count == 0) return;
+
+        var ids = coldMap.Keys.ToList();
+        var throttler = new SemaphoreSlim(8);
+
+        var tasks = ids.Select(async id =>
+        {
+            await throttler.WaitAsync();
+            try
+            {
+                await App.Cache.EnsureVersionsCachedAsync(id).ConfigureAwait(false);
+                var versions = await Storage.CacheDb.GetVersionsAsync(id).ConfigureAwait(false);
+
+                var sorted = OrderVersionsForRow(versions);
+                var filtered = string.IsNullOrWhiteSpace(detectedAB)
+                    ? sorted
+                    : sorted.Where(v => string.Equals(ToABFromConstraint(v.SptVersionConstraint), detectedAB, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                var latest = filtered.FirstOrDefault();
+                var row = coldMap[id];
+
+                var installedVersion = row.InstalledVersion ?? "0.0.0";
+                var canUpdate = latest != null && !string.IsNullOrWhiteSpace(latest.Version) && IsUpdate(installedVersion, latest.Version!);
+
+                Dispatcher.UIThread.Post(() =>
+                {
+                    var idx = visible.IndexOf(row);
+                    if (idx >= 0) visible.RemoveAt(idx);
+
+                    row.Versions = filtered;
+                    row.Latest = latest;
+                    row.LatestVersionText = latest?.Version ?? "";
+                    row.IsOutdated = !row.IsDisabled && canUpdate;
+                    row.CanUpdate = !row.IsDisabled && canUpdate;
+                    row.LatestPublishedText = latest?.PublishedAt.HasValue == true ? latest!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd") : "";
+
+                    InsertSorted(visible, row, comparer);
+                });
+            }
+            finally
+            {
+                throttler.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        SetStatus(StatusText.Text.Replace(" (updating in progress)", ""), epoch, force: true);
     }
 
     private static IEnumerable<InstalledModRow> ApplySearchFilter(IEnumerable<InstalledModRow> rows, string query)
@@ -947,43 +1093,6 @@ public partial class InstalledModsPage : UserControl
             await dlg.ShowDialog(owner);
         else
             dlg.Show();
-    }
-
-    private void InstallChosenVersion(InstalledModRow row, ForgeClient.ModVersion? chosen)
-    {
-        if (chosen is null || string.IsNullOrWhiteSpace(chosen.Link))
-        {
-            Notifications.Current.ShowWarning("No Version Selected", "Choose a version to install first.");
-            Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: no version chosen for {row.Name}");
-            return;
-        }
-
-        var detectedAB = App.GetDetectedSptAB();
-        var chosenAB = ToABFromConstraint(chosen.SptVersionConstraint);
-        if (!string.IsNullOrWhiteSpace(detectedAB) &&
-            !string.Equals(detectedAB, chosenAB, StringComparison.OrdinalIgnoreCase))
-        {
-            Notifications.Current.ShowError("Version Mismatch", $"This version targets SPT {chosenAB}, but your install is {detectedAB}.");
-            Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: AB mismatch for {row.Name} (detected {detectedAB}, chosen {chosenAB})");
-            return;
-        }
-
-        var selectedVer = chosen.Version ?? "Custom Install";
-        var installedVersion = row.InstalledVersion ?? "Custom Install";
-        if (string.Equals(selectedVer, installedVersion, StringComparison.OrdinalIgnoreCase))
-        {
-            Notifications.Current.ShowWarning("Already Installed", $"'{row.Name}' is already on version {installedVersion}.");
-            Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: selected version same as installed for {row.Name}");
-            return;
-        }
-
-        App.Queue.EnqueueRemote(row.Name, chosen.Link!, selectedVer, row.Guid ?? "");
-        Notifications.Current.ShowSuccess("Version Change Queued", $"'{row.Name}' will change from {installedVersion} → {selectedVer}.");
-        Console.WriteLine($"[InstalledModsPage] InstallChosenVersion: queued version change for {row.Name} from {installedVersion} to {selectedVer}");
-
-        var host = this.GetVisualAncestors().OfType<Window>().FirstOrDefault(w => w.Title?.StartsWith("Choose version", StringComparison.OrdinalIgnoreCase) == true
-                                                                                 || w.Title?.StartsWith("Select a Version", StringComparison.OrdinalIgnoreCase) == true);
-        host?.Close();
     }
 
     private void OnAuthorClick(object? sender, RoutedEventArgs e)
@@ -1171,9 +1280,4 @@ public partial class InstalledModsPage : UserControl
         var bslug = string.IsNullOrWhiteSpace(b.Slug) ? 0 : 1;
         return aslug > bslug;
     }
-}
-
-static class Fluent
-{
-    public static T Also<T>(this T self, Action<T> f) { f(self); return self; }
 }
