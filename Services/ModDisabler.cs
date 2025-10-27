@@ -11,7 +11,7 @@ namespace DragonDen.ModManager.Services
     {
         private static readonly SemaphoreSlim Gate = new(1, 1);
 
-        private sealed record TargetCtx(string TargetLabel, string LiveRoot, string DisabledRoot, List<string> Files);
+        private sealed record TargetCtx(string LiveRoot, string DisabledRoot, List<string> Files);
 
         public static Task<bool> IsDisabledAsync(long modId) => IsDisabledAsync(modId.ToString());
 
@@ -33,7 +33,7 @@ namespace DragonDen.ModManager.Services
                     foreach (var rel in t.Files)
                     {
                         var live = Path.Combine(t.LiveRoot, rel.Replace('/', Path.DirectorySeparatorChar));
-                        var dis  = Path.Combine(t.DisabledRoot, t.TargetLabel, modId, rel.Replace('/', Path.DirectorySeparatorChar));
+                        var dis  = Path.Combine(t.DisabledRoot, modId, rel.Replace('/', Path.DirectorySeparatorChar));
 
                         if (!anyLive && File.Exists(live)) anyLive = true;
                         if (!anyDisabled && File.Exists(dis)) anyDisabled = true;
@@ -65,6 +65,7 @@ namespace DragonDen.ModManager.Services
                 var targets = BuildTargets(modId);
                 if (targets.Count == 0) return;
 
+                var sptRoot = App.Config.Paths.SptRoot;
                 var moved = 0;
                 using var scope = new DetailScope($"ModDisabler.Disable({modId})");
 
@@ -73,25 +74,54 @@ namespace DragonDen.ModManager.Services
                     foreach (var rel in t.Files)
                     {
                         var src = Path.Combine(t.LiveRoot, rel.Replace('/', Path.DirectorySeparatorChar));
-                        var dst = Path.Combine(t.DisabledRoot, t.TargetLabel, modId, rel.Replace('/', Path.DirectorySeparatorChar));
+                        var dst = Path.Combine(t.DisabledRoot, modId, rel.Replace('/', Path.DirectorySeparatorChar));
 
                         EnsureDir(Path.GetDirectoryName(dst) ?? "");
                         if (MoveFileIfExistsQuiet(src, dst, scope))
                         {
                             moved++;
-                            TryDeleteEmptyParentsQuiet(Path.GetDirectoryName(src) ?? "", t.LiveRoot, scope);
+                            TryDeleteEmptyParentsQuiet(Path.GetDirectoryName(src) ?? "", sptRoot, scope);
                         }
                     }
                 }
 
+                var dirs = App.Db.ListDirsForModId(modId);
+                foreach (var d in dirs.OrderByDescending(x => x.Length))
+                {
+                    var liveDir = Path.Combine(sptRoot, d.Replace('/', Path.DirectorySeparatorChar));
+                    try
+                    {
+                        if (Directory.Exists(liveDir) &&
+                            Directory.GetFileSystemEntries(liveDir).Length == 0 &&
+                            !IsProtectedDir(sptRoot, liveDir))
+                        {
+                            Directory.Delete(liveDir);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        scope.Detail($"dir delete warn '{liveDir}': {ex.Message}");
+                    }
+
+                    TryDeleteEmptyParentsQuiet(Path.GetDirectoryName(liveDir) ?? "", sptRoot, scope);
+                }
+
                 if (moved > 0)
                 {
-                    try { App.Db.SetDisabled(modId, true); } catch (Exception ex) { scope.Detail($"DB flag set warn: {ex.Message}"); }
-                    Console.WriteLine($"[ModDisabler] Disabled '{modName}' ({modId}) – moved {moved} file(s).");
+                    try
+                    {
+                        App.Db.SetDisabled(modId, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        scope.Detail($"DB flag set warn: {ex.Message}");
+                    }
+
+                    Console.WriteLine($"[ModDisabler] Disabled '{modName}' ({modId}) - moved {moved} file(s).");
                 }
                 else
                 {
-                    Console.WriteLine($"[ModDisabler] No files moved – DB flag not changed for {modId}");
+                    Console.WriteLine($"[ModDisabler] No files moved - DB flag not changed for {modId}");
                 }
             }
             catch (Exception ex)
@@ -115,31 +145,74 @@ namespace DragonDen.ModManager.Services
                 var targets = BuildTargets(modId);
                 if (targets.Count == 0) return;
 
+                var sptRoot = App.Config.Paths.SptRoot;
                 var moved = 0;
                 using var scope = new DetailScope($"ModDisabler.Enable({modId})");
+
+                var dirs = App.Db.ListDirsForModId(modId);
+                foreach (var d in dirs)
+                {
+                    var dstDir = Path.Combine(sptRoot, d.Replace('/', Path.DirectorySeparatorChar));
+                    EnsureDir(dstDir);
+                }
 
                 foreach (var t in targets)
                 {
                     foreach (var rel in t.Files)
                     {
-                        var src = Path.Combine(t.DisabledRoot, t.TargetLabel, modId, rel.Replace('/', Path.DirectorySeparatorChar));
+                        var src = Path.Combine(t.DisabledRoot, modId, rel.Replace('/', Path.DirectorySeparatorChar));
                         var dst = Path.Combine(t.LiveRoot, rel.Replace('/', Path.DirectorySeparatorChar));
 
                         EnsureDir(Path.GetDirectoryName(dst) ?? "");
                         if (MoveFileIfExistsQuiet(src, dst, scope))
                         {
                             moved++;
-                            TryDeleteEmptyParentsQuiet(Path.GetDirectoryName(src) ?? "", Path.Combine(t.DisabledRoot, t.TargetLabel, modId), scope);
+                            TryDeleteEmptyParentsQuiet(Path.GetDirectoryName(src) ?? "", Path.Combine(t.DisabledRoot, modId), scope);
                         }
                     }
 
-                    TryDeleteEmptyParentsQuiet(Path.Combine(t.DisabledRoot, t.TargetLabel, modId), t.DisabledRoot, scope);
+                    foreach (var d in dirs.OrderByDescending(x => x.Length))
+                    {
+                        var disDir = Path.Combine(t.DisabledRoot, modId, d.Replace('/', Path.DirectorySeparatorChar));
+                        try
+                        {
+                            if (Directory.Exists(disDir) && Directory.GetFileSystemEntries(disDir).Length == 0)
+                                Directory.Delete(disDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            scope.Detail($"disabled dir delete warn '{disDir}': {ex.Message}");
+                        }
+
+                        TryDeleteEmptyParentsQuiet(Path.GetDirectoryName(disDir) ?? "", Path.Combine(t.DisabledRoot, modId), scope);
+                    }
+
+                    var perModRoot = Path.Combine(t.DisabledRoot, modId);
+                    DeleteDirIfOnlyDirectories(perModRoot, scope);
+                    TryDeleteEmptyParentsQuiet(perModRoot, t.DisabledRoot, scope);
+
+                    var legacyClient = Path.Combine(t.DisabledRoot, "client", modId);
+                    var legacyServer = Path.Combine(t.DisabledRoot, "server", modId);
+                    DeleteDirIfOnlyDirectories(legacyClient, scope);
+                    DeleteDirIfOnlyDirectories(legacyServer, scope);
+                    TryDeleteEmptyParentsQuiet(Path.Combine(t.DisabledRoot, "client"), t.DisabledRoot, scope);
+                    TryDeleteEmptyParentsQuiet(Path.Combine(t.DisabledRoot, "server"), t.DisabledRoot, scope);
+
+                    TryDeleteEmptyParentsQuiet(t.DisabledRoot, Path.Combine(Paths.DataDir, "Disabled Mods"), scope);
                 }
 
                 if (moved > 0)
                 {
-                    try { App.Db.SetDisabled(modId, false); } catch (Exception ex) { scope.Detail($"DB flag clear warn: {ex.Message}"); }
-                    Console.WriteLine($"[ModDisabler] Enabled '{modName}' ({modId}) – moved {moved} file(s).");
+                    try
+                    {
+                        App.Db.SetDisabled(modId, false);
+                    }
+                    catch (Exception ex)
+                    {
+                        scope.Detail($"DB flag clear warn: {ex.Message}");
+                    }
+
+                    Console.WriteLine($"[ModDisabler] Enabled '{modName}' ({modId}) - moved {moved} file(s).");
                 }
                 else
                 {
@@ -176,23 +249,16 @@ namespace DragonDen.ModManager.Services
 
             var dbFolder = Path.GetFileNameWithoutExtension(Paths.ModsDbPath) ?? "default";
             var disabledRoot = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
+            var liveRoot = App.Config.Paths.SptRoot;
 
-            foreach (var grp in files.GroupBy(f => (f.target ?? "client").ToLowerInvariant()))
-            {
-                var label = grp.Key == "server" ? "server" : "client";
-                var liveRoot = label == "server" ? Spt.ServerModsPath : Spt.ClientModsPath;
-                if (string.IsNullOrWhiteSpace(liveRoot)) continue;
+            var rels = files.Select(x => (x.path ?? "").Replace('\\', '/'))
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-                var rels = grp.Select(x => (x.path ?? "").Replace('\\', '/'))
-                    .Where(p => !string.IsNullOrWhiteSpace(p))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+            if (string.IsNullOrWhiteSpace(liveRoot) || rels.Count == 0) return list;
 
-                if (rels.Count == 0) continue;
-
-                list.Add(new TargetCtx(label, liveRoot, disabledRoot, rels));
-            }
-
+            list.Add(new TargetCtx(liveRoot, disabledRoot, rels));
             return list;
         }
 
@@ -242,6 +308,21 @@ namespace DragonDen.ModManager.Services
                 Console.WriteLine($"[ModDisabler] EnsureDir failed for '{dir}': {ex.Message}");
             }
         }
+        
+        private static void DeleteDirIfOnlyDirectories(string dir, DetailScope scope)
+        {
+            try
+            {
+                if (!Directory.Exists(dir)) return;
+                var anyFile = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Any();
+                if (!anyFile)
+                    Directory.Delete(dir, true);
+            }
+            catch (Exception ex)
+            {
+                scope.Detail($"DeleteDirIfOnlyDirectories warn '{dir}': {ex.Message}");
+            }
+        }
 
         private static void TryDeleteEmptyParentsQuiet(string start, string stopAt, DetailScope scope)
         {
@@ -252,6 +333,7 @@ namespace DragonDen.ModManager.Services
                 while (!string.IsNullOrWhiteSpace(cur) && !string.Equals(cur, stop, StringComparison.OrdinalIgnoreCase))
                 {
                     if (!Directory.Exists(cur)) break;
+                    if (IsProtectedDir(stop, cur)) break;
                     if (Directory.GetFileSystemEntries(cur).Length != 0) break;
                     Directory.Delete(cur);
                     var next = Path.GetDirectoryName(cur);
@@ -276,6 +358,20 @@ namespace DragonDen.ModManager.Services
             {
                 return p.TrimEnd(Path.DirectorySeparatorChar); 
             }
+        }
+        
+        private static bool IsProtectedDir(string baseRoot, string dirFull)
+        {
+            try
+            {
+                var rel = Path.GetRelativePath(baseRoot, dirFull).Replace('\\', '/').Trim('/');
+                if (string.Equals(rel, "BepInEx/plugins", StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(rel, "BepInEx/patchers", StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(rel, "SPT/user/mods", StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(rel, "user/mods", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            catch { }
+            return false;
         }
 
         private sealed class DetailScope : IDisposable

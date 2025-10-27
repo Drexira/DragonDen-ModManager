@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using DragonDen.ModManager.Services;
 using Microsoft.Data.Sqlite;
@@ -37,13 +38,22 @@ public sealed class Db
         installed_at INTEGER,
         source TEXT,
         guid TEXT,
-        source_url TEXT
+        source_url TEXT,
+        disabled INTEGER DEFAULT 0,
+        disabled_at INTEGER
     )");
         c.Execute(@"CREATE TABLE IF NOT EXISTS files(
         path TEXT PRIMARY KEY,
         mod_id TEXT,
         sha256 TEXT,
         target TEXT,
+        FOREIGN KEY(mod_id) REFERENCES mods(mod_id) ON DELETE CASCADE
+    )");
+        c.Execute(@"CREATE TABLE IF NOT EXISTS dirs(
+        path TEXT,
+        mod_id TEXT,
+        target TEXT,
+        PRIMARY KEY(path, mod_id, target),
         FOREIGN KEY(mod_id) REFERENCES mods(mod_id) ON DELETE CASCADE
     )");
 
@@ -69,7 +79,7 @@ public sealed class Db
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Db] Failed to add 'target' column to 'files' table: {ex}");
+                Console.WriteLine($"[Db] Failed to add 'target' to 'files': {ex}");
             }
     }
 
@@ -117,8 +127,8 @@ WHERE COALESCE(f.target,'client') = $t
         return set;
     }
 
-    public void RecordInstallDetailed(string modId, string name, string version, List<string> files, string root, 
-        Installer.Target target, string source, string sourceUrl,string guid)
+    public void RecordInstallDetailed(string modId, string name, string version, List<string> files, string root,
+        Installer.Target target, string source, string sourceUrl, string guid, List<string>? dirs)
     {
         using var c = Conn();
 
@@ -147,22 +157,48 @@ WHERE COALESCE(f.target,'client') = $t
 
         using var tx = c.BeginTransaction();
 
-        using (var del = c.CreateCommand())
+        using (var delF = c.CreateCommand())
         {
-            del.CommandText = "DELETE FROM files WHERE mod_id=$m";
-            del.Parameters.AddWithValue("$m", modId);
-            del.ExecuteNonQuery();
+            delF.CommandText = "DELETE FROM files WHERE mod_id=$m";
+            delF.Parameters.AddWithValue("$m", modId);
+            delF.ExecuteNonQuery();
         }
 
-        foreach (var rel in files)
+        using (var delD = c.CreateCommand())
+        {
+            delD.CommandText = "DELETE FROM dirs WHERE mod_id=$m";
+            delD.Parameters.AddWithValue("$m", modId);
+            delD.ExecuteNonQuery();
+        }
+
+        foreach (var rel in files ?? new List<string>())
         {
             var full = Path.Combine(root, rel);
-            var digest = Sha256(full);
+            string digest;
+            try
+            {
+                digest = File.Exists(full) ? Sha256(full) : "";
+            }
+            catch
+            {
+                digest = "";
+            }
+
             using var cmd = c.CreateCommand();
             cmd.CommandText = "INSERT OR REPLACE INTO files(path,mod_id,sha256,target) VALUES($p,$m,$h,$t)";
-            cmd.Parameters.AddWithValue("$p", rel);
+            cmd.Parameters.AddWithValue("$p", rel.Replace('\\', '/'));
             cmd.Parameters.AddWithValue("$m", modId);
             cmd.Parameters.AddWithValue("$h", digest);
+            cmd.Parameters.AddWithValue("$t", target == Installer.Target.Client ? "client" : "server");
+            cmd.ExecuteNonQuery();
+        }
+
+        foreach (var d in dirs ?? new List<string>())
+        {
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO dirs(path,mod_id,target) VALUES($p,$m,$t)";
+            cmd.Parameters.AddWithValue("$p", d.Replace('\\', '/'));
+            cmd.Parameters.AddWithValue("$m", modId);
             cmd.Parameters.AddWithValue("$t", target == Installer.Target.Client ? "client" : "server");
             cmd.ExecuteNonQuery();
         }
@@ -172,14 +208,14 @@ WHERE COALESCE(f.target,'client') = $t
     }
 
     public void RecordInstallWithSource(string modId, string name, string version, List<string> files,
-        string root, Installer.Target target, string sourceUrl, string guid)
+        string root, Installer.Target target, string sourceUrl, string guid, List<string>? dirs = null)
     {
-        RecordInstallDetailed(modId, name, version, files, root, target, "installed", sourceUrl, guid);
+        RecordInstallDetailed(modId, name, version, files, root, target, "installed", sourceUrl, guid, dirs ?? new List<string>());
     }
 
     public void RecordInstall(string modId, string name, string version, List<string> files, string root, Installer.Target target)
     {
-        RecordInstallWithSource(modId, name, version, files, root, target, "", "");
+        RecordInstallWithSource(modId, name, version, files, root, target, "", "", new List<string>());
     }
 
     public (int missing, int changed) VerifyForRoot(string root)
@@ -221,7 +257,8 @@ WHERE COALESCE(m.disabled,0)=0
         return (m1.Item1 + m2.Item1, m1.Item2 + m2.Item2);
     }
 
-    public List<(string mod_id, string name, string version, long fileCount, string guid, string source_url, long installed_at, int disabled, long disabled_at)> ListMods()
+    public List<(string mod_id, string name, string version, long fileCount, string guid, string source_url, long installed_at, int disabled, long disabled_at)>
+        ListMods()
     {
         using var c = Conn();
         var list = new List<(string, string, string, long, string, string, long, int, long)>();
@@ -311,6 +348,26 @@ LIMIT 1";
 
         var dbFolder = Path.GetFileNameWithoutExtension(Paths.ModsDbPath) ?? "default";
         var disabledRootBase = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
+        var sptRoot = App.Config.Paths.SptRoot;
+
+        static bool IsProtectedDir(string baseRoot, string dirFull)
+        {
+            try
+            {
+                var rel = Path.GetRelativePath(baseRoot, dirFull).Replace('\\', '/').TrimEnd('/');
+                rel = rel.TrimStart('/');
+                if (string.Equals(rel, "BepInEx/plugins", StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(rel, "BepInEx/patchers", StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(rel, "SPT/user/mods", StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(rel, "user/mods", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            catch
+            {
+                // good girl action
+            }
+
+            return false;
+        }
 
         static void TryDeleteEmptyParentsQuiet(string start, string stopAt)
         {
@@ -334,6 +391,7 @@ LIMIT 1";
                 while (!string.IsNullOrWhiteSpace(cur) && !string.Equals(cur, stop, StringComparison.OrdinalIgnoreCase))
                 {
                     if (!Directory.Exists(cur)) break;
+                    if (IsProtectedDir(stop, cur)) break;
                     if (Directory.GetFileSystemEntries(cur).Length != 0) break;
                     Directory.Delete(cur);
                     var next = Path.GetDirectoryName(cur);
@@ -349,80 +407,110 @@ LIMIT 1";
 
         foreach (var modId in modIds)
         {
-            using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT path, target FROM files WHERE mod_id=$m";
-            cmd.Parameters.AddWithValue("$m", modId);
-            using var r = cmd.ExecuteReader();
-            var items = new List<(string path, string target)>();
-            while (r.Read())
+            using var cmdF = c.CreateCommand();
+            cmdF.CommandText = "SELECT path FROM files WHERE mod_id=$m";
+            cmdF.Parameters.AddWithValue("$m", modId);
+            using var rF = cmdF.ExecuteReader();
+            var fileRels = new List<string>();
+            while (rF.Read())
             {
-                var path = r.IsDBNull(0) ? "" : r.GetString(0);
-                var target = r.IsDBNull(1) ? "client" : r.GetString(1);
-                items.Add((path, target));
+                var path = rF.IsDBNull(0) ? "" : rF.GetString(0);
+                if (!string.IsNullOrWhiteSpace(path)) fileRels.Add(path.Replace('\\', '/'));
             }
 
-            foreach (var it in items)
+            using var cmdD = c.CreateCommand();
+            cmdD.CommandText = "SELECT path FROM dirs WHERE mod_id=$m";
+            cmdD.Parameters.AddWithValue("$m", modId);
+            using var rD = cmdD.ExecuteReader();
+            var dirRels = new List<string>();
+            while (rD.Read())
             {
-                var rel = (it.path ?? "").Replace('/', Path.DirectorySeparatorChar);
-                var targetLabel = string.Equals(it.target, "server", StringComparison.OrdinalIgnoreCase) ? "server" : "client";
+                var path = rD.IsDBNull(0) ? "" : rD.GetString(0);
+                if (!string.IsNullOrWhiteSpace(path)) dirRels.Add(path.Replace('\\', '/'));
+            }
 
-                var liveRoot = targetLabel == "server" ? Spt.ServerModsPath : Spt.ClientModsPath;
-
-                var disabledRootForMod = Path.Combine(disabledRootBase, targetLabel, modId);
-
-                if (!string.IsNullOrWhiteSpace(liveRoot))
+            foreach (var rel in fileRels)
+            {
+                var full = Path.Combine(sptRoot, rel.Replace('/', Path.DirectorySeparatorChar));
+                try
                 {
-                    var full = Path.Combine(liveRoot, rel);
-                    try
-                    {
-                        if (File.Exists(full)) File.Delete(full);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[Db] Failed to delete file '{full}': {ex}");
-                    }
-
-                    try
-                    {
-                        var dir = Path.GetDirectoryName(full);
-                        TryDeleteEmptyParentsQuiet(dir ?? "", liveRoot);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[Db] Live cleanup failed for '{full}': {ex}");
-                    }
+                    if (File.Exists(full)) File.Delete(full);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Db] Failed to delete file '{full}': {ex}");
                 }
 
                 try
                 {
-                    var disabledFull = Path.Combine(disabledRootForMod, rel);
-                    if (File.Exists(disabledFull)) File.Delete(disabledFull);
-
-                    var parent = Path.GetDirectoryName(disabledFull);
-                    TryDeleteEmptyParentsQuiet(parent ?? "", disabledRootForMod);
+                    var dir = Path.GetDirectoryName(full);
+                    if (!string.IsNullOrWhiteSpace(dir))
+                        TryDeleteEmptyParentsQuiet(dir, sptRoot);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Db] Failed to delete disabled file for '{modId}': {ex}");
+                    Console.WriteLine($"[Db] Live cleanup failed for '{full}': {ex}");
                 }
+            }
+
+            var unifiedDisabled = Path.Combine(disabledRootBase, modId);
+            var legacyClient = Path.Combine(disabledRootBase, "client", modId);
+            var legacyServer = Path.Combine(disabledRootBase, "server", modId);
+
+            try
+            {
+                if (Directory.Exists(unifiedDisabled)) Directory.Delete(unifiedDisabled, true);
+            }
+            catch
+            {
+                // good girl action
             }
 
             try
             {
-                var clientModDir = Path.Combine(disabledRootBase, "client", modId);
-                var serverModDir = Path.Combine(disabledRootBase, "server", modId);
-
-                if (Directory.Exists(clientModDir)) TryDeleteEmptyParentsQuiet(clientModDir, Path.Combine(disabledRootBase, "client"));
-                if (Directory.Exists(serverModDir)) TryDeleteEmptyParentsQuiet(serverModDir, Path.Combine(disabledRootBase, "server"));
-
-                var clientRoot = Path.Combine(disabledRootBase, "client");
-                var serverRoot = Path.Combine(disabledRootBase, "server");
-                TryDeleteEmptyParentsQuiet(clientRoot, disabledRootBase);
-                TryDeleteEmptyParentsQuiet(serverRoot, disabledRootBase);
+                if (Directory.Exists(legacyClient)) Directory.Delete(legacyClient, true);
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"[Db] Disabled stash cleanup warn for '{modId}': {ex}");
+                // good girl action
+            }
+
+            try
+            {
+                if (Directory.Exists(legacyServer)) Directory.Delete(legacyServer, true);
+            }
+            catch
+            {
+                // good girl action
+            }
+
+            TryDeleteEmptyParentsQuiet(Path.Combine(disabledRootBase, "client"), disabledRootBase);
+            TryDeleteEmptyParentsQuiet(Path.Combine(disabledRootBase, "server"), disabledRootBase);
+            TryDeleteEmptyParentsQuiet(disabledRootBase, Path.Combine(Paths.DataDir, "Disabled Mods"));
+
+            foreach (var drel in dirRels.OrderByDescending(s => s.Length).ToList())
+            {
+                var dfull = Path.Combine(sptRoot, drel.Replace('/', Path.DirectorySeparatorChar));
+                try
+                {
+                    if (Directory.Exists(dfull) && Directory.GetFileSystemEntries(dfull).Length == 0 && !IsProtectedDir(sptRoot, dfull))
+                        Directory.Delete(dfull);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Db] Failed to delete empty dir '{dfull}': {ex}");
+                }
+
+                try
+                {
+                    var parent = Path.GetDirectoryName(dfull);
+                    if (!string.IsNullOrWhiteSpace(parent))
+                        TryDeleteEmptyParentsQuiet(parent, sptRoot);
+                }
+                catch
+                {
+                    // good girl action
+                }
             }
 
             c.Execute("DELETE FROM mods WHERE mod_id=$m", ("$m", modId));
@@ -442,6 +530,23 @@ LIMIT 1";
             var path = r.IsDBNull(0) ? "" : r.GetString(0);
             var target = r.IsDBNull(1) ? "client" : r.GetString(1);
             list.Add((path, target));
+        }
+
+        return list;
+    }
+
+    public List<string> ListDirsForModId(string modId)
+    {
+        using var c = Conn();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT path FROM dirs WHERE mod_id=$m ORDER BY path";
+        cmd.Parameters.AddWithValue("$m", modId);
+        using var r = cmd.ExecuteReader();
+        var list = new List<string>();
+        while (r.Read())
+        {
+            var p = r.IsDBNull(0) ? "" : r.GetString(0);
+            if (!string.IsNullOrWhiteSpace(p)) list.Add(p.Replace('\\', '/'));
         }
 
         return list;

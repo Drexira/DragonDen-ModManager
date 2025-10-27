@@ -18,9 +18,12 @@ public static class Installer
     public static async Task<InstallResult> InstallAuto(string archivePath, SevenZip sevenZip,
         IProgress<(string phase, int pct)>? progress = null, InstallContext? ctx = null, CancellationToken ct = default)
     {
-        var stage = Path.Combine(string.IsNullOrWhiteSpace(App.Config.Paths.DataFolder) ? Paths.DataDir : App.Config.Paths.DataFolder, "stage",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(stage);
+        var sptRoot = App.Config.Paths.SptRoot;
+        if (string.IsNullOrWhiteSpace(sptRoot) || !Directory.Exists(sptRoot))
+        {
+            Notifications.Current.ShowError("Installation Failed", "SPT root is not configured or does not exist");
+            return new InstallResult(0, 0);
+        }
 
         progress?.Report(("inspect", -1));
         ct.ThrowIfCancellationRequested();
@@ -52,102 +55,36 @@ public static class Installer
             return new InstallResult(0, 0);
         }
 
-        var intent = DetectIntent(entries);
+        var beforeFiles = SnapshotFiles(sptRoot);
+        var beforeDirs = SnapshotDirs(sptRoot);
 
         progress?.Report(("extract", -1));
         ct.ThrowIfCancellationRequested();
-        await sevenZip.ExtractAsync(archivePath, stage).ConfigureAwait(false);
+        await sevenZip.ExtractAsync(archivePath, sptRoot).ConfigureAwait(false);
 
-        var movedClientRel = new List<string>();
-        var movedServerRel = new List<string>();
-        int movedClient = 0, movedServer = 0, processed = 0;
+        var afterFiles = SnapshotFiles(sptRoot);
+        var afterDirs = SnapshotDirs(sptRoot);
 
-        var all = EnumerateFiles(stage).ToList();
+        var newFiles = afterFiles.Except(beforeFiles, StringComparer.OrdinalIgnoreCase)
+            .Select(NormSlash).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+        var newDirs = afterDirs.Except(beforeDirs, StringComparer.OrdinalIgnoreCase)
+            .Select(NormSlash).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
 
-        static void CopyOverwrite(string stageRoot, string rel, string toFull)
+        var clientFiles = new List<string>();
+        var serverFiles = new List<string>();
+        var clientDirs = new List<string>();
+        var serverDirs = new List<string>();
+
+        foreach (var f in newFiles)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(toFull)!);
-            var src = Path.Combine(stageRoot, rel);
-            File.Copy(src, toFull, true);
-            try
-            {
-                File.Delete(src);
-            }
-            catch
-            {
-            }
+            if (IsServerPath(f)) serverFiles.Add(f);
+            else clientFiles.Add(f);
         }
 
-        var allowClient = ctx?.PreferredTarget is null || ctx.PreferredTarget == Target.Client;
-        var allowServer = ctx?.PreferredTarget is null || ctx.PreferredTarget == Target.Server;
-
-        foreach (var rel in all)
+        foreach (var d in newDirs)
         {
-            ct.ThrowIfCancellationRequested();
-            var unix = rel.Replace('\\', '/');
-
-            if (allowClient && TryMap(unix, intent.clientRoots, out var afterClient))
-            {
-                CopyOverwrite(stage, rel, Path.Combine(Spt.ClientModsPath, afterClient));
-                movedClientRel.Add(afterClient);
-                movedClient++;
-            }
-            else if (allowServer && TryMap(unix, intent.serverRoots, out var afterServer))
-            {
-                CopyOverwrite(stage, rel, Path.Combine(Spt.ServerModsPath, afterServer));
-                movedServerRel.Add(afterServer);
-                movedServer++;
-            }
-            else if (allowClient && (
-                         unix.StartsWith("BepInEx/patchers/", StringComparison.OrdinalIgnoreCase) ||
-                         unix.Equals("BepInEx/patchers", StringComparison.OrdinalIgnoreCase) ||
-                         unix.StartsWith("patchers/", StringComparison.OrdinalIgnoreCase) ||
-                         unix.Equals("patchers", StringComparison.OrdinalIgnoreCase)))
-            {
-                var sub = TrimPrefix(unix, "BepInEx/patchers/") ?? TrimPrefix(unix, "patchers/") ?? "";
-                var bepinRoot = GetBepInExRoot();
-                var toFull = Path.Combine(bepinRoot, "patchers", sub.Replace('/', Path.DirectorySeparatorChar));
-                CopyOverwrite(stage, rel, toFull);
-
-                var relFromPlugins = string.IsNullOrWhiteSpace(sub) ? "../patchers" : "../patchers/" + sub;
-                movedClientRel.Add(relFromPlugins.Replace('\\', '/'));
-                movedClient++;
-            }
-            else if (allowClient && (unix.StartsWith("BepInEx/", StringComparison.OrdinalIgnoreCase) ||
-                                     unix.StartsWith("plugins/", StringComparison.OrdinalIgnoreCase)))
-            {
-                var after = TrimPrefix(unix, "BepInEx/plugins/") ?? TrimPrefix(unix, "plugins/") ?? unix;
-                CopyOverwrite(stage, rel, Path.Combine(Spt.ClientModsPath, after));
-                movedClientRel.Add(after);
-                movedClient++;
-            }
-            else if (allowServer && (unix.StartsWith("SPT/user/mods/", StringComparison.OrdinalIgnoreCase) ||
-                                     unix.StartsWith("user/mods/", StringComparison.OrdinalIgnoreCase)))
-            {
-                var after = TrimPrefix(unix, "SPT/user/mods/") ?? TrimPrefix(unix, "user/mods/") ?? unix;
-                CopyOverwrite(stage, rel, Path.Combine(Spt.ServerModsPath, after));
-                movedServerRel.Add(after);
-                movedServer++;
-            }
-            else
-            {
-                if (allowClient && (!allowServer || intent.clientLikely))
-                {
-                    CopyOverwrite(stage, rel, Path.Combine(Spt.ClientModsPath, unix));
-                    movedClientRel.Add(unix);
-                    movedClient++;
-                }
-                else if (allowServer)
-                {
-                    CopyOverwrite(stage, rel, Path.Combine(Spt.ServerModsPath, unix));
-                    movedServerRel.Add(unix);
-                    movedServer++;
-                }
-            }
-
-            processed++;
-            var pct = all.Count == 0 ? 100 : (int)(processed * 100.0 / all.Count);
-            progress?.Report(("install", pct));
+            if (IsServerPath(d)) serverDirs.Add(d);
+            else clientDirs.Add(d);
         }
 
         var name = ctx?.Name ?? Path.GetFileNameWithoutExtension(archivePath);
@@ -162,19 +99,45 @@ public static class Installer
             return $"{baseKey}-{(t == Target.Client ? "client" : "server")}".ToLowerInvariant();
         }
 
-        if (movedClientRel.Count > 0)
+        if (clientFiles.Count > 0 || clientDirs.Count > 0)
             App.Db.RecordInstallWithSource(
                 ResolveModId(Target.Client),
-                name, version, movedClientRel, Spt.ClientModsPath, Target.Client, sourceUrl, guid);
+                name, version, clientFiles, sptRoot, Target.Client, sourceUrl, guid, clientDirs);
 
-        if (movedServerRel.Count > 0)
+        if (serverFiles.Count > 0 || serverDirs.Count > 0)
             App.Db.RecordInstallWithSource(
                 ResolveModId(Target.Server),
-                name, version, movedServerRel, Spt.ServerModsPath, Target.Server, sourceUrl, guid);
+                name, version, serverFiles, sptRoot, Target.Server, sourceUrl, guid, serverDirs);
 
-        TryDeleteDir(stage);
         App.NotifyInstallsChanged();
-        return new InstallResult(movedClient, movedServer);
+        return new InstallResult(clientFiles.Count, serverFiles.Count);
+
+        static string NormSlash(string s) => (s ?? "").Replace('\\', '/').TrimStart('/');
+
+        static bool IsServerPath(string rel)
+        {
+            var u = NormSlash(rel);
+            return u.StartsWith("spt/user/mods/", StringComparison.OrdinalIgnoreCase)
+                   || u.Equals("spt/user/mods", StringComparison.OrdinalIgnoreCase)
+                   || u.StartsWith("user/mods/", StringComparison.OrdinalIgnoreCase)
+                   || u.Equals("user/mods", StringComparison.OrdinalIgnoreCase);
+        }
+
+        static HashSet<string> SnapshotFiles(string root)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                set.Add(Path.GetRelativePath(root, f));
+            return set;
+        }
+
+        static HashSet<string> SnapshotDirs(string root)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories))
+                set.Add(Path.GetRelativePath(root, d));
+            return set;
+        }
     }
 
     private static string San(string s)
