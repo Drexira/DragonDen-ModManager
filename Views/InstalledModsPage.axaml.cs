@@ -368,7 +368,6 @@ public partial class InstalledModsPage : UserControl
     private async Task ShowFilesDialog(InstalledModRow row)
     {
         if (row.ModIds is null || row.ModIds.Count == 0) return;
-
         var merged = new List<(string path, string target)>();
         foreach (var id in row.ModIds)
             try
@@ -378,17 +377,19 @@ public partial class InstalledModsPage : UserControl
             }
             catch
             {
-                Console.WriteLine($"[InstalledModsPage] ShowFilesDialog: failed to list files for mod ID {id}");
             }
-
         var files = merged
-            .GroupBy(t => (t.path?.Replace('\\', '/') ?? "", (t.target ?? "client").ToLowerInvariant()))
-            .Select(g => (g.Key.Item1, g.Key.Item2))
-            .OrderBy(t => t.Item2, StringComparer.Ordinal)
-            .ThenBy(t => t.Item1, StringComparer.OrdinalIgnoreCase)
-            .Select(t => (path: t.Item1, target: t.Item2))
+            .Select(t =>
+            {
+                var rel = (t.path ?? "").Replace('\\', '/');
+                var tgt = (t.target ?? "client").ToLowerInvariant();
+                var root = tgt.Equals("server", StringComparison.OrdinalIgnoreCase) ? Spt.ServerModsPath : Spt.ClientModsPath;
+                var full = NormalizeFullPath(root, rel);
+                return (path: full, target: tgt);
+            })
+            .OrderBy(t => t.target, StringComparer.Ordinal)
+            .ThenBy(t => t.path, StringComparer.OrdinalIgnoreCase)
             .ToList();
-
         var owner = (Window?)TopLevel.GetTopLevel(this);
         var dlg = new FilesDialog(row.Name, files)
         {
@@ -396,7 +397,6 @@ public partial class InstalledModsPage : UserControl
             CanResize = true,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
-
         if (owner is not null)
             await dlg.ShowDialog(owner);
         else
@@ -420,7 +420,6 @@ public partial class InstalledModsPage : UserControl
     private async Task ShowConfigDialog(InstalledModRow row)
     {
         if (row.ModIds is null || row.ModIds.Count == 0) return;
-
         var merged = new List<(string path, string target)>();
         foreach (var id in row.ModIds)
             try
@@ -430,34 +429,26 @@ public partial class InstalledModsPage : UserControl
             }
             catch
             {
-                Console.WriteLine($"[InstalledModsPage] ShowConfigDialog: failed to list files for mod ID {id}");
             }
-
         var items = new List<ConfigDialog.ConfigItem>();
-        foreach (var (rel, target) in merged)
+        foreach (var (rel0, target0) in merged)
         {
-            var unixRel = (rel ?? "").Replace('\\', '/');
-            if (!IsEditablePath(unixRel)) continue;
-
-            var baseRoot = (target ?? "client").Equals("server", StringComparison.OrdinalIgnoreCase)
-                ? Spt.ServerModsPath
-                : Spt.ClientModsPath;
-
-            var full = Path.Combine(baseRoot, unixRel.Replace('/', Path.DirectorySeparatorChar));
+            var rel = (rel0 ?? "").Replace('\\', '/');
+            if (!IsEditablePath(rel)) continue;
+            var tgt = (target0 ?? "client").ToLowerInvariant();
+            var root = tgt.Equals("server", StringComparison.OrdinalIgnoreCase) ? Spt.ServerModsPath : Spt.ClientModsPath;
+            var full = NormalizeFullPath(root, rel);
             items.Add(new ConfigDialog.ConfigItem
             {
-                DisplayPath = $"{target ?? "client"} • {unixRel}",
+                DisplayPath = $"{tgt} • {rel}",
                 FullPath = full
             });
         }
-
         if (items.Count == 0)
         {
             Notifications.Current.ShowError("No Configs Found", $"No editable config files exist for '{row.Name}'.");
-            Console.WriteLine($"[InstalledModsPage] ShowConfigDialog: no editable configs for {row.Name}");
             return;
         }
-
         var owner = (Window?)TopLevel.GetTopLevel(this);
         var dlg = new ConfigDialog(row.Name, items)
         {
@@ -465,7 +456,6 @@ public partial class InstalledModsPage : UserControl
             CanResize = true,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
-
         if (owner is not null)
             await dlg.ShowDialog(owner);
         else
@@ -1283,5 +1273,33 @@ public partial class InstalledModsPage : UserControl
         var aslug = string.IsNullOrWhiteSpace(a.Slug) ? 0 : 1;
         var bslug = string.IsNullOrWhiteSpace(b.Slug) ? 0 : 1;
         return aslug > bslug;
+    }
+    
+    private static string NormalizeFullPath(string baseRoot, string relOrFull)
+    {
+        if (string.IsNullOrWhiteSpace(relOrFull)) return baseRoot;
+        var raw = relOrFull.Replace('\\', '/').Trim();
+        if (Path.IsPathRooted(raw)) return raw.Replace('/', Path.DirectorySeparatorChar);
+        var baseNorm = baseRoot.Replace('\\', '/').TrimEnd('/');
+        var relSegs = raw.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        var baseSegs = baseNorm.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        for (var len = Math.Min(6, baseSegs.Length); len >= 2; len--)
+        {
+            var match = true;
+            for (int i = 0; i < len && i < relSegs.Length; i++)
+            {
+                var a = baseSegs[baseSegs.Length - len + i];
+                var b = relSegs[i];
+                if (!string.Equals(a, b, StringComparison.OrdinalIgnoreCase)) { match = false; break; }
+            }
+            if (match)
+            {
+                relSegs = relSegs.Skip(len).ToArray();
+                break;
+            }
+        }
+        var trimmed = string.Join(Path.DirectorySeparatorChar.ToString(), relSegs);
+        var combined = Path.Combine(baseRoot, trimmed);
+        return Path.GetFullPath(combined);
     }
 }
