@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -26,7 +27,10 @@ public static class SelfUpdateChecker
                 return;
 
             if (!IsUpdate(current, latest.Version!))
+            {
+                Logger.Info($"[SelfUpdateChecker] No update available. Current: {current}, Latest: {latest.Version}");
                 return;
+            }
 
             var mod = await ForgeClient.GetModAsync(ModManagerForgeID, includeOwner: false, includeAuthors: false, includeCategory: false, includeVersions: false,
                 includeSourceLinks: false, ct: ct).ConfigureAwait(false);
@@ -53,22 +57,74 @@ public static class SelfUpdateChecker
     {
         try
         {
-            var asm = Assembly.GetExecutingAssembly();
-            var fvi = System.Diagnostics.FileVersionInfo.GetVersionInfo(asm.Location);
-            var prod = fvi.ProductVersion ?? fvi.FileVersion;
-            if (!string.IsNullOrWhiteSpace(prod))
+            static string Normalize(string? v)
             {
-                var plus = prod.IndexOf('+');
-                return plus > 0 ? prod[..plus] : prod;
+                if (string.IsNullOrWhiteSpace(v)) return "";
+                var s = v.Trim();
+                var plus = s.IndexOf('+');
+                if (plus > 0) s = s[..plus];
+                var parts = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 4) s = string.Join('.', parts[0], parts[1], parts[2]);
+                parts = s.Split('.', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 1) s += ".0.0";
+                else if (parts.Length == 2) s += ".0";
+                return s;
             }
 
-            var infoAttr = asm.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
-                              .OfType<AssemblyInformationalVersionAttribute>()
-                              .FirstOrDefault()?.InformationalVersion;
-            if (string.IsNullOrWhiteSpace(infoAttr)) return asm.GetName()?.Version?.ToString() ?? "0.0.0";
-            var plus2 = infoAttr.IndexOf('+');
-            return plus2 > 0 ? infoAttr[..plus2] : infoAttr;
+            var entry = Assembly.GetEntryAssembly();
+            var appAsm = typeof(App).Assembly;
+            var exec = Assembly.GetExecutingAssembly();
+            var asm = entry ?? appAsm ?? exec;
 
+            var info = asm.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
+                .OfType<AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault()?.InformationalVersion;
+            var vInfo = Normalize(info);
+            if (!string.IsNullOrWhiteSpace(vInfo) && !vInfo.StartsWith("0.0.0", StringComparison.Ordinal))
+                return vInfo;
+
+            var fileAttr = asm.GetCustomAttributes(typeof(AssemblyFileVersionAttribute), false)
+                .OfType<AssemblyFileVersionAttribute>()
+                .FirstOrDefault()?.Version;
+            var vFileAttr = Normalize(fileAttr);
+            if (!string.IsNullOrWhiteSpace(vFileAttr) && !vFileAttr.StartsWith("0.0.0", StringComparison.Ordinal))
+                return vFileAttr;
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(asm.Location) && File.Exists(asm.Location))
+                {
+                    var fvi = System.Diagnostics.FileVersionInfo.GetVersionInfo(asm.Location);
+                    var prod = Normalize(fvi.ProductVersion ?? fvi.FileVersion);
+                    if (!string.IsNullOrWhiteSpace(prod) && !prod.StartsWith("0.0.0", StringComparison.Ordinal))
+                        return prod;
+                }
+            }
+            catch
+            {
+                // good girl action
+            }
+
+            try
+            {
+                var mm = System.Diagnostics.Process.GetCurrentProcess().MainModule;
+                if (mm != null)
+                {
+                    var fvi2 = System.Diagnostics.FileVersionInfo.GetVersionInfo(mm.FileName);
+                    var prod2 = Normalize(fvi2.ProductVersion ?? fvi2.FileVersion);
+                    if (!string.IsNullOrWhiteSpace(prod2) && !prod2.StartsWith("0.0.0", StringComparison.Ordinal))
+                        return prod2;
+                }
+            }
+            catch
+            {
+                // good girl action
+            }
+
+            var nameVer = Normalize(asm.GetName()?.Version?.ToString());
+            if (!string.IsNullOrWhiteSpace(nameVer)) return nameVer;
+
+            return "0.0.0";
         }
         catch
         {
