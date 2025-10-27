@@ -299,6 +299,11 @@ public partial class InstalledModsPage : UserControl
 
         if (b.Classes?.Contains("btn-trash") == true && b.Tag is InstalledModRow rowTrash)
         {
+            var owner = (Window?)TopLevel.GetTopLevel(this);
+            var dlg = new ConfirmUninstallDialog(rowTrash.Name);
+            var doIt = owner != null ? await dlg.ShowDialog<bool>(owner) : false;
+            if (!doIt) return;
+
             App.Db.UninstallByModIds(rowTrash.ModIds);
             Notifications.Current.ShowSuccess("Mod Uninstalled", $"'{rowTrash.Name}' was successfully removed.");
             Console.WriteLine($"[InstalledModsPage] Uninstalled mod → {rowTrash.Name}");

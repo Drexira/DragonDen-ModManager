@@ -1,0 +1,114 @@
+﻿<Window
+  x:Class="DragonDen.ModManager.Views.ConfirmUninstallDialog"
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  TransparencyLevelHint="AcrylicBlur,Blur,Transparent"
+  Background="{StaticResource Dd.Panel}"
+  ExtendClientAreaTitleBarHeightHint="36"
+  WindowStartupLocation="CenterOwner"
+  SystemDecorations="BorderOnly"
+  MinWidth="440" MinHeight="150"
+  Width="520"
+  SizeToContent="WidthAndHeight"
+  ExtendClientAreaToDecorationsHint="True"
+  ExtendClientAreaChromeHints="NoChrome"
+  ShowInTaskbar="False"
+  CanResize="true">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="Dd.Panel" Color="#13181D" />
+    <SolidColorBrush x:Key="Dd.Border" Color="#20262D" />
+    <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+    <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+    <SolidColorBrush x:Key="Dd.Btn.Hover" Color="#FF8A00" />
+    <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Danger" Color="#E24747" />
+    <SolidColorBrush x:Key="Dd.Danger.Hover" Color="#F06161" />
+
+    <SolidColorBrush x:Key="Dd.Accent" Color="#7AA2F7" />
+    <SolidColorBrush x:Key="Dd.Title.Hover" Color="#2E2E2E" />
+    <SolidColorBrush x:Key="Dd.Text.Dark" Color="#111111" />
+    <SolidColorBrush x:Key="Dd.Card" Color="#151B21" />
+
+    <SolidColorBrush x:Key="Dd.Warn.Bg" Color="#EF5350" />
+    <SolidColorBrush x:Key="Dd.Warn.Stroke" Color="#B71C1C" />
+    <SolidColorBrush x:Key="Dd.Warn.Fg" Color="#FFFFFF" />
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="Button.title">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Text}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.title:pointerover">
+      <Setter Property="Background" Value="{StaticResource Dd.Title.Hover}" />
+    </Style>
+
+    <Style Selector="Button.action">
+      <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinWidth" Value="120" />
+    </Style>
+    <Style Selector="Button.action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Dd.Btn.Hover}" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Text.Dark}" />
+    </Style>
+
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="{StaticResource Dd.Danger}" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Text.Dark}" />
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Dd.Danger.Hover}" />
+    </Style>
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource Dd.Card}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="12"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,Auto">
+    <Border Background="{StaticResource Dd.Panel}" BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*" Height="36" Margin="10,0,10,0">
+        <Path Data="M4,0 L8,6 L0,6 Z" Fill="{StaticResource Dd.Accent}" Width="10" Height="10" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" x:Name="TitleText" Text="Uninstall Mod" VerticalAlignment="Center" FontWeight="SemiBold" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1" Background="{StaticResource Dd.Panel}" Padding="12,10,12,0">
+      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+        <Grid Grid.RowSpan="2" Width="48" Height="48" Margin="0,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+          <Path Data="M24,4 L44,40 H4 Z" Fill="{StaticResource Dd.Warn.Bg}" Stroke="{StaticResource Dd.Warn.Stroke}" StrokeThickness="2"/>
+          <Path Data="M24,15 V29" Stroke="{StaticResource Dd.Warn.Fg}" StrokeThickness="4.4" StrokeLineCap="Round"/>
+          <Path Data="M22,33 H26 V37 H22 Z" Fill="{StaticResource Dd.Warn.Fg}"/>
+        </Grid>
+
+        <TextBlock Grid.Column="1" Grid.Row="0" x:Name="BodyText" Text="Do you want to uninstall this mod?"
+                   Foreground="{StaticResource Dd.Text}" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+        <TextBlock Grid.Column="1" Grid.Row="1" Text="The mod’s files will be removed from your SPT folder."
+                   Foreground="{StaticResource Dd.Subtle}" TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Background="{StaticResource Dd.Panel}" Margin="12,20,12,12">
+      <TextBlock/>
+      <Button x:Name="CancelBtn" Classes="action" Grid.Column="1" Content="Cancel" Margin="0,0,8,0"/>
+      <Button x:Name="UninstallBtn" Classes="action danger" Grid.Column="2" Content="Uninstall"/>
+    </Grid>
+  </Grid>
+</Window>
