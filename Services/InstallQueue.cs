@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -525,6 +526,16 @@ public sealed class InstallQueue
                 });
             }
 
+            var sptRoot = App.Config.Paths.SptRoot;
+            if (!string.IsNullOrWhiteSpace(sptRoot) && Directory.Exists(sptRoot))
+            {
+                var pruned = 0;
+                pruned += PruneEmptySubdirsSafe(Path.Combine(sptRoot, "BepInEx", "plugins"));
+                pruned += PruneEmptySubdirsSafe(Path.Combine(sptRoot, "SPT", "user", "mods"));
+                pruned += PruneEmptySubdirsSafe(Path.Combine(sptRoot, "user", "mods"));
+                if (pruned > 0) Logger.Info($"[InstallQueue] Pruned empty directories: {pruned}");
+            }
+
             UI(() =>
             {
                 job.Phase = "Done";
@@ -612,6 +623,16 @@ public sealed class InstallQueue
                 });
             }
 
+            var sptRoot = App.Config.Paths.SptRoot;
+            if (!string.IsNullOrWhiteSpace(sptRoot) && Directory.Exists(sptRoot))
+            {
+                var pruned = 0;
+                pruned += PruneEmptySubdirsSafe(Path.Combine(sptRoot, "BepInEx", "plugins"));
+                pruned += PruneEmptySubdirsSafe(Path.Combine(sptRoot, "SPT", "user", "mods"));
+                pruned += PruneEmptySubdirsSafe(Path.Combine(sptRoot, "user", "mods"));
+                if (pruned > 0) Logger.Info($"[InstallQueue] Pruned empty directories: {pruned}");
+            }
+
             UI(() =>
             {
                 job.Phase = "Done";
@@ -681,6 +702,41 @@ public sealed class InstallQueue
         return sb.ToString();
     }
 
+    private static int PruneEmptySubdirsSafe(string root)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return 0;
+            return PruneEmptySubdirs(root, root);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"[InstallQueue] Prune failed for '{root}': {ex}");
+            return 0;
+        }
+    }
+
+    private static int PruneEmptySubdirs(string root, string protectRoot)
+    {
+        var removed = 0;
+        foreach (var dir in Directory.EnumerateDirectories(root))
+            removed += PruneEmptySubdirs(dir, protectRoot);
+        if (root.Equals(protectRoot, StringComparison.OrdinalIgnoreCase)) return removed;
+        if (!Directory.EnumerateFileSystemEntries(root).Any())
+        {
+            try
+            {
+                Directory.Delete(root, false);
+                removed++;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[InstallQueue] Failed to delete empty dir '{root}': {ex}");
+            }
+        }
+        return removed;
+    }
+    
     private static string ComputeStableCacheName(string name, string url, string version, string guid)
     {
         var baseKey = !string.IsNullOrWhiteSpace(guid) ? $"{guid}_{version}" : !string.IsNullOrWhiteSpace(name) ? $"{name}__{version}" : url;

@@ -13,7 +13,7 @@
     ShowInTaskbar="true"
     CanResize="true"
     Background="{DynamicResource SurfaceBrush}"
-    Title="Dragon Den Mod Manager - ALPHA v0.0.3">
+    Title="Dragon Den Mod Manager - ALPHA v0.0.4">
 
     <Window.Resources>
         <SolidColorBrush x:Key="Dd.Background" Color="#0F1317" />

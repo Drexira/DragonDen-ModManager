@@ -27,16 +27,18 @@ public static class Installer
 
         progress?.Report(("inspect", -1));
         ct.ThrowIfCancellationRequested();
-        var entries = await Task.Run(() => sevenZip.ListEntries(archivePath), ct).ConfigureAwait(false);
-        
-        bool HasTopLevelAllowed(List<string> list)
+        var rawEntries = await Task.Run(() => sevenZip.ListEntries(archivePath), ct).ConfigureAwait(false);
+
+        static string NormSlash(string s) => (s ?? "").Replace('\\', '/').TrimStart('/');
+
+        bool HasTopLevelAllowed(IEnumerable<string> list)
         {
             foreach (var raw in list)
             {
-                var p = (raw ?? "").Replace('\\', '/').TrimStart('/');
+                var p = NormSlash(raw);
                 if (string.IsNullOrWhiteSpace(p)) continue;
                 var top = p.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-                if (top == null) continue;
+                if (top is null) continue;
                 if (top.Equals("BepInEx", StringComparison.OrdinalIgnoreCase) ||
                     top.Equals("SPT", StringComparison.OrdinalIgnoreCase) ||
                     top.Equals("user", StringComparison.OrdinalIgnoreCase))
@@ -46,51 +48,89 @@ public static class Installer
             return false;
         }
 
-        if (!HasTopLevelAllowed(entries))
+        if (!HasTopLevelAllowed(rawEntries))
         {
             Notifications.Current.ShowError("Installation Failed",
                 $"The mod '{Path.GetFileName(archivePath)}' is invalid or not structured properly, install cancelled.");
-            Logger.Error(
-                $"[Installer] Unsupported mod '{Path.GetFileName(archivePath)}' The mod '{archivePath}' does not have proper folder structure and should be reported to the mod author. (unless this is a 3rd party tool and not an actual mod)");
+            Logger.Error($"[Installer] Top level check failed. entries={rawEntries.Count}");
             return new InstallResult(0, 0);
         }
 
-        var beforeFiles = SnapshotFiles(sptRoot);
-        var beforeDirs = SnapshotDirs(sptRoot);
+        var entries = rawEntries.Select(NormSlash).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
         progress?.Report(("extract", -1));
         ct.ThrowIfCancellationRequested();
         await sevenZip.ExtractAsync(archivePath, sptRoot).ConfigureAwait(false);
 
-        var afterFiles = SnapshotFiles(sptRoot);
-        var afterDirs = SnapshotDirs(sptRoot);
+        var placedFiles = new List<string>();
+        var placedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int filesExpected = 0, dirsExpected = 0, filesFound = 0, dirsFound = 0;
+        var missingSample = new List<string>();
 
-        var newFiles = afterFiles.Except(beforeFiles, StringComparer.OrdinalIgnoreCase)
-            .Select(NormSlash).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-        var newDirs = afterDirs.Except(beforeDirs, StringComparer.OrdinalIgnoreCase)
-            .Select(NormSlash).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+        foreach (var rel in entries)
+        {
+            var full = Path.Combine(sptRoot, rel);
+            var looksLikeDir = rel.EndsWith("/", StringComparison.Ordinal) || rel.EndsWith("\\", StringComparison.Ordinal);
+            if (looksLikeDir || !Path.GetFileName(rel).Contains('.'))
+                dirsExpected++;
+            else
+                filesExpected++;
+
+            if (File.Exists(full))
+            {
+                placedFiles.Add(rel);
+                filesFound++;
+                var dir = Path.GetDirectoryName(rel)?.Replace('\\', '/').TrimEnd('/');
+                while (!string.IsNullOrEmpty(dir))
+                {
+                    placedDirs.Add(dir);
+                    var next = Path.GetDirectoryName(dir);
+                    if (string.IsNullOrEmpty(next)) break;
+                    dir = next.Replace('\\', '/').TrimEnd('/');
+                }
+            }
+            else if (Directory.Exists(full))
+            {
+                placedDirs.Add(rel.TrimEnd('/'));
+                dirsFound++;
+            }
+            else if (missingSample.Count < 8)
+            {
+                missingSample.Add(rel);
+            }
+        }
+
+        static bool IsServerPath(string rel)
+        {
+            var u = NormSlash(rel);
+            return u.StartsWith("spt/user/mods/", StringComparison.OrdinalIgnoreCase)
+                   || u.Equals("spt/user/mods", StringComparison.OrdinalIgnoreCase)
+                   || u.StartsWith("user/mods/", StringComparison.OrdinalIgnoreCase)
+                   || u.Equals("user/mods", StringComparison.OrdinalIgnoreCase);
+        }
 
         var clientFiles = new List<string>();
         var serverFiles = new List<string>();
-        var clientDirs = new List<string>();
-        var serverDirs = new List<string>();
-
-        foreach (var f in newFiles)
+        foreach (var f in placedFiles)
         {
             if (IsServerPath(f)) serverFiles.Add(f);
             else clientFiles.Add(f);
         }
 
-        foreach (var d in newDirs)
+        var clientDirs = new List<string>();
+        var serverDirs = new List<string>();
+        foreach (var d in placedDirs)
         {
             if (IsServerPath(d)) serverDirs.Add(d);
             else clientDirs.Add(d);
         }
-
+        
         var name = ctx?.Name ?? Path.GetFileNameWithoutExtension(archivePath);
         var version = string.IsNullOrWhiteSpace(ctx?.Version) ? "Custom Install" : ctx!.Version!;
         var guid = ctx?.Guid ?? "";
         var sourceUrl = ctx?.SourceUrl ?? "";
+
+        string San(string s) => new string((s ?? "").Where(ch => char.IsLetterOrDigit(ch) || ch == '-' || ch == '_' || ch == '.').ToArray());
 
         string ResolveModId(Target t)
         {
@@ -109,35 +149,9 @@ public static class Installer
                 ResolveModId(Target.Server),
                 name, version, serverFiles, sptRoot, Target.Server, sourceUrl, guid, serverDirs);
 
+        var result = new InstallResult(clientFiles.Count, serverFiles.Count);
         App.NotifyInstallsChanged();
-        return new InstallResult(clientFiles.Count, serverFiles.Count);
-
-        static string NormSlash(string s) => (s ?? "").Replace('\\', '/').TrimStart('/');
-
-        static bool IsServerPath(string rel)
-        {
-            var u = NormSlash(rel);
-            return u.StartsWith("spt/user/mods/", StringComparison.OrdinalIgnoreCase)
-                   || u.Equals("spt/user/mods", StringComparison.OrdinalIgnoreCase)
-                   || u.StartsWith("user/mods/", StringComparison.OrdinalIgnoreCase)
-                   || u.Equals("user/mods", StringComparison.OrdinalIgnoreCase);
-        }
-
-        static HashSet<string> SnapshotFiles(string root)
-        {
-            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var f in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
-                set.Add(Path.GetRelativePath(root, f));
-            return set;
-        }
-
-        static HashSet<string> SnapshotDirs(string root)
-        {
-            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var d in Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories))
-                set.Add(Path.GetRelativePath(root, d));
-            return set;
-        }
+        return result;
     }
 
     private static string San(string s)
