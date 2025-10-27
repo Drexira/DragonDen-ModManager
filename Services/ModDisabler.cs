@@ -174,21 +174,23 @@ namespace DragonDen.ModManager.Services
 
             if (files.Count == 0) return list;
 
+            var dbFolder = Path.GetFileNameWithoutExtension(Paths.ModsDbPath) ?? "default";
+            var disabledRootBase = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
+
             foreach (var grp in files.GroupBy(f => (f.target ?? "client").ToLowerInvariant()))
             {
                 var label = grp.Key == "server" ? "server" : "client";
                 var liveRoot = label == "server" ? Spt.ServerModsPath : Spt.ClientModsPath;
                 if (string.IsNullOrWhiteSpace(liveRoot)) continue;
 
-                var disabledRoot = Path.Combine(Paths.DataDir, "Disabled Mods");
                 var rels = grp.Select(x => (x.path ?? "").Replace('\\', '/'))
-                              .Where(p => !string.IsNullOrWhiteSpace(p))
-                              .Distinct(StringComparer.OrdinalIgnoreCase)
-                              .ToList();
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
                 if (rels.Count == 0) continue;
 
-                list.Add(new TargetCtx(label, liveRoot, disabledRoot, rels));
+                list.Add(new TargetCtx(label, liveRoot, disabledRootBase, rels));
             }
 
             return list;
