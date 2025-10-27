@@ -241,32 +241,24 @@ public partial class InstalledModsPage : UserControl
     {
         var rows = (ModsList.ItemsSource as IEnumerable<InstalledModRow>)?.ToList() ?? new();
         var targets = rows.Where(r => !r.IsDisabled && r.Versions?.Count > 0).ToList();
-
         if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("Nothing To Disable", "All visible mods are already disabled or custom installs.");
             Console.WriteLine($"[InstalledModsPage] DisableAllAsync: no eligible mods to disable.");
             return;
         }
-
-        var count = 0;
+        var queued = 0;
         foreach (var r in targets)
         {
-            try
+            if (r.ModIds is { Count: > 0 })
             {
-                foreach (var id in r.ModIds)
-                    await ModDisabler.DisableAsync(id, r.Name);
-                count++;
+                App.Queue.EnqueueDisable(r.Name, r.ModIds);
+                queued++;
             }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"DisableAllAsync: failed for {r.Name}: {ex.Message}");
-            }
+            await Task.Delay(40);
         }
-
-        Notifications.Current.ShowSuccess("Bulk Disable Complete", $"Disabled {count} mod(s).");
-        Console.WriteLine($"[InstalledModsPage] DisableAllAsync: disabled {count} mods.");
-        App.NotifyInstallsChanged();
+        Notifications.Current.ShowSuccess("Queued Disables", $"Queued {queued} disable job(s).");
+        Console.WriteLine($"[InstalledModsPage] DisableAllAsync: queued {queued} jobs.");
     }
 
     private async Task EnableAllAsync()
@@ -277,36 +269,45 @@ public partial class InstalledModsPage : UserControl
         if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("Nothing To Enable", "No disabled mods in the current view.");
-            Console.WriteLine($"[InstalledModsPage] EnableAllAsync: no eligible mods to enable.");
+            Console.WriteLine("[InstalledModsPage] EnableAllAsync: no eligible mods to enable.");
             return;
         }
-
-        var count = 0;
+        var queued = 0;
         foreach (var r in targets)
         {
-            try
+            if (r.ModIds is { Count: > 0 })
             {
-                foreach (var id in r.ModIds)
-                    await ModDisabler.EnableAsync(id, r.Name);
-                count++;
+                App.Queue.EnqueueEnable(r.Name, r.ModIds);
+                queued++;
             }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"EnableAllAsync: failed for {r.Name}: {ex.Message}");
-            }
+            await Task.Delay(40);
         }
-
-        Notifications.Current.ShowSuccess("Bulk Enable Complete", $"Enabled {count} mod(s).");
-        Console.WriteLine($"[InstalledModsPage] EnableAllAsync: enabled {count} mods.");
-        App.NotifyInstallsChanged();
+        Notifications.Current.ShowSuccess("Queued Enables", $"Queued {queued} enable job(s).");
+        Console.WriteLine($"[InstalledModsPage] EnableAllAsync: queued {queued} jobs.");
     }
 
     private async void OnAnyButtonClick(object? sender, RoutedEventArgs e)
     {
         if (e.Source is not Button b) return;
-
         if (b.DataContext is InstalledModRow dc && dc.IsDisabled)
         {
+            if (b.Classes?.Contains("btn-trash") == true && b.Tag is InstalledModRow rowDisabledTrash)
+            {
+                var owner = (Window?)TopLevel.GetTopLevel(this);
+                var dlg = new ConfirmUninstallDialog(rowDisabledTrash.Name);
+                var doIt = owner != null ? await dlg.ShowDialog<bool>(owner) : false;
+                if (!doIt) return;
+                if (rowDisabledTrash.ModIds is { Count: > 0 })
+                {
+                    App.Queue.EnqueueUninstall(rowDisabledTrash.Name, rowDisabledTrash.ModIds);
+                    Notifications.Current.ShowSuccess("Uninstall Queued", $"'{rowDisabledTrash.Name}' will be uninstalled.");
+                    Console.WriteLine($"[InstalledModsPage] Queued uninstall for disabled mod → {rowDisabledTrash.Name}");
+                    await RefreshRows();
+                }
+
+                return;
+            }
+
             return;
         }
 
@@ -316,16 +317,18 @@ public partial class InstalledModsPage : UserControl
             var dlg = new ConfirmUninstallDialog(rowTrash.Name);
             var doIt = owner != null ? await dlg.ShowDialog<bool>(owner) : false;
             if (!doIt) return;
+            if (rowTrash.ModIds is { Count: > 0 })
+            {
+                App.Queue.EnqueueUninstall(rowTrash.Name, rowTrash.ModIds);
+                Notifications.Current.ShowSuccess("Uninstall Queued", $"'{rowTrash.Name}' will be uninstalled.");
+                Console.WriteLine($"[InstalledModsPage] Queued uninstall → {rowTrash.Name}");
+                await RefreshRows();
+            }
 
-            App.Db.UninstallByModIds(rowTrash.ModIds);
-            Notifications.Current.ShowSuccess("Mod Uninstalled", $"'{rowTrash.Name}' was successfully removed.");
-            Console.WriteLine($"[InstalledModsPage] Uninstalled mod → {rowTrash.Name}");
-            await RefreshRows();
             return;
         }
 
         var content = b.Content?.ToString() ?? "";
-
         if (content.Equals("List Files", StringComparison.OrdinalIgnoreCase))
         {
             if (b.Tag is InstalledModRow row4)
@@ -505,61 +508,44 @@ public partial class InstalledModsPage : UserControl
 
     private async Task UninstallAllAsync()
     {
-        var all = App.Db.ListMods();
-        var allIds = all.Select(t => t.mod_id).Distinct().ToList();
-        if (allIds.Count == 0)
+        var rows = (ModsList.ItemsSource as IEnumerable<InstalledModRow>)?.ToList() ?? new();
+        var targets = rows.Where(r => r.ModIds is { Count: > 0 }).ToList();
+        if (targets.Count == 0)
         {
             Notifications.Current.ShowWarning("No Mods Found", "There are no installed mods to uninstall.");
-            Console.WriteLine($"[InstalledModsPage] UninstallAllAsync: no mods to uninstall.");
+            Console.WriteLine("[InstalledModsPage] UninstallAllAsync: no mods to uninstall.");
             return;
         }
-
-        App.Db.UninstallByModIds(allIds);
-        Notifications.Current.ShowSuccess("All Mods Removed", "All installed mods have been uninstalled.");
-        Console.WriteLine($"[InstalledModsPage] UninstallAllAsync: uninstalled all mods.");
-        await RefreshRows();
+        var owner = (Window?)TopLevel.GetTopLevel(this);
+        var ok = owner != null ? await new ConfirmUninstallDialog("All selected mods").ShowDialog<bool>(owner) : false;
+        if (!ok) return;
+        var queued = 0;
+        foreach (var r in targets)
+        {
+            App.Queue.EnqueueUninstall(r.Name, r.ModIds);
+            queued++;
+            await Task.Delay(25);
+        }
+        Notifications.Current.ShowSuccess("Uninstalls Queued", $"Queued {queued} uninstall job(s).");
+        Console.WriteLine($"[InstalledModsPage] UninstallAllAsync: queued {queued} jobs.");
     }
 
-    private async void OnDisableMod(object? s, RoutedEventArgs e)
+    private void OnDisableMod(object? s, RoutedEventArgs e)
     {
         if ((s as Control)?.Tag is not InstalledModRow row) return;
-
-        try
-        {
-            foreach (var modId in row.ModIds)
-                await ModDisabler.DisableAsync(modId, row.Name);
-
-            row.IsDisabled = true;
-            Notifications.Current.ShowSuccess("Disabled", $"{row.Name} moved to Disabled Mods.");
-            Console.WriteLine($"[InstalledModsPage] Disabled mod → {row.Name}");
-            App.NotifyInstallsChanged();
-        }
-        catch (Exception ex)
-        {
-            Notifications.Current.ShowError("Disable Failed", $"Couldn't disable {row.Name}.");
-            Console.WriteLine("[InstalledModsPage] Disable failed: " + ex);
-        }
+        if (row.ModIds is null || row.ModIds.Count == 0) return;
+        App.Queue.EnqueueDisable(row.Name, row.ModIds);
+        Notifications.Current.ShowSuccess("Disable Queued", $"{row.Name} will be moved to Disabled Mods.");
+        Console.WriteLine($"[InstalledModsPage] Queued disable → {row.Name}");
     }
 
-    private async void OnEnableMod(object? s, RoutedEventArgs e)
+    private void OnEnableMod(object? s, RoutedEventArgs e)
     {
         if ((s as Control)?.Tag is not InstalledModRow row) return;
-
-        try
-        {
-            foreach (var modId in row.ModIds)
-                await ModDisabler.EnableAsync(modId, row.Name);
-
-            row.IsDisabled = false;
-            Notifications.Current.ShowSuccess("Enabled", $"{row.Name} restored.");
-            Console.WriteLine($"[InstalledModsPage] Enabled mod → {row.Name}");
-            App.NotifyInstallsChanged();
-        }
-        catch (Exception ex)
-        {
-            Notifications.Current.ShowError("Enable Failed", $"Couldn't restore {row.Name}.");
-            Console.WriteLine("[InstalledModsPage] Enable failed: " + ex);
-        }
+        if (row.ModIds is null || row.ModIds.Count == 0) return;
+        App.Queue.EnqueueEnable(row.Name, row.ModIds);
+        Notifications.Current.ShowSuccess("Enable Queued", $"{row.Name} will be restored.");
+        Console.WriteLine($"[InstalledModsPage] Queued enable → {row.Name}");
     }
 
     public async Task RefreshRows()

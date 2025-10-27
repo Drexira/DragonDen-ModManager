@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
@@ -54,6 +55,33 @@ public sealed class InstallQueue
         var job = new InstallJob { Title = name, Source = url, StartedAt = DateTimeOffset.Now, Cts = new CancellationTokenSource() };
         Jobs.Add(job);
         work.Enqueue(() => RunRemote(job, name, url, version, guid, fixedModId, job.Cts!.Token));
+        _ = Pump();
+        return job;
+    }
+    
+    public InstallJob EnqueueEnable(string modName, List<string> modIds)
+    {
+        var job = new InstallJob { Title = $"Enable: {modName}", Source = "Enable", StartedAt = DateTimeOffset.Now, Cts = new CancellationTokenSource() };
+        Jobs.Add(job);
+        work.Enqueue(() => RunEnable(job, modName, modIds, job.Cts!.Token));
+        _ = Pump();
+        return job;
+    }
+    
+    public InstallJob EnqueueDisable(string modName, List<string> modIds)
+    {
+        var job = new InstallJob { Title = $"Disable: {modName}", Source = "Disable", StartedAt = DateTimeOffset.Now, Cts = new CancellationTokenSource() };
+        Jobs.Add(job);
+        work.Enqueue(() => RunDisable(job, modName, modIds, job.Cts!.Token));
+        _ = Pump();
+        return job;
+    }
+
+    public InstallJob EnqueueUninstall(string modName, List<string> modIds)
+    {
+        var job = new InstallJob { Title = $"Uninstall: {modName}", Source = "Uninstall", StartedAt = DateTimeOffset.Now, Cts = new CancellationTokenSource() };
+        Jobs.Add(job);
+        work.Enqueue(() => RunUninstall(job, modName, modIds, job.Cts!.Token));
         _ = Pump();
         return job;
     }
@@ -372,6 +400,265 @@ public sealed class InstallQueue
                 Console.WriteLine($"[InstallQueue] Local install failed: {job.Title} | {ex}");
             }
             Console.WriteLine("[InstallQueue] Local install failed: " + job.Title + " | " + ex);
+        }
+    }
+
+    private async Task RunEnable(InstallJob job, string modName, List<string> modIds, CancellationToken ct)
+    {
+        try
+        {
+            UI(() => Notifications.Current.BindInstall(job));
+            UI(() =>
+            {
+                job.Phase = "Queued";
+                job.SubTask = "Waiting";
+                job.IsIndeterminate = true;
+                job.Progress = 0;
+                job.SubPercent = 0;
+            });
+            
+            var total = Math.Max(1, modIds.Count);
+            var done = 0;
+            foreach (var id in modIds)
+            {
+                ct.ThrowIfCancellationRequested();
+                UI(() =>
+                {
+                    job.Phase = "Enabling";
+                    job.SubTask = $"Restoring files for {modName}";
+                    job.IsIndeterminate = false;
+                });
+                
+                await ModDisabler.EnableAsync(id, modName);
+                done++;
+                var pct = Math.Clamp((int)(done * 100.0 / total), 0, 100);
+                UI(() =>
+                {
+                    job.SubPercent = pct;
+                    job.Progress = pct;
+                    job.Eta = ComputeEta(job.StartedAt, job.Progress);
+                });
+            }
+
+            UI(() =>
+            {
+                job.Phase = "Done";
+                job.Status = "enabled";
+                job.IsIndeterminate = false;
+                job.Progress = 100;
+                job.SubPercent = 100;
+                job.Eta = "";
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+                job.CompletedAt = DateTimeOffset.Now;
+            });
+            
+            App.NotifyInstallsChanged();
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowSuccess("Enable Complete", modName);
+            Console.WriteLine($"[InstallQueue] Enable done: {modName}");
+        }
+        catch (OperationCanceledException)
+        {
+            UI(() =>
+            {
+                job.Phase = "Cancelled";
+                job.Status = "cancelled";
+                job.IsIndeterminate = false;
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+            });
+            
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowWarning("Enable Cancelled", modName);
+            Console.WriteLine($"[InstallQueue] Enable cancelled: {modName}");
+        }
+        catch (Exception ex)
+        {
+            UI(() =>
+            {
+                job.Phase = "Failed";
+                job.Status = "failed: " + ex.Message;
+                job.IsIndeterminate = false;
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+            });
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowError("Enable Failed", modName);
+            Console.WriteLine($"[InstallQueue] Enable failed: {modName} | {ex}");
+        }
+    }
+
+    private async Task RunDisable(InstallJob job, string modName, List<string> modIds, CancellationToken ct)
+    {
+        try
+        {
+            UI(() => Notifications.Current.BindInstall(job));
+            UI(() =>
+            {
+                job.Phase = "Queued";
+                job.SubTask = "Waiting";
+                job.IsIndeterminate = true;
+                job.Progress = 0;
+                job.SubPercent = 0;
+            });
+            
+            var total = Math.Max(1, modIds.Count);
+            var done = 0;
+            foreach (var id in modIds)
+            {
+                ct.ThrowIfCancellationRequested();
+                UI(() =>
+                {
+                    job.Phase = "Disabling";
+                    job.SubTask = $"Moving files for {modName}";
+                    job.IsIndeterminate = false;
+                });
+                await ModDisabler.DisableAsync(id, modName);
+                done++;
+                var pct = Math.Clamp((int)(done * 100.0 / total), 0, 100);
+                UI(() =>
+                {
+                    job.SubPercent = pct;
+                    job.Progress = pct;
+                    job.Eta = ComputeEta(job.StartedAt, job.Progress);
+                });
+            }
+
+            UI(() =>
+            {
+                job.Phase = "Done";
+                job.Status = "disabled";
+                job.IsIndeterminate = false;
+                job.Progress = 100;
+                job.SubPercent = 100;
+                job.Eta = "";
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+                job.CompletedAt = DateTimeOffset.Now;
+            });
+            
+            App.NotifyInstallsChanged();
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowSuccess("Disable Complete", modName);
+            Console.WriteLine($"[InstallQueue] Disable done: {modName}");
+        }
+        catch (OperationCanceledException)
+        {
+            UI(() =>
+            {
+                job.Phase = "Cancelled";
+                job.Status = "cancelled";
+                job.IsIndeterminate = false;
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+            });
+            
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowWarning("Disable Cancelled", modName);
+            Console.WriteLine($"[InstallQueue] Disable cancelled: {modName}");
+        }
+        catch (Exception ex)
+        {
+            UI(() =>
+            {
+                job.Phase = "Failed";
+                job.Status = "failed: " + ex.Message;
+                job.IsIndeterminate = false;
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+            });
+            
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowError("Disable Failed", modName);
+            Console.WriteLine($"[InstallQueue] Disable failed: {modName} | {ex}");
+        }
+    }
+
+    private async Task RunUninstall(InstallJob job, string modName, List<string> modIds, CancellationToken ct)
+    {
+        try
+        {
+            UI(() => Notifications.Current.BindInstall(job));
+            UI(() =>
+            {
+                job.Phase = "Queued";
+                job.SubTask = "Waiting";
+                job.IsIndeterminate = true;
+                job.Progress = 0;
+                job.SubPercent = 0;
+            });
+            
+            var total = Math.Max(1, modIds.Count);
+            var done = 0;
+            foreach (var id in modIds)
+            {
+                ct.ThrowIfCancellationRequested();
+                UI(() =>
+                {
+                    job.Phase = "Uninstalling";
+                    job.SubTask = $"Removing {modName}";
+                    job.IsIndeterminate = false;
+                });
+                
+                App.Db.UninstallByModIds(new List<string> { id });
+                done++;
+                var pct = Math.Clamp((int)(done * 100.0 / total), 0, 100);
+                UI(() =>
+                {
+                    job.SubPercent = pct;
+                    job.Progress = pct;
+                    job.Eta = ComputeEta(job.StartedAt, job.Progress);
+                });
+            }
+
+            UI(() =>
+            {
+                job.Phase = "Done";
+                job.Status = "uninstalled";
+                job.IsIndeterminate = false;
+                job.Progress = 100;
+                job.SubPercent = 100;
+                job.Eta = "";
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+                job.CompletedAt = DateTimeOffset.Now;
+            });
+            
+            App.NotifyInstallsChanged();
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowSuccess("Uninstall Complete", modName);
+            Console.WriteLine($"[InstallQueue] Uninstall done: {modName}");
+        }
+        catch (OperationCanceledException)
+        {
+            UI(() =>
+            {
+                job.Phase = "Cancelled";
+                job.Status = "cancelled";
+                job.IsIndeterminate = false;
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+            });
+            
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowWarning("Uninstall Cancelled", modName);
+            Console.WriteLine($"[InstallQueue] Uninstall cancelled: {modName}");
+        }
+        catch (Exception ex)
+        {
+            UI(() =>
+            {
+                job.Phase = "Failed";
+                job.Status = "failed: " + ex.Message;
+                job.IsIndeterminate = false;
+                job.IsCancellable = false;
+                job.IsCompleted = true;
+            });
+            
+            Notifications.Current.UnbindInstall(job);
+            Notifications.Current.ShowError("Uninstall Failed", modName);
+            Console.WriteLine($"[InstallQueue] Uninstall failed: {modName} | {ex}");
         }
     }
 

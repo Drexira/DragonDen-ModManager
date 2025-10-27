@@ -1590,8 +1590,12 @@ public partial class BrowseModsPage : UserControl
             var installed = IsInstalledByNameOrGuid(r.Name, r.Guid);
             if (installed)
             {
-                r.IsQueued = false;
                 r.IsInstalled = true;
+                r.IsQueued = false;
+            }
+            else
+            {
+                r.IsInstalled = false;
             }
         }
     }
