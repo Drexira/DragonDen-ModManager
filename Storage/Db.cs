@@ -309,6 +309,44 @@ LIMIT 1";
     {
         using var c = Conn();
 
+        var dbFolder = Path.GetFileNameWithoutExtension(Paths.ModsDbPath) ?? "default";
+        var disabledRootBase = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
+
+        static void TryDeleteEmptyParentsQuiet(string start, string stopAt)
+        {
+            try
+            {
+                string Normalize(string? p)
+                {
+                    if (string.IsNullOrWhiteSpace(p)) return "";
+                    try
+                    {
+                        return Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar);
+                    }
+                    catch
+                    {
+                        return p.TrimEnd(Path.DirectorySeparatorChar);
+                    }
+                }
+
+                var stop = Normalize(stopAt);
+                var cur = Normalize(start);
+                while (!string.IsNullOrWhiteSpace(cur) && !string.Equals(cur, stop, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!Directory.Exists(cur)) break;
+                    if (Directory.GetFileSystemEntries(cur).Length != 0) break;
+                    Directory.Delete(cur);
+                    var next = Path.GetDirectoryName(cur);
+                    if (string.IsNullOrWhiteSpace(next)) break;
+                    cur = Normalize(next);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[Db] Failed to delete empty parent directories: {e}");
+            }
+        }
+
         foreach (var modId in modIds)
         {
             using var cmd = c.CreateCommand();
@@ -325,10 +363,16 @@ LIMIT 1";
 
             foreach (var it in items)
             {
-                var root = it.target == "server" ? Spt.ServerModsPath : Spt.ClientModsPath;
-                if (!string.IsNullOrWhiteSpace(root))
+                var rel = (it.path ?? "").Replace('/', Path.DirectorySeparatorChar);
+                var targetLabel = string.Equals(it.target, "server", StringComparison.OrdinalIgnoreCase) ? "server" : "client";
+
+                var liveRoot = targetLabel == "server" ? Spt.ServerModsPath : Spt.ClientModsPath;
+
+                var disabledRootForMod = Path.Combine(disabledRootBase, targetLabel, modId);
+
+                if (!string.IsNullOrWhiteSpace(liveRoot))
                 {
-                    var full = Path.Combine(root, it.path);
+                    var full = Path.Combine(liveRoot, rel);
                     try
                     {
                         if (File.Exists(full)) File.Delete(full);
@@ -341,21 +385,44 @@ LIMIT 1";
                     try
                     {
                         var dir = Path.GetDirectoryName(full);
-                        var stop = string.Equals(root.TrimEnd(Path.DirectorySeparatorChar), dir?.TrimEnd(Path.DirectorySeparatorChar),
-                            StringComparison.OrdinalIgnoreCase);
-                        while (!stop && !string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir) && Directory.GetFileSystemEntries(dir).Length == 0)
-                        {
-                            Directory.Delete(dir);
-                            dir = Path.GetDirectoryName(dir);
-                            stop = string.Equals(root.TrimEnd(Path.DirectorySeparatorChar), dir?.TrimEnd(Path.DirectorySeparatorChar),
-                                StringComparison.OrdinalIgnoreCase);
-                        }
+                        TryDeleteEmptyParentsQuiet(dir ?? "", liveRoot);
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[Db] Failed to delete directory for file '{full}': {ex}");
+                        Console.WriteLine($"[Db] Live cleanup failed for '{full}': {ex}");
                     }
                 }
+
+                try
+                {
+                    var disabledFull = Path.Combine(disabledRootForMod, rel);
+                    if (File.Exists(disabledFull)) File.Delete(disabledFull);
+
+                    var parent = Path.GetDirectoryName(disabledFull);
+                    TryDeleteEmptyParentsQuiet(parent ?? "", disabledRootForMod);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Db] Failed to delete disabled file for '{modId}': {ex}");
+                }
+            }
+
+            try
+            {
+                var clientModDir = Path.Combine(disabledRootBase, "client", modId);
+                var serverModDir = Path.Combine(disabledRootBase, "server", modId);
+
+                if (Directory.Exists(clientModDir)) TryDeleteEmptyParentsQuiet(clientModDir, Path.Combine(disabledRootBase, "client"));
+                if (Directory.Exists(serverModDir)) TryDeleteEmptyParentsQuiet(serverModDir, Path.Combine(disabledRootBase, "server"));
+
+                var clientRoot = Path.Combine(disabledRootBase, "client");
+                var serverRoot = Path.Combine(disabledRootBase, "server");
+                TryDeleteEmptyParentsQuiet(clientRoot, disabledRootBase);
+                TryDeleteEmptyParentsQuiet(serverRoot, disabledRootBase);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Db] Disabled stash cleanup warn for '{modId}': {ex}");
             }
 
             c.Execute("DELETE FROM mods WHERE mod_id=$m", ("$m", modId));
@@ -460,18 +527,22 @@ WHERE f.mod_id = @modId
         cmd.CommandText = @"
 SELECT m.mod_id,
        COALESCE(f.path,'') AS path,
-       COALESCE(f.target,'client') AS target
+       COALESCE(f.target,'client') AS target,
+       COALESCE(m.disabled,0) AS disabled
 FROM mods m
 LEFT JOIN files f ON f.mod_id = m.mod_id
 ORDER BY m.mod_id";
         using var r = cmd.ExecuteReader();
 
         var byMod = new Dictionary<string, List<(string path, string target)>>(StringComparer.Ordinal);
+        var disabledByMod = new Dictionary<string, bool>(StringComparer.Ordinal);
+
         while (r.Read())
         {
             var id = r.GetString(0);
             var path = r.IsDBNull(1) ? "" : r.GetString(1);
             var target = r.IsDBNull(2) ? "client" : r.GetString(2);
+            var disabled = !r.IsDBNull(3) && r.GetInt32(3) == 1;
 
             if (!byMod.TryGetValue(id, out var list))
             {
@@ -480,7 +551,13 @@ ORDER BY m.mod_id";
             }
 
             list.Add((path, target));
+            disabledByMod[id] = disabled;
         }
+
+        var dbFolder = Path.GetFileNameWithoutExtension(Paths.ModsDbPath) ?? "default";
+        var disabledRootBase = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
+
+        static string NormalizeTarget(string t) => string.Equals(t, "server", StringComparison.OrdinalIgnoreCase) ? "server" : "client";
 
         var removed = 0;
 
@@ -488,22 +565,32 @@ ORDER BY m.mod_id";
         {
             var modId = kv.Key;
             var files = kv.Value;
+            var isDisabled = disabledByMod.TryGetValue(modId, out var d) && d;
 
             bool anyOnDisk = false;
 
-            foreach (var (rel, tgt) in files)
+            foreach (var (relRaw, tgtRaw) in files)
             {
-                if (string.IsNullOrWhiteSpace(rel))
-                    continue;
+                if (string.IsNullOrWhiteSpace(relRaw)) continue;
 
-                var root = string.Equals(tgt, "server", StringComparison.OrdinalIgnoreCase)
-                    ? Spt.ServerModsPath
-                    : Spt.ClientModsPath;
+                var rel = relRaw.Replace('/', Path.DirectorySeparatorChar);
+                var target = NormalizeTarget(tgtRaw);
 
-                if (!string.IsNullOrWhiteSpace(root))
+                var liveRoot = target == "server" ? Spt.ServerModsPath : Spt.ClientModsPath;
+                if (!string.IsNullOrWhiteSpace(liveRoot))
                 {
-                    var full = Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar));
+                    var full = Path.Combine(liveRoot, rel);
                     if (File.Exists(full))
+                    {
+                        anyOnDisk = true;
+                        break;
+                    }
+                }
+
+                if (isDisabled)
+                {
+                    var disabledFull = Path.Combine(disabledRootBase, target, modId, rel);
+                    if (File.Exists(disabledFull))
                     {
                         anyOnDisk = true;
                         break;
@@ -511,7 +598,7 @@ ORDER BY m.mod_id";
                 }
             }
 
-            if (!anyOnDisk)
+            if (!anyOnDisk && !isDisabled)
             {
                 c.Execute("DELETE FROM mods WHERE mod_id=$m", ("$m", modId));
                 removed++;

@@ -175,7 +175,7 @@ namespace DragonDen.ModManager.Services
             if (files.Count == 0) return list;
 
             var dbFolder = Path.GetFileNameWithoutExtension(Paths.ModsDbPath) ?? "default";
-            var disabledRootBase = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
+            var disabledRoot = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
 
             foreach (var grp in files.GroupBy(f => (f.target ?? "client").ToLowerInvariant()))
             {
@@ -190,7 +190,7 @@ namespace DragonDen.ModManager.Services
 
                 if (rels.Count == 0) continue;
 
-                list.Add(new TargetCtx(label, liveRoot, disabledRootBase, rels));
+                list.Add(new TargetCtx(label, liveRoot, disabledRoot, rels));
             }
 
             return list;
