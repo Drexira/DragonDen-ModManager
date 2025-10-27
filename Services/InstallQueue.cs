@@ -623,6 +623,8 @@ public sealed class InstallQueue
                 });
             }
 
+            await Task.Delay(80, ct);
+
             var sptRoot = App.Config.Paths.SptRoot;
             if (!string.IsNullOrWhiteSpace(sptRoot) && Directory.Exists(sptRoot))
             {
@@ -707,7 +709,9 @@ public sealed class InstallQueue
         try
         {
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return 0;
-            return PruneEmptySubdirs(root, root);
+            var removed = 0;
+            PruneEmptySubdirs(root, root, ref removed);
+            return removed;
         }
         catch (Exception ex)
         {
@@ -716,25 +720,77 @@ public sealed class InstallQueue
         }
     }
 
-    private static int PruneEmptySubdirs(string root, string protectRoot)
+    private static void PruneEmptySubdirs(string root, string protectRoot, ref int removed)
     {
-        var removed = 0;
         foreach (var dir in Directory.EnumerateDirectories(root))
-            removed += PruneEmptySubdirs(dir, protectRoot);
-        if (root.Equals(protectRoot, StringComparison.OrdinalIgnoreCase)) return removed;
-        if (!Directory.EnumerateFileSystemEntries(root).Any())
+            PruneEmptySubdirs(dir, protectRoot, ref removed);
+
+        if (root.Equals(protectRoot, StringComparison.OrdinalIgnoreCase)) return;
+
+        if (IsEffectivelyEmpty(root))
+        {
+            if (TryDeleteDirRobust(root)) removed++;
+        }
+    }
+
+    private static bool IsEffectivelyEmpty(string dir)
+    {
+        foreach (var entry in Directory.EnumerateFileSystemEntries(dir))
+        {
+            if (Directory.Exists(entry)) return false;
+            var name = Path.GetFileName(entry);
+            var attr = File.GetAttributes(entry);
+            var hidden = (attr & FileAttributes.Hidden) == FileAttributes.Hidden || (attr & FileAttributes.System) == FileAttributes.System;
+            if (hidden) continue;
+            if (string.Equals(name, ".gitkeep", StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(name, ".keep", StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(name, ".placeholder", StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(name, "desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
+            return false;
+        }
+        return true;
+    }
+
+    private static bool TryDeleteDirRobust(string path)
+    {
+        ClearDirAttributes(path);
+        const int maxTries = 5;
+        for (var i = 0; i < maxTries; i++)
         {
             try
             {
-                Directory.Delete(root, false);
-                removed++;
+                Directory.Delete(path, false);
+                return true;
             }
-            catch (Exception ex)
+            catch (IOException)
             {
-                Logger.Error($"[InstallQueue] Failed to delete empty dir '{root}': {ex}");
+                Thread.Sleep(40);
             }
+            catch (UnauthorizedAccessException)
+            {
+                Thread.Sleep(40);
+                ClearDirAttributes(path);
+            }
+            if (!Directory.Exists(path)) return true;
         }
-        return removed;
+        Logger.Error($"[InstallQueue] Failed to delete empty dir '{path}' after retries");
+        return false;
+    }
+
+    private static void ClearDirAttributes(string path)
+    {
+        if (!Directory.Exists(path)) return;
+        try
+        {
+            var attr = File.GetAttributes(path);
+            attr &= ~FileAttributes.ReadOnly;
+            attr &= ~FileAttributes.System;
+            File.SetAttributes(path, attr);
+        }
+        catch
+        {
+            // good girl action
+        }
     }
     
     private static string ComputeStableCacheName(string name, string url, string version, string guid)

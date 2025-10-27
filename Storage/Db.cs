@@ -369,20 +369,54 @@ LIMIT 1";
             return false;
         }
 
+        static bool TryDeleteDirRobust(string path, int maxTries = 6, int delayMs = 40)
+        {
+            for (var i = 0; i < maxTries; i++)
+            {
+                try
+                {
+                    if (!Directory.Exists(path)) return true;
+                    try
+                    {
+                        var attr = File.GetAttributes(path);
+                        var cleared = attr & ~FileAttributes.ReadOnly & ~FileAttributes.System & ~FileAttributes.Hidden;
+                        if (cleared != attr) File.SetAttributes(path, cleared);
+                    }
+                    catch
+                    {
+                        // good girl action
+                    }
+
+                    Directory.Delete(path, false);
+                    return true;
+                }
+                catch (IOException)
+                {
+                    System.Threading.Thread.Sleep(delayMs);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    System.Threading.Thread.Sleep(delayMs);
+                }
+            }
+
+            return !Directory.Exists(path);
+        }
+
         static void TryDeleteEmptyParentsQuiet(string start, string stopAt)
         {
             try
             {
-                string Normalize(string? p)
+                static string Normalize(string? p)
                 {
                     if (string.IsNullOrWhiteSpace(p)) return "";
                     try
                     {
-                        return Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar);
+                        return Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     }
                     catch
                     {
-                        return p.TrimEnd(Path.DirectorySeparatorChar);
+                        return p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     }
                 }
 
@@ -392,8 +426,15 @@ LIMIT 1";
                 {
                     if (!Directory.Exists(cur)) break;
                     if (IsProtectedDir(stop, cur)) break;
-                    if (Directory.GetFileSystemEntries(cur).Length != 0) break;
-                    Directory.Delete(cur);
+                    if (Directory.EnumerateFileSystemEntries(cur).Any()) break;
+
+                    if (!TryDeleteDirRobust(cur))
+                    {
+                        if (Directory.Exists(cur))
+                            Logger.Error($"[Db] Failed to delete empty dir '{cur}' after retries");
+                        break;
+                    }
+
                     var next = Path.GetDirectoryName(cur);
                     if (string.IsNullOrWhiteSpace(next)) break;
                     cur = Normalize(next);
@@ -434,7 +475,21 @@ LIMIT 1";
                 var full = Path.Combine(sptRoot, rel.Replace('/', Path.DirectorySeparatorChar));
                 try
                 {
-                    if (File.Exists(full)) File.Delete(full);
+                    if (File.Exists(full))
+                    {
+                        try
+                        {
+                            var attr = File.GetAttributes(full);
+                            var cleared = attr & ~FileAttributes.ReadOnly & ~FileAttributes.System & ~FileAttributes.Hidden;
+                            if (cleared != attr) File.SetAttributes(full, cleared);
+                        }
+                        catch
+                        {
+                             // good girl action
+                        }
+
+                        File.Delete(full);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -493,8 +548,8 @@ LIMIT 1";
                 var dfull = Path.Combine(sptRoot, drel.Replace('/', Path.DirectorySeparatorChar));
                 try
                 {
-                    if (Directory.Exists(dfull) && Directory.GetFileSystemEntries(dfull).Length == 0 && !IsProtectedDir(sptRoot, dfull))
-                        Directory.Delete(dfull);
+                    if (Directory.Exists(dfull) && !IsProtectedDir(sptRoot, dfull) && !Directory.EnumerateFileSystemEntries(dfull).Any())
+                        TryDeleteDirRobust(dfull);
                 }
                 catch (Exception ex)
                 {
