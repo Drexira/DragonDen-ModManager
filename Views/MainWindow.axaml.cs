@@ -34,8 +34,6 @@ public partial class MainWindow : Window
         
         Opened += (_, __) => { 
             var scale = this.RenderScaling;
-            Console.WriteLine($"[MainWindow] Client={ClientSize.Width}x{ClientSize.Height}  " +
-                            $"Outer={Width}x{Height}  Scale={scale:0.##}");
             ClientSize = new Size(1280, 720); 
         };
         
