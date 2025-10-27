@@ -25,6 +25,32 @@ public static class Installer
         progress?.Report(("inspect", -1));
         ct.ThrowIfCancellationRequested();
         var entries = await Task.Run(() => sevenZip.ListEntries(archivePath), ct).ConfigureAwait(false);
+        
+        bool HasTopLevelAllowed(List<string> list)
+        {
+            foreach (var raw in list)
+            {
+                var p = (raw ?? "").Replace('\\', '/').TrimStart('/');
+                if (string.IsNullOrWhiteSpace(p)) continue;
+                var top = p.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                if (top == null) continue;
+                if (top.Equals("BepInEx", StringComparison.OrdinalIgnoreCase) ||
+                    top.Equals("SPT", StringComparison.OrdinalIgnoreCase) ||
+                    top.Equals("user", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (!HasTopLevelAllowed(entries))
+        {
+            Notifications.Current.ShowError("Installation Failed",
+                $"The mod '{Path.GetFileName(archivePath)}' is invalid or not structured properly, install cancelled.");
+            Console.WriteLine(
+                $"[Installer] Unsupported mod '{Path.GetFileName(archivePath)}' The mod '{archivePath}' does not have proper folder structure and should be reported to the mod author. (unless this is a 3rd party tool and not an actual mod)");
+            return new InstallResult(0, 0);
+        }
 
         var intent = DetectIntent(entries);
 
