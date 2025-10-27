@@ -9,4 +9,7 @@ namespace DragonDen.ModManager.Services;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     GenerationMode = JsonSourceGenerationMode.Metadata)]
 [JsonSerializable(typeof(Config))]
+
+[JsonSerializable(typeof(DragonDen.ModManager.Services.ModsDbRegistry.Model))]
+[JsonSerializable(typeof(DragonDen.ModManager.Services.ModsDbRegistry.Entry))]
 public partial class AppJsonContext : JsonSerializerContext { }

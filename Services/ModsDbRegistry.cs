@@ -10,8 +10,6 @@ namespace DragonDen.ModManager.Services;
 
 public static class ModsDbRegistry
 {
-    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web) { WriteIndented = true };
-
     private static string Normalize(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return "";
@@ -35,7 +33,7 @@ public static class ModsDbRegistry
             if (File.Exists(path))
             {
                 var json = File.ReadAllText(path);
-                var m = JsonSerializer.Deserialize<Model>(json, JsonOpts);
+                var m = JsonSerializer.Deserialize(json, AppJsonContext.Default.Model);
                 if (m is not null) return m;
             }
         }
@@ -53,7 +51,8 @@ public static class ModsDbRegistry
         {
             var dir = Path.GetDirectoryName(Paths.ModsRegistryPath)!;
             Directory.CreateDirectory(dir);
-            File.WriteAllText(Paths.ModsRegistryPath, JsonSerializer.Serialize(m, JsonOpts));
+            var json = JsonSerializer.Serialize(m, AppJsonContext.Default.Model);
+            File.WriteAllText(Paths.ModsRegistryPath, json);
         }
         catch (Exception ex)
         {
