@@ -661,8 +661,15 @@ ORDER BY m.mod_id";
 
         var dbFolder = Path.GetFileNameWithoutExtension(Paths.ModsDbPath) ?? "default";
         var disabledRootBase = Path.Combine(Paths.DataDir, "Disabled Mods", dbFolder);
+        var sptRoot = App.Config.Paths.SptRoot;
 
         static string NormalizeTarget(string t) => string.Equals(t, "server", StringComparison.OrdinalIgnoreCase) ? "server" : "client";
+
+        static string JoinUnder(string root, string rel)
+        {
+            var r = (rel ?? "").Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+            return Path.Combine(root ?? "", r);
+        }
 
         var removed = 0;
 
@@ -672,29 +679,23 @@ ORDER BY m.mod_id";
             var files = kv.Value;
             var isDisabled = disabledByMod.TryGetValue(modId, out var d) && d;
 
-            bool anyOnDisk = false;
+            var anyOnDisk = false;
 
             foreach (var (relRaw, tgtRaw) in files)
             {
                 if (string.IsNullOrWhiteSpace(relRaw)) continue;
 
-                var rel = relRaw.Replace('/', Path.DirectorySeparatorChar);
-                var target = NormalizeTarget(tgtRaw);
-
-                var liveRoot = target == "server" ? Spt.ServerModsPath : Spt.ClientModsPath;
-                if (!string.IsNullOrWhiteSpace(liveRoot))
+                var full = JoinUnder(sptRoot, relRaw);
+                if (File.Exists(full))
                 {
-                    var full = Path.Combine(liveRoot, rel);
-                    if (File.Exists(full))
-                    {
-                        anyOnDisk = true;
-                        break;
-                    }
+                    anyOnDisk = true;
+                    break;
                 }
 
                 if (isDisabled)
                 {
-                    var disabledFull = Path.Combine(disabledRootBase, target, modId, rel);
+                    var target = NormalizeTarget(tgtRaw);
+                    var disabledFull = JoinUnder(Path.Combine(disabledRootBase, target, modId), relRaw);
                     if (File.Exists(disabledFull))
                     {
                         anyOnDisk = true;
