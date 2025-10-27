@@ -45,6 +45,11 @@ public partial class InstalledModsPage : UserControl
         SortBox.SelectionChanged += async (_, __) => await RefreshRows();
         UpdatesFirstChk.IsCheckedChanged += async (_, __) => await RefreshRows();
         HideDisabledChk.IsCheckedChanged += async (_, __) => await RefreshRows();
+        
+        _searchDebounce.Stop();
+        _searchDebounce.Interval = TimeSpan.FromMilliseconds(1000);
+        _searchDebounce.Tick -= OnSearchDebounceTick;
+        _searchDebounce.Tick += OnSearchDebounceTick;
 
         _searchDebounce.Tick += async (_, __) =>
         {
@@ -77,6 +82,7 @@ public partial class InstalledModsPage : UserControl
         {
             if (!string.IsNullOrEmpty(SearchBox.Text))
             {
+                _searchDebounce.Stop();
                 SearchBox.Text = "";
                 _searchText = "";
                 await RefreshRows();
@@ -159,6 +165,13 @@ public partial class InstalledModsPage : UserControl
 
         if (!_isBuilding)
             SetStatus(updatable == 0 ? "All up to date" : $"{updatable} mod(s) have updates");
+        await RefreshRows();
+    }
+    
+    private async void OnSearchDebounceTick(object? sender, EventArgs e)
+    {
+        _searchDebounce.Stop();
+        _searchText = (SearchBox.Text ?? "").Trim();
         await RefreshRows();
     }
 
