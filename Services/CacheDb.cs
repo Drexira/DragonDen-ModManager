@@ -105,6 +105,13 @@ PRAGMA foreign_keys=ON;";
     CREATE INDEX IF NOT EXISTS idx_versions_mod ON versions(mod_id);
     CREATE INDEX IF NOT EXISTS idx_versions_sptnorm ON versions(spt_norm);
     ";
+    
+        using (var idx = c.CreateCommand())
+        {
+            idx.CommandText = "CREATE INDEX IF NOT EXISTS idx_versions_mod_pub ON versions(mod_id, published_at)";
+            idx.ExecuteNonQuery();
+        }
+        
         cmd.ExecuteNonQuery();
 
         EnsureColumn(c, "mods", "guid", "TEXT");
@@ -229,7 +236,10 @@ PRAGMA foreign_keys=ON;";
         {
             "downloads" => "m.downloads DESC, COALESCE(m.updated_at,m.published_at,'') DESC",
             "newest" => "COALESCE(m.published_at,m.updated_at,'') DESC, m.downloads DESC",
-            _ => "COALESCE(m.updated_at,m.published_at,'') DESC, m.downloads DESC"
+            _ => @"COALESCE(
+            (SELECT MAX(COALESCE(published_at,'')) FROM versions v WHERE v.mod_id = m.id),
+            COALESCE(m.updated_at,m.published_at,'')
+          ) DESC, m.downloads DESC"
         };
 
         var total = 0;
