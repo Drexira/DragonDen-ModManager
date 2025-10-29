@@ -47,6 +47,11 @@ public partial class ConfigDialog : Window
         Resources["AvaloniaEdit.SelectionForeground"] = new SolidColorBrush(Colors.White);
         EditorText.TextArea.Caret.CaretBrush = new SolidColorBrush(Colors.White);
 
+        // Block any auto "bring into view" that originates from the text editor
+        EditorText.AddHandler(RequestBringIntoViewEvent, OnBlockBringIntoView, RoutingStrategies.Tunnel);
+        EditorPanel.AddHandler(RequestBringIntoViewEvent, OnBlockBringIntoView, RoutingStrategies.Tunnel);
+        AddHandler(RequestBringIntoViewEvent, OnBlockBringIntoView, RoutingStrategies.Tunnel);
+
         PointerPressed += (_, e) =>
         {
             if (e.Source is Button) return;
@@ -58,7 +63,6 @@ public partial class ConfigDialog : Window
             }
             catch
             {
-                // good girl action
             }
         };
 
@@ -433,6 +437,21 @@ public partial class ConfigDialog : Window
         _isDraggingSplitter = false;
         EnforceSplitterLimits();
     }
+    
+    private void OnBlockBringIntoView(object? sender, RequestBringIntoViewEventArgs e)
+    {
+        if (ReferenceEquals(e.TargetObject, EditorText))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (ReferenceEquals(sender, EditorText) || ReferenceEquals(sender, EditorPanel))
+        {
+            e.Handled = true;
+        }
+    }
+
 
     private void EnforceSplitterLimits()
     {

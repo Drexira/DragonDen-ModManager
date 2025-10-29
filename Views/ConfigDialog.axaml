@@ -67,7 +67,7 @@
         <Grid Grid.Row="1" ColumnDefinitions="*,6,0" x:Name="MainSplit" Margin="12">
             <Border x:Name="LeftPanel" Grid.Column="0" Background="{StaticResource Dd.ListBg}" BorderBrush="{StaticResource Dd.ListBr}"
                     BorderThickness="1" CornerRadius="10" Margin="0" MinWidth="0">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" BringIntoViewOnFocusChange="False">
                     <ListBox x:Name="FilesList" SelectionMode="Single" SelectionChanged="OnSelectionChanged" />
                 </ScrollViewer>
             </Border>
@@ -95,12 +95,22 @@
                         <Button Grid.Column="3" Content="Close" Click="OnCloseEditorClicked" Margin="8,0,0,0" />
                     </Grid>
 
-                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <ae:TextEditor x:Name="EditorText" Margin="8" MinWidth="0" MinHeight="0" ShowLineNumbers="True" 
-                                       FontFamily="Consolas, Menlo, Monaco, Courier New" FontSize="14" WordWrap="False"
-                                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                                       Background="#0F1317" Foreground="#EDEDED" TextChanged="OnEditorTextChanged" />
-                    </ScrollViewer>
+                    <ae:TextEditor x:Name="EditorText"
+                                   Grid.Row="1"
+                                   Margin="8"
+                                   MinWidth="0"
+                                   MinHeight="0"
+                                   ShowLineNumbers="True"
+                                   FontFamily="Consolas, Menlo, Monaco, Courier New"
+                                   FontSize="14"
+                                   WordWrap="True"
+                                   HorizontalScrollBarVisibility="Auto"
+                                   VerticalScrollBarVisibility="Auto"
+                                   Focusable="True"
+                                   ScrollViewer.BringIntoViewOnFocusChange="False"
+                                   Background="#0F1317"
+                                   Foreground="#EDEDED"
+                                   TextChanged="OnEditorTextChanged" />
                 </Grid>
             </Border>
         </Grid>
