@@ -1,0 +1,123 @@
+﻿<Window
+  x:Class="DragonDen.ModManager.Views.FirstInstallDialog"
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  TransparencyLevelHint="AcrylicBlur,Blur,Transparent"
+  Background="{StaticResource Dd.Panel}"
+  ExtendClientAreaTitleBarHeightHint="36"
+  WindowStartupLocation="CenterOwner"
+  SystemDecorations="BorderOnly"
+  Width="640" MinWidth="500" MinHeight="260"
+  SizeToContent="WidthAndHeight"
+  ExtendClientAreaToDecorationsHint="True"
+  ExtendClientAreaChromeHints="NoChrome"
+  ShowInTaskbar="False"
+  CanResize="True">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="Dd.Panel" Color="#13181D" />
+    <SolidColorBrush x:Key="Dd.Border" Color="#20262D" />
+    <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+    <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+    <SolidColorBrush x:Key="Dd.Btn.Hover" Color="#FF8A00" />
+    <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Danger" Color="#E24747" />
+    <SolidColorBrush x:Key="Dd.Danger.Hover" Color="#F06161" />
+    <SolidColorBrush x:Key="Dd.Accent" Color="#7AA2F7" />
+    <SolidColorBrush x:Key="Dd.Text.Dark" Color="#111111" />
+    <SolidColorBrush x:Key="Dd.Card" Color="#151B21" />
+    <SolidColorBrush x:Key="Dd.Warn.Bg" Color="#EF5350" />
+    <SolidColorBrush x:Key="Dd.Warn.Stroke" Color="#B71C1C" />
+    <SolidColorBrush x:Key="Dd.Warn.Fg" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Dd.Green" Color="#1faa33" />
+    <SolidColorBrush x:Key="Dd.Green.Hover" Color="#2ad643" />
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="Button.action">
+      <Setter Property="Background" Value="{StaticResource Dd.Btn}" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinWidth" Value="132" />
+    </Style>
+    <Style Selector="Button.action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Dd.Btn.Hover}" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Text.Dark}" />
+    </Style>
+
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource Dd.Green}" />
+      <Setter Property="Foreground" Value="{StaticResource Dd.Text.Dark}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinWidth" Value="148" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Dd.Green.Hover}" />
+    </Style>
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource Dd.Card}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Background="{StaticResource Dd.Panel}" BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1" Padding="16,10">
+      <Grid ColumnDefinitions="Auto,*">
+        <Path Data="M4,0 L10,10 L0,10 Z" Fill="{StaticResource Dd.Accent}" Width="12" Height="12" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="0" Margin="10,0,0,0">
+          <TextBlock x:Name="TitleText" Text="First Install" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}"/>
+          <TextBlock x:Name="SubTitleText" Text="" Foreground="{StaticResource Dd.Subtle}" FontSize="12"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" Margin="16" MaxHeight="560">
+      <StackPanel Spacing="12" MaxWidth="720" HorizontalAlignment="Center">
+        <Border Classes="card">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Grid Width="48" Height="48" VerticalAlignment="Top">
+              <Path Data="M24,4 L44,40 H4 Z" Fill="{StaticResource Dd.Warn.Bg}" Stroke="{StaticResource Dd.Warn.Stroke}" StrokeThickness="2"/>
+              <Path Data="M24,15 V29" Stroke="{StaticResource Dd.Warn.Fg}" StrokeThickness="4.4" StrokeLineCap="Round"/>
+              <Path Data="M22,33 H26 V37 H22 Z" Fill="{StaticResource Dd.Warn.Fg}"/>
+            </Grid>
+
+            <StackPanel Grid.Column="1" Spacing="6">
+              <TextBlock x:Name="BodyText" Text="Read the Forge page before installing."/>
+              <TextBlock x:Name="BodyText2" Text="Check SPT version, requirements, and install notes."
+                         Foreground="{StaticResource Dd.Text}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <ItemsControl>
+                <ItemsControl.Items>
+                  <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Back up your SPT folder." TextWrapping="Wrap"/>
+                  <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Confirm dependencies and incompatibilities." TextWrapping="Wrap"/>
+                  <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Only SPT 4.0 and up is supported." TextWrapping="Wrap"/>
+                </ItemsControl.Items>
+              </ItemsControl>
+              <TextBlock x:Name="CountdownText"
+                         Foreground="{StaticResource Dd.Subtle}" TextWrapping="Wrap"
+                         Text="Install available after opening the mod page"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" Margin="16,0,16,16">
+      <Button x:Name="OpenPageBtn" Classes="primary" Content="Open Mod Page"/>
+      <TextBlock Grid.Column="1" />
+      <Button x:Name="CancelBtn" Classes="action" Grid.Column="1" Content="Cancel" Margin="0,0,8,0"/>
+      <Button x:Name="InstallBtn" Classes="action" Grid.Column="2" Content="Install Mod" IsEnabled="False" Margin="0,0,8,0"/>
+      <Button x:Name="CloseBtn" Classes="action" Grid.Column="3" Content="Close" IsVisible="False"/>
+    </Grid>
+  </Grid>
+</Window>

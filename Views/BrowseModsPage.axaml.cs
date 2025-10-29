@@ -1547,8 +1547,12 @@ public partial class BrowseModsPage : UserControl
                     ?? this.FindAncestorOfType<Window>()
                     ?? (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
+        if (owner is null) return;
+
+        var acknowledged = await ConfirmFirstInstallAsync(owner, row.Name, row.Guid, row.ModPageUrl, App.ShutdownToken);
+        if (!acknowledged) return;
+
         ForgeClient.ModVersion? chosen = null;
-        if (owner is not null)
         {
             var dlg = new BrowseModInstallDialog(row);
             chosen = await dlg.ShowDialog<ForgeClient.ModVersion?>(owner);
@@ -1602,7 +1606,7 @@ public partial class BrowseModsPage : UserControl
 
         var missing = rawMissing.Where(d => !IsInstalledByNameOrGuid(d.Name, d.Guid)).ToList();
 
-        if (missing.Count > 0 && !row.IsInstalled && owner is not null)
+        if (missing.Count > 0 && !row.IsInstalled)
         {
             var choice = await DependenciesDialog.ShowAsync(owner, row.Name, missing);
             if (choice == DependenciesDialog.InstallChoice.Cancel) return;
@@ -1711,6 +1715,19 @@ public partial class BrowseModsPage : UserControl
                 row.IsQueued = false;
                 row.IsInstalled = true;
             }
+        }
+    }
+    
+    private async Task<bool> ConfirmFirstInstallAsync(Window owner, string modName, string? modGuid, string? modUrl, CancellationToken ct)
+    {
+        try
+        {
+            if (App.Db.HasModPageAcknowledged(modGuid, modName)) return true;
+            return await FirstInstallDialog.ShowAsync(owner, modName, modGuid ?? "", modUrl ?? "", ct);
+        }
+        catch
+        {
+            return false;
         }
     }
 

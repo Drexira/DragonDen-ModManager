@@ -56,6 +56,11 @@ public sealed class Db
         PRIMARY KEY(path, mod_id, target),
         FOREIGN KEY(mod_id) REFERENCES mods(mod_id) ON DELETE CASCADE
     )");
+        c.Execute(@"CREATE TABLE IF NOT EXISTS modpage_ack(
+        key TEXT PRIMARY KEY,
+        url TEXT,
+        acked_at INTEGER
+    )");
 
         EnsureColumn(c, "mods", "guid", "TEXT");
         EnsureColumn(c, "mods", "source_url", "TEXT");
@@ -633,6 +638,35 @@ WHERE f.mod_id = @modId
         }
 
         return res;
+    }
+    
+    private static string BuildAckKey(string? guid, string? name)
+    {
+        var g = (guid ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(g)) return g;
+        var n = (name ?? "").Trim();
+        return n.ToUpperInvariant();
+    }
+
+    public bool HasModPageAcknowledged(string? guid, string? name)
+    {
+        using var c = Conn();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM modpage_ack WHERE key=$k LIMIT 1";
+        cmd.Parameters.AddWithValue("$k", BuildAckKey(guid, name));
+        var v = cmd.ExecuteScalar();
+        return v != null;
+    }
+
+    public void RecordModPageAcknowledgement(string? guid, string? name, string? url)
+    {
+        using var c = Conn();
+        c.Execute(
+            "INSERT OR REPLACE INTO modpage_ack(key,url,acked_at) VALUES($k,$u,$t)",
+            ("$k", BuildAckKey(guid, name)),
+            ("$u", url ?? ""),
+            ("$t", DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+        );
     }
 
     public void RemoveInstall(string modId)
