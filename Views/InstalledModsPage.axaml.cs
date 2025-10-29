@@ -33,7 +33,6 @@ public partial class InstalledModsPage : UserControl
         InitializeComponent();
 
         RefreshBtn.Click += async (_, __) => await ScanDiskAsync();
-        CheckUpdatesBtn.Click += async (_, __) => await CheckUpdates();
         UpdateAllBtn.Click += async (_, __) => await UpdateAll();
         OpenClientBtn.Click += (_, __) => OpenFolder(Spt.ClientModsPath);
         OpenServerBtn.Click += (_, __) => OpenFolder(Spt.ServerModsPath);
@@ -115,57 +114,6 @@ public partial class InstalledModsPage : UserControl
             Notifications.Current.ShowError("Open Folder Failed", $"Could not open '{path}'. Check if the folder exists or is accessible.");
             Logger.Error($"[InstalledModsPage] OpenFolder exception: {ex.Message}");
         }
-    }
-
-    private async Task CheckUpdates()
-    {
-        var mods = App.Db.ListMods().ToList();
-        var updatable = 0;
-
-        var detectedAB = App.GetDetectedSptAB();
-
-        foreach (var m in mods)
-        {
-            await gate.WaitAsync();
-            try
-            {
-                var all = App.Cache.GetAllModsBasic();
-                CacheDb.ModRow? cacheRow = null;
-                if (!string.IsNullOrWhiteSpace(m.guid))
-                    cacheRow = all.FirstOrDefault(r => string.Equals(r.Guid, m.guid, StringComparison.OrdinalIgnoreCase));
-                else
-                    cacheRow = all.FirstOrDefault(r => string.Equals(r.Name, m.name, StringComparison.OrdinalIgnoreCase));
-
-                List<ForgeClient.ModVersion> versions = new();
-                if (cacheRow != null)
-                {
-                    await App.Cache.EnsureVersionsCachedAsync(cacheRow.Id);
-                    versions = await Storage.CacheDb.GetVersionsAsync(cacheRow.Id);
-                }
-
-                var candidates = versions
-                    .Where(v => string.IsNullOrWhiteSpace(detectedAB) ||
-                                string.Equals(ToABFromConstraint(v.SptVersionConstraint), detectedAB, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                candidates.Sort((x, y) => CompareSemverDesc(x?.Version, y?.Version));
-                var latestForAB = candidates.FirstOrDefault();
-
-                var latestVersion = latestForAB?.Version ?? "";
-                if (!string.IsNullOrWhiteSpace(latestVersion) && IsUpdate(m.version, latestVersion))
-                    updatable++;
-            }
-            finally
-            {
-                gate.Release();
-            }
-
-            await Task.Delay(120);
-        }
-
-        if (!_isBuilding)
-            SetStatus(updatable == 0 ? "All up to date" : $"{updatable} mod(s) have updates");
-        await RefreshRows();
     }
     
     private async void OnSearchDebounceTick(object? sender, EventArgs e)
