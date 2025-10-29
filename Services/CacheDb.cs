@@ -105,24 +105,24 @@ PRAGMA foreign_keys=ON;";
     CREATE INDEX IF NOT EXISTS idx_versions_mod ON versions(mod_id);
     CREATE INDEX IF NOT EXISTS idx_versions_sptnorm ON versions(spt_norm);
     ";
-    
+        cmd.ExecuteNonQuery();
+
         using (var idx = c.CreateCommand())
         {
             idx.CommandText = "CREATE INDEX IF NOT EXISTS idx_versions_mod_pub ON versions(mod_id, published_at)";
             idx.ExecuteNonQuery();
         }
-        
-        cmd.ExecuteNonQuery();
 
         EnsureColumn(c, "mods", "guid", "TEXT");
         EnsureColumn(c, "categories", "color_class", "TEXT");
         EnsureColumn(c, "versions", "description", "TEXT");
         EnsureColumn(c, "versions", "spt_norm", "TEXT");
+
         try
         {
-            using var idx = c.CreateCommand();
-            idx.CommandText = "CREATE INDEX IF NOT EXISTS idx_mods_guid ON mods(guid)";
-            idx.ExecuteNonQuery();
+            using var idx2 = c.CreateCommand();
+            idx2.CommandText = "CREATE INDEX IF NOT EXISTS idx_mods_guid ON mods(guid)";
+            idx2.ExecuteNonQuery();
         }
         catch
         {
@@ -131,16 +131,15 @@ PRAGMA foreign_keys=ON;";
         using (var fix = c.CreateCommand())
         {
             fix.CommandText = @"
-    UPDATE mods
-    SET category_name = COALESCE(NULLIF(category_name,''), NULLIF(category_slug,''), category_slug)
-    WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
+UPDATE mods
+SET category_name = COALESCE(NULLIF(category_name,''), NULLIF(category_slug,''), category_slug)
+WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
             try
             {
                 fix.ExecuteNonQuery();
             }
             catch
             {
-                // good girl action
             }
         }
     }
@@ -939,6 +938,7 @@ LIMIT 1;";
         var all = await ForgeClient.GetAllVersionsAsync(modId, App.ShutdownToken).ConfigureAwait(false);
         foreach (var v in all) UpsertVersion(modId, v);
     }
+
     public async Task<ForgeClient.ModVersion?> GetLatestVersionForModNameAsync(string name)
     {
         using var c = Conn();
