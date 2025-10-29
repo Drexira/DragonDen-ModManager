@@ -1,0 +1,156 @@
+﻿<Window
+  x:Class="DragonDen.ModManager.Views.AlphaNoticeDialog"
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  TransparencyLevelHint="AcrylicBlur,Blur,Transparent"
+  Background="{StaticResource Dd.Panel}"
+  ExtendClientAreaTitleBarHeightHint="36"
+  WindowStartupLocation="CenterOwner"
+  SystemDecorations="BorderOnly"
+  Width="760" MinWidth="560" MinHeight="520"
+  SizeToContent="WidthAndHeight"
+  ExtendClientAreaToDecorationsHint="True"
+  ExtendClientAreaChromeHints="NoChrome"
+  ShowInTaskbar="False"
+  CanResize="True">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="Dd.Panel" Color="#13181D" />
+    <SolidColorBrush x:Key="Dd.Border" Color="#20262D" />
+    <SolidColorBrush x:Key="Dd.Text" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Subtle" Color="#9AA4AE" />
+    <SolidColorBrush x:Key="Dd.Btn" Color="#2A2F36" />
+    <SolidColorBrush x:Key="Dd.Btn.Hover" Color="#FF8A00" />
+    <SolidColorBrush x:Key="Dd.Btn.Fg" Color="#EDEDED" />
+    <SolidColorBrush x:Key="Dd.Danger" Color="#E24747" />
+    <SolidColorBrush x:Key="Dd.Danger.Hover" Color="#F06161" />
+    <SolidColorBrush x:Key="Dd.Accent" Color="#7AA2F7" />
+    <SolidColorBrush x:Key="Dd.Card" Color="#151B21" />
+    <LinearGradientBrush x:Key="Dd.Grad" StartPoint="0,0" EndPoint="1,1">
+      <GradientStop Color="#1C2630" Offset="0"/>
+      <GradientStop Color="#0F1318" Offset="1"/>
+    </LinearGradientBrush>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="Button.action">
+      <Setter Property="Background" Value="{StaticResource Dd.Btn}"/>
+      <Setter Property="Foreground" Value="{StaticResource Dd.Btn.Fg}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="MinWidth" Value="160"/>
+    </Style>
+    <Style Selector="Button.action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Dd.Btn.Hover}"/>
+      <Setter Property="Foreground" Value="#111111"/>
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="{StaticResource Dd.Danger}"/>
+      <Setter Property="Foreground" Value="#111111"/>
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Dd.Danger.Hover}"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource Dd.Card}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Dd.Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,* ,Auto">
+    <Border Background="{StaticResource Dd.Grad}" BorderBrush="{StaticResource Dd.Border}" BorderThickness="0,0,0,1" Padding="16,10">
+      <Grid ColumnDefinitions="Auto,*">
+        <Path Data="M4,0 L10,10 L0,10 Z" Fill="{StaticResource Dd.Accent}" Width="12" Height="12" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="5" Margin="10,0,0,0">
+          <TextBlock Text="Dragon Den Mod Manager" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}"/>
+          <TextBlock Text="Welcome and Alpha Notice" Foreground="{StaticResource Dd.Subtle}" FontSize="12"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" Margin="16" MaxHeight="620">
+      <StackPanel Spacing="12">
+        <Border Classes="card">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Disclaimer" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}"/>
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Dd.Subtle}">
+              Dragon Den Mod Manager is in alpha. Features can change and there may be bugs or unfinished parts. You use it at your own risk.
+            </TextBlock>
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Dd.Subtle}"
+              Text="SPT staff is not responsible for issues caused by the mod manager and will not offer support for it."/> 
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Dd.Subtle}"
+                       Text="If you want their help you must install mods manually. Drexira will help if issues are posted on GitHub when using the Mod Manager."/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Support Policy" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}"/>
+            <ItemsControl>
+              <ItemsControl.Items>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Only SPT 4.0 or newer is supported."/>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Issues from lower versions will be refused."/>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Mods not installed with the Mod Manager may not show correctly on the Installed Mods page."/>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="If problems happen and you do not report them, they will not be fixed so please report it and don't complain without reporting it."/>
+              </ItemsControl.Items>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Before You Continue" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}"/>
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Dd.Subtle}"
+              Text="If you do not understand what mods are, how they are installed, how they load, and how they affect SPT, you must take time to learn these basics first."/> 
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Dd.Subtle}"
+                       Text="The manager aims to make life easier, but during alpha it is not advised for beginners to rely on it without reading and learning."/>
+            
+            <ItemsControl>
+              <ItemsControl.Items>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Back up your SPT folder before installing or removing mods."/>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Read each mod page fully before installing."/>
+                <TextBlock Foreground="{StaticResource Dd.Subtle}" Text="Send logs and steps to reproduce when reporting issues."/>
+              </ItemsControl.Items>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+            <StackPanel Spacing="2">
+              <TextBlock Text="Community" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}"/>
+              <TextBlock Foreground="{StaticResource Dd.Subtle}" TextWrapping="Wrap">
+                Join the WTT Discord and look for the #drexiras-dragon-den channel to talk to me.
+              </TextBlock>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button x:Name="GithubBtn" Classes="action" Content="GitHub Issues" HorizontalContentAlignment="Center" Margin="10,0,0,0"/>
+              <Button x:Name="DiscordBtn" Classes="action" Content="WTT Discord" HorizontalContentAlignment="Center"/>
+              <Button x:Name="ModPageBtn" Classes="action" Content="Mod Page" HorizontalContentAlignment="Center"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Agreement" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}"/>
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Dd.Subtle}">
+              By clicking I Understand and Agree you confirm you have read the notice above and agree to proceed.
+            </TextBlock>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="16,0,16,16">
+      <TextBlock/>
+      <Button x:Name="DisagreeBtn" Grid.Column="1" Classes="danger" Content="I Disagree" Margin="0,0,10,0"/>
+      <Button x:Name="AgreeBtn" Grid.Column="2" Classes="action" Content="I Understand and Agree"/>
+    </Grid>
+  </Grid>
+</Window>
