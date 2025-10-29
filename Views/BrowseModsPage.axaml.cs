@@ -212,10 +212,17 @@ public partial class BrowseModsPage : UserControl
     private int _totalMatches;
     private bool _updatingSptFilter;
     private bool _pagingInitialized;
+    
+    private const string BlacklistUrl = "https://raw.githubusercontent.com/Drexira/DragonDen-ModManager/refs/heads/Public/BlacklistMods.json";
+    private static readonly SemaphoreSlim _blacklistGate = new(1, 1);
+    private static HashSet<string> _blacklist = new(StringComparer.OrdinalIgnoreCase);
+    private static DateTimeOffset _blacklistFetchedAt = DateTimeOffset.MinValue;
 
     public BrowseModsPage()
     {
         InitializeComponent();
+        
+        _ = EnsureBlacklistAsync();
 
         RefreshBtn.Click += async (_, __) => await StartIndexingAsync(true);
         ClearBtn.Click += OnClear;
@@ -847,6 +854,8 @@ public partial class BrowseModsPage : UserControl
         }
 
         RefreshBtn.IsEnabled = false;
+        
+        await EnsureBlacklistAsync();
 
         _isIndexing = true;
         _page = 1;
@@ -955,7 +964,7 @@ public partial class BrowseModsPage : UserControl
 
             foreach (var m in mods)
             {
-                if (m.guid == "net.drexira.modmanager") continue;
+                if (IsBlacklisted(m.guid)) continue;
 
                 var row = new SearchResultRow
                 {
@@ -1742,6 +1751,81 @@ public partial class BrowseModsPage : UserControl
 
         return null;
     }
+    
+    private static bool IsBlacklisted(string? guid)
+    {
+        if (string.IsNullOrWhiteSpace(guid)) return false;
+        return _blacklist.Contains(guid.Trim());
+    }
+
+    private static async Task EnsureBlacklistAsync()
+    {
+        var stale = DateTimeOffset.UtcNow - _blacklistFetchedAt > TimeSpan.FromHours(3);
+        if (!stale && _blacklist.Count > 0) return;
+
+        await _blacklistGate.WaitAsync();
+        try
+        {
+            var stillStale = DateTimeOffset.UtcNow - _blacklistFetchedAt > TimeSpan.FromHours(3);
+            if (!stillStale && _blacklist.Count > 0) return;
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            http.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+            http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "DragonDen-ModManager");
+
+            var json = await http.GetStringAsync(BlacklistUrl);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                Logger.Warn("[Blacklist] Empty response.");
+                return;
+            }
+
+            var set = ParseBlacklistJson(json);
+            _blacklist = set;
+            _blacklistFetchedAt = DateTimeOffset.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("[Blacklist] Fetch/parse failed: " + ex.Message);
+            if (_blacklist.Count == 0) _blacklistFetchedAt = DateTimeOffset.UtcNow;
+        }
+        finally
+        {
+            _blacklistGate.Release();
+        }
+    }
+    
+    private static HashSet<string> ParseBlacklistJson(string json)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in root.EnumerateArray())
+                if (el.ValueKind == JsonValueKind.String)
+                {
+                    var s = el.GetString();
+                    if (!string.IsNullOrWhiteSpace(s)) set.Add(s.Trim());
+                }
+            return set;
+        }
+
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("guids", out var guids) && guids.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in guids.EnumerateArray())
+                if (el.ValueKind == JsonValueKind.String)
+                {
+                    var s = el.GetString();
+                    if (!string.IsNullOrWhiteSpace(s)) set.Add(s.Trim());
+                }
+            return set;
+        }
+
+        return set;
+    }
 
     private static IEnumerable<string> BuildOwnerNames(ForgeClient.ModSummary m)
     {
@@ -1785,5 +1869,11 @@ public partial class BrowseModsPage : UserControl
 
         [JsonPropertyName("source_code_links")]
         public List<SourceLinkDto>? SourceCodeLinks { get; set; }
+    }
+
+    private sealed class BlacklistDto
+    {
+        [JsonPropertyName("guids")]
+        public string[]? Guids { get; set; }
     }
 }
