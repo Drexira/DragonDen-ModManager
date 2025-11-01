@@ -13,3 +13,6 @@ namespace DragonDen.ModManager.Services;
 [JsonSerializable(typeof(DragonDen.ModManager.Services.ModsDbRegistry.Model))]
 [JsonSerializable(typeof(DragonDen.ModManager.Services.ModsDbRegistry.Entry))]
 public partial class AppJsonContext : JsonSerializerContext { }
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(DragonDen.ModManager.Services.HasInstalledBefore.Store))]
+internal partial class HasInstalledBeforeJsonContext : JsonSerializerContext { }

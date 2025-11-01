@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Threading;
 
 namespace DragonDen.ModManager.Views;
 
@@ -13,18 +12,14 @@ public partial class FirstInstallDialog : Window
     private readonly string? modGuid;
     private readonly string? modUrl;
 
-    private TimeSpan waitAfterOpen = TimeSpan.FromSeconds(6);
-    private bool openedPage;
-    private DateTimeOffset enableAt;
-    private readonly DispatcherTimer uiTimer;
     private readonly TaskCompletionSource<bool> resultTcs;
+    private bool pageOpened;
 
     public FirstInstallDialog()
     {
         InitializeComponent();
 
         resultTcs = new TaskCompletionSource<bool>();
-        uiTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Normal, OnTick);
 
         Opened += OnOpened;
         Closing += OnClosing;
@@ -52,12 +47,11 @@ public partial class FirstInstallDialog : Window
         BodyText2.Text = "Check requirements, incompatibilities, and install notes.";
         CountdownText.Text = "Install available after opening the mod page";
         InstallBtn.IsEnabled = false;
-        uiTimer.Start();
+        pageOpened = false;
     }
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        uiTimer.Stop();
         resultTcs.TrySetResult(false);
     }
 
@@ -70,7 +64,7 @@ public partial class FirstInstallDialog : Window
             return;
         }
 
-        if (e.Key == Key.Enter && InstallBtn.IsEnabled)
+        if (e.Key == Key.Enter && pageOpened && InstallBtn.IsEnabled)
         {
             OnInstallClicked(this, null!);
             e.Handled = true;
@@ -96,19 +90,17 @@ public partial class FirstInstallDialog : Window
             // good girl action
         }
 
-        openedPage = true;
-#if DEBUG
-        waitAfterOpen = TimeSpan.FromSeconds(1);
-#endif
-        enableAt = DateTimeOffset.UtcNow + waitAfterOpen;
-        UpdateCountdown();
+        pageOpened = true;
+        InstallBtn.IsEnabled = true;
+        CountdownText.Text = "You can install now";
+        InstallBtn.Focus();
     }
 
     private void OnInstallClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try
         {
-            App.Db.RecordModPageAcknowledgement(modGuid, modName, modUrl);
+            Services.HasInstalledBefore.RecordModInstalled(modGuid, modName, modUrl);
         }
         catch
         {
@@ -123,36 +115,6 @@ public partial class FirstInstallDialog : Window
     {
         resultTcs.TrySetResult(false);
         Close();
-    }
-
-    private void OnTick(object? sender, EventArgs e)
-    {
-        if (!openedPage)
-        {
-            InstallBtn.IsEnabled = false;
-            CountdownText.Text = "Install available after opening the mod page";
-            return;
-        }
-
-        var now = DateTimeOffset.UtcNow;
-        if (now >= enableAt)
-        {
-            InstallBtn.IsEnabled = true;
-            CountdownText.Text = "You can install now";
-        }
-        else
-        {
-            InstallBtn.IsEnabled = false;
-            UpdateCountdown();
-        }
-    }
-
-    private void UpdateCountdown()
-    {
-        var now = DateTimeOffset.UtcNow;
-        var remaining = enableAt > now ? enableAt - now : TimeSpan.Zero;
-        var s = Math.Ceiling(remaining.TotalSeconds);
-        CountdownText.Text = openedPage ? "Install available in " + s.ToString("0") + "s" : "Install available after opening the mod page";
     }
 
     public static async Task<bool> ShowAsync(Window owner, string modName, string modGuid, string modUrl, CancellationToken ct = default)

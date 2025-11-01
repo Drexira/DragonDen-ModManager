@@ -12,6 +12,7 @@ public static class Paths
     public static readonly string SevenZipPath = Path.Combine(ToolsDir, "7zip", "win", "7za.exe");
     public static readonly string DataDir = Path.Combine(AppBase, "data");
     public static readonly string DbPath = Path.Combine(ModsDir, "mods.db");
+    public static readonly string HasInstalledPath = Path.Combine(CacheDir, "has_installed.json");
     public static readonly string AppSettingsPath = Path.Combine(LocalAppData, "DragonDen.ModManager", "appsettings.json");
     public static readonly string CacheDbPath = Path.Combine(CacheDir, "cache.db");
     public static string ModsRegistryPath => Path.Combine(CacheDir, "mods_registry.json");
