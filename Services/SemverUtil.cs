@@ -10,28 +10,17 @@ public static class SemverUtil
     {
         if (string.IsNullOrWhiteSpace(raw)) return "";
 
-        var s = raw.Trim();
-        s = s.TrimStart('v', 'V', '~', '^');
-        s = Regex.Replace(s, @"(?i)\bx\b", "0");
-        var cut = s.Split(new[] { '-', '+' }, 2, StringSplitOptions.RemoveEmptyEntries)[0];
+        var m = Regex.Match(raw, @"\d+(?:[.\*xX]\d+|[.\*xX]){0,2}");
+        if (!m.Success) return "";
 
-        var parts = cut.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var parts = Regex.Replace(m.Value, @"[xX\*]", "0").Split('.');
         int a = Part(parts, 0), b = Part(parts, 1), c = Part(parts, 2);
 
-        try
-        {
-            _ = new SemVersion(a, b, c);
-            return $"{a}.{b}.{c}";
-        }
-        catch
-        {
-            return "";
-        }
+        try { _ = new SemVersion(a, b, c); return $"{a}.{b}.{c}"; }
+        catch { return ""; }
 
-        static int Part(string[] p, int i)
-        {
-            return i < p.Length && int.TryParse(p[i], out var n) && n >= 0 ? n : 0;
-        }
+        static int Part(string[] p, int i) =>
+            i < p.Length && int.TryParse(p[i], out var n) && n >= 0 ? n : 0;
     }
 
     public static bool TryParseStrict(string? raw, out SemVersion v)

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -232,11 +233,23 @@ public partial class BrowseModInstallDialog : Window
     private static string ToABFromConstraint(string? constraint)
     {
         if (string.IsNullOrWhiteSpace(constraint)) return "";
-        var norm = SemverUtil.NormalizeToThreeParts(constraint) ?? constraint;
-        var p = norm.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length >= 2) return $"{p[0]}.{p[1]}";
-        var m = System.Text.RegularExpressions.Regex.Match(constraint, @"(\d+)\.(\d+)");
-        return m.Success ? $"{m.Groups[1].Value}.{m.Groups[2].Value}" : "";
+
+        var first = constraint.Split(new[] { "||" }, 2, StringSplitOptions.None)[0];
+
+        first = Regex.Replace(first, @"[xX\*]", "0");
+
+        var norm = SemverUtil.NormalizeToThreeParts(first);
+        if (!string.IsNullOrEmpty(norm))
+        {
+            var p = norm.Split('.');
+            return $"{p[0]}.{p[1]}";
+        }
+
+        var m1 = Regex.Match(first, @"\b(?<maj>\d+)\.(?<min>\d+)(?:\.\d+)?");
+        if (m1.Success) return $"{m1.Groups["maj"].Value}.{m1.Groups["min"].Value}";
+
+        var m2 = Regex.Match(first, @"(\d+)\.(\d+)");
+        return m2.Success ? $"{m2.Groups[1].Value}.{m2.Groups[2].Value}" : "";
     }
 
     private void OnClose(object? s, RoutedEventArgs e) => Close();
