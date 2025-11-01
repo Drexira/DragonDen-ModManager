@@ -226,7 +226,7 @@
                     <WrapPanel Orientation="Horizontal" Margin="8" DockPanel.Dock="Left" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Button x:Name="RefreshBtn" Content="Refresh" Classes="btn btn-neutral" />
-                            <Button x:Name="UpdateAllBtn" FontWeight="DemiBold" Content="Update All" Classes="btn btn-green" />
+                            <!--<Button x:Name="UpdateAllBtn" FontWeight="DemiBold" Content="Update All" Classes="btn btn-green" />-->
                         </StackPanel>
                         <Border Width="1" Height="28" Background="{StaticResource Dd.Border}" Margin="4,0" />
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">

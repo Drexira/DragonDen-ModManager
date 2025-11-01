@@ -33,7 +33,7 @@ public partial class InstalledModsPage : UserControl
         InitializeComponent();
 
         RefreshBtn.Click += async (_, __) => await ScanDiskAsync();
-        UpdateAllBtn.Click += async (_, __) => await UpdateAll();
+        //UpdateAllBtn.Click += async (_, __) => await UpdateAll();
         OpenClientBtn.Click += (_, __) => OpenFolder(Spt.ClientModsPath);
         OpenServerBtn.Click += (_, __) => OpenFolder(Spt.ServerModsPath);
         UninstallAllBtn.Click += async (_, __) => await UninstallAllAsync();
