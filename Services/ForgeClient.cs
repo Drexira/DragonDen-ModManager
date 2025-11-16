@@ -273,15 +273,21 @@ public static class ForgeClient
         return list;
     }
 
-    public static async Task<ModSummary?> GetModAsync(int modId, bool includeOwner = false, bool includeAuthors = false, bool includeCategory = true,
-        bool includeVersions = false, bool includeSourceLinks = false, CancellationToken ct = default)
+    public static async Task<ModSummary?> GetModAsync(
+        int modId,
+        bool includeOwner = false,
+        bool includeAuthors = false,
+        bool includeCategory = true,
+        bool includeVersions = false,
+        bool includeSourceLinks = false,
+        CancellationToken ct = default)
     {
         var includes = new List<string>();
-        if (includeOwner) includes.Add("owner");
-        if (includeAuthors) includes.Add("authors");
+
         if (includeCategory) includes.Add("category");
         if (includeVersions) includes.Add("versions");
         if (includeSourceLinks) includes.Add("source_code_links");
+
         var inc = includes.Count > 0 ? "?include=" + string.Join(",", includes) : "";
 
         var url = $"{BaseUrl}/api/v0/mod/{modId}{inc}";
@@ -316,7 +322,10 @@ public static class ForgeClient
             contains_ai_content = el.GetPropertyAsBool("contains_ai_content", false),
             versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
             owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
-            authors = ParsePersons(el.TryGetProperty("authors", out var au) ? au : default),
+            authors = el.TryGetProperty("additional_authors", out var auNew)
+                ? ParsePersons(auNew)
+                : (el.TryGetProperty("authors", out var auOld) ? ParsePersons(auOld) : null),
+
             category = ParseCategory(el.TryGetProperty("category", out var cat) ? cat : default),
             updated_at = upd,
             published_at = pub,
@@ -324,12 +333,20 @@ public static class ForgeClient
         };
     }
 
-    public static async Task<PagedMods> GetModsPageAsync(int page, int perPage, bool includeVersions, bool includeOwner, bool includeAuthors, bool includeCategory,
-        string query, string sortApi, bool includeSourceLinks = false, CancellationToken ct = default)
+    public static async Task<PagedMods> GetModsPageAsync(
+        int page,
+        int perPage,
+        bool includeVersions,
+        bool includeOwner,
+        bool includeAuthors,
+        bool includeCategory,
+        string query,
+        string sortApi,
+        bool includeSourceLinks = false,
+        CancellationToken ct = default)
     {
         var includes = new List<string>();
-        if (includeOwner) includes.Add("owner");
-        if (includeAuthors) includes.Add("authors");
+
         if (includeCategory) includes.Add("category");
         if (includeVersions) includes.Add("versions");
         if (includeSourceLinks) includes.Add("source_code_links");
@@ -343,6 +360,7 @@ public static class ForgeClient
         int currentPage = 1, lastPage = 1, total = 0;
 
         if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+        {
             foreach (var el in data.EnumerateArray())
             {
                 ct.ThrowIfCancellationRequested();
@@ -372,7 +390,10 @@ public static class ForgeClient
                     contains_ai_content = el.GetPropertyAsBool("contains_ai_content", false),
                     versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
                     owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
-                    authors = ParsePersons(el.TryGetProperty("authors", out var au) ? au : default),
+                    authors = el.TryGetProperty("additional_authors", out var auNew)
+                        ? ParsePersons(auNew)
+                        : (el.TryGetProperty("authors", out var auOld) ? ParsePersons(auOld) : null),
+
                     category = ParseCategory(el.TryGetProperty("category", out var cat) ? cat : default),
                     updated_at = upd,
                     published_at = pub,
@@ -380,6 +401,7 @@ public static class ForgeClient
                 };
                 list.Add(mod);
             }
+        }
 
         if (doc.RootElement.TryGetProperty("meta", out var meta) && meta.ValueKind == JsonValueKind.Object)
         {
@@ -581,16 +603,19 @@ public static class ForgeClient
         if (el.ValueKind != JsonValueKind.Array) return null;
         var list = new List<Person>();
         foreach (var c in el.EnumerateArray())
-            if (c.ValueKind == JsonValueKind.Object)
-                list.Add(new Person
-                {
-                    id = c.GetPropertyOrDefault("id", 0),
-                    name = c.GetPropertyOrDefault("name", ""),
-                    profile_photo_url = c.GetPropertyOrDefault("profile_photo_url", (string?)null),
-                    cover_photo_url = c.GetPropertyOrDefault("cover_photo_url", (string?)null)
-                });
+        {
+            if (c.ValueKind != JsonValueKind.Object) continue;
 
-        return list.ToArray();
+            list.Add(new Person
+            {
+                id = c.GetPropertyOrDefault("id", 0),
+                name = c.GetPropertyOrDefault("name", ""),
+                profile_photo_url = c.GetPropertyOrDefault("profile_photo_url", (string?)null),
+                cover_photo_url = c.GetPropertyOrDefault("cover_photo_url", (string?)null)
+            });
+        }
+
+        return list.Count == 0 ? null : list.ToArray();
     }
 
     private static CategoryInfo? ParseCategory(JsonElement el)
