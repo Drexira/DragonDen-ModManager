@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -7,15 +9,18 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using DragonDen.ModManager.Services;
 using DragonDen.ModManager.Utils;
 using DragonDen.ModManager.ViewModels;
+using Semver;
 
 namespace DragonDen.ModManager.Views;
 
 public partial class ChangeInstalledVersion : Window
 {
     private readonly InstalledModRow? _row;
+    private bool _hydrated;
 
     public ChangeInstalledVersion()
     {
@@ -58,47 +63,140 @@ public partial class ChangeInstalledVersion : Window
         }
     }
 
+    protected override async void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+
+        if (_row == null || _hydrated) return;
+        var cache = App.Cache;
+        if (cache == null) return;
+
+        try
+        {
+            var allCache = cache.GetAllModsBasic();
+            CacheDb.ModRow? cacheRow = null;
+
+            if (!string.IsNullOrWhiteSpace(_row.Guid))
+            {
+                cacheRow = allCache.FirstOrDefault(m =>
+                    string.Equals(m.Guid, _row.Guid, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (cacheRow == null)
+            {
+                cacheRow = allCache.FirstOrDefault(m =>
+                    string.Equals(m.Name, _row.Name, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (cacheRow == null) return;
+
+            await cache.EnsureVersionsCachedAsync(cacheRow.Id).ConfigureAwait(false);
+            var fullVersions = cache.GetVersionsForMod(cacheRow.Id);
+
+            if (fullVersions == null || fullVersions.Count == 0) return;
+            if (!fullVersions.Any(v => !string.IsNullOrWhiteSpace(v.Description))) return;
+
+            _hydrated = true;
+
+            var sorted = OrderVersionsDesc(fullVersions);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Rows.Children.Clear();
+                for (var i = 0; i < sorted.Count; i++)
+                {
+                    var v = sorted[i];
+                    var border = new Border { Classes = { "row" }, Child = BuildRow(v, i == 0) };
+                    Rows.Children.Add(border);
+                }
+            });
+        }
+        catch
+        {
+        }
+    }
+
+    private static List<ForgeClient.ModVersion> OrderVersionsDesc(IEnumerable<ForgeClient.ModVersion> versions)
+    {
+        var list = (versions ?? Enumerable.Empty<ForgeClient.ModVersion>()).ToList();
+        list.Sort((a, b) =>
+        {
+            var va = a?.Version ?? "";
+            var vb = b?.Version ?? "";
+            var okA = SemverUtil.TryParseStrict(va, out var sva);
+            var okB = SemverUtil.TryParseStrict(vb, out var svb);
+            if (okA && okB) return svb.CompareSortOrderTo(sva);
+            return string.Compare(vb, va, StringComparison.OrdinalIgnoreCase);
+        });
+        return list;
+    }
+
     private Control BuildRow(ForgeClient.ModVersion v, bool isLatest)
     {
         var verText = string.IsNullOrWhiteSpace(v?.Version) ? "(unknown)" : v!.Version!;
-        var sptAB = string.IsNullOrWhiteSpace(v?.SptVersionConstraint) ? "" : ToABFromConstraint(v!.SptVersionConstraint);
         var hasDesc = !string.IsNullOrWhiteSpace(v?.Description);
         var descText = hasDesc ? HTMLUtils.HtmlToDisplay(v!.Description!) : "";
-        var dlText = v?.Downloads is long d && d > 0 ? $"{FormatDownloads(d)}" : null;
+        var dlText = v?.Downloads is long d && d > 0 ? FormatDownloads(d) : null;
         var dateText = FormatDate(v?.PublishedAt);
 
         var isInstalled = !string.IsNullOrWhiteSpace(_row?.InstalledVersion) &&
                           string.Equals(_row!.InstalledVersion, v?.Version, StringComparison.OrdinalIgnoreCase);
 
-        var title = new TextBlock
+        var fikaKind = NormalizeFika(v?.FikaCompatibility);
+        var fikaText = fikaKind switch
+        {
+            "compatible" => "Fika compatible",
+            "incompatible" => "Fika incompatible",
+            "unknown" => "Fika unknown",
+            _ => ""
+        };
+
+        var supportedSpt = ResolveSupportedSptVersions(v?.SptVersionConstraint);
+
+        var headerLeft = new StackPanel { Spacing = 6 };
+        headerLeft.Children.Add(new TextBlock
         {
             Text = verText,
             FontWeight = FontWeight.SemiBold,
             FontSize = 16
-        };
+        });
 
-        var chips = new StackPanel
+        var chipsTop = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Spacing = 6,
             VerticalAlignment = VerticalAlignment.Center
         };
 
         if (isLatest)
-            chips.Children.Add(MakeChip("Latest", primary: true));
+            chipsTop.Children.Add(MakeChip("Latest", primary: true));
 
-        if (!string.IsNullOrWhiteSpace(sptAB))
-            chips.Children.Add(MakeChip($"SPT {sptAB}"));
+        if (!string.IsNullOrWhiteSpace(fikaText))
+        {
+            var primaryFika = fikaKind == "compatible";
+            chipsTop.Children.Add(MakeChip(fikaText, primary: primaryFika));
+        }
 
         if (!string.IsNullOrWhiteSpace(dlText))
-            chips.Children.Add(MakeChip(dlText!));
+            chipsTop.Children.Add(MakeChip(dlText!));
 
         if (!string.IsNullOrWhiteSpace(dateText))
-            chips.Children.Add(MakeChip(dateText!));
+            chipsTop.Children.Add(MakeChip(dateText!));
 
-        var headerLeft = new StackPanel { Spacing = 6 };
-        headerLeft.Children.Add(title);
-        headerLeft.Children.Add(chips);
+        headerLeft.Children.Add(chipsTop);
+
+        if (supportedSpt.Count > 0)
+        {
+            var chipsBottom = new WrapPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            foreach (var s in supportedSpt)
+                chipsBottom.Children.Add(MakeChip($"SPT {s}"));
+
+            headerLeft.Children.Add(chipsBottom);
+        }
 
         var installBtn = new Button
         {
@@ -158,19 +256,6 @@ public partial class ChangeInstalledVersion : Window
             }
         };
 
-        var headerBar = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            Background = new SolidColorBrush(Color.Parse("#0E1318")),
-            Margin = new Thickness(10)
-        };
-        
-        headerBar.Children.Add(new TextBlock
-        {
-            Text = "Changelog",
-            FontWeight = FontWeight.SemiBold
-        });
-
         var exp = new Expander
         {
             Classes = { "clean" },
@@ -198,7 +283,11 @@ public partial class ChangeInstalledVersion : Window
             ? br
             : new SolidColorBrush(Color.Parse("#9AA4AE"));
 
-        var b = new Border { Classes = { "chip" } };
+        var b = new Border
+        {
+            Classes = { "chip" },
+            Margin = new Thickness(0, 0, 6, 0)
+        };
         if (primary) b.Classes.Add("primary");
 
         b.Child = new TextBlock
@@ -259,11 +348,70 @@ public partial class ChangeInstalledVersion : Window
     private static string ToABFromConstraint(string? constraint)
     {
         if (string.IsNullOrWhiteSpace(constraint)) return "";
-        var norm = SemverUtil.NormalizeToThreeParts(constraint) ?? constraint;
-        var p = norm.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length >= 2) return $"{p[0]}.{p[1]}";
-        var m = System.Text.RegularExpressions.Regex.Match(constraint, @"(\d+)\.(\d+)");
-        return m.Success ? $"{m.Groups[1].Value}.{m.Groups[2].Value}" : "";
+
+        var first = constraint.Split(new[] { "||" }, 2, StringSplitOptions.None)[0];
+
+        first = Regex.Replace(first, @"[xX\*]", "0");
+
+        var norm = SemverUtil.NormalizeToThreeParts(first);
+        if (!string.IsNullOrEmpty(norm))
+        {
+            var p = norm.Split('.');
+            return $"{p[0]}.{p[1]}";
+        }
+
+        var m1 = Regex.Match(first, @"\b(?<maj>\d+)\.(?<min>\d+)(?:\.\d+)?");
+        if (m1.Success) return $"{m1.Groups["maj"].Value}.{m1.Groups["min"].Value}";
+
+        var m2 = Regex.Match(first, @"(\d+)\.(\d+)");
+        return m2.Success ? $"{m2.Groups[1].Value}.{m2.Groups[2].Value}" : "";
+    }
+
+    private static string NormalizeFika(string? value)
+    {
+        return (value ?? "").Trim().ToLowerInvariant();
+    }
+
+    private static IReadOnlyList<string> ResolveSupportedSptVersions(string? constraint)
+    {
+        if (string.IsNullOrWhiteSpace(constraint)) return Array.Empty<string>();
+        if (App.Cache == null) return Array.Empty<string>();
+
+        var (_, fulls) = App.Cache.GetAllSptTags();
+        if (fulls == null || fulls.Count == 0) return Array.Empty<string>();
+
+        SemVersionRange? range = null;
+        if (SemVersionRange.TryParse(constraint, SemVersionRangeOptions.Loose, out var parsed))
+        {
+            range = parsed;
+        }
+
+        var matches = new List<(SemVersion ver, string tag)>();
+
+        if (range != null)
+        {
+            foreach (var tag in fulls)
+            {
+                if (!SemverUtil.TryParseStrict(tag, out var sv)) continue;
+                if (range.Contains(sv)) matches.Add((sv, tag));
+            }
+        }
+        else
+        {
+            var normConstraint = SemverUtil.NormalizeToThreeParts(constraint);
+            if (string.IsNullOrWhiteSpace(normConstraint)) return Array.Empty<string>();
+
+            if (!SemverUtil.TryParseStrict(normConstraint, out var target)) return Array.Empty<string>();
+
+            foreach (var tag in fulls)
+            {
+                if (!SemverUtil.TryParseStrict(tag, out var sv)) continue;
+                if (sv.Equals(target)) matches.Add((sv, tag));
+            }
+        }
+
+        matches.Sort((a, b) => b.ver.CompareSortOrderTo(a.ver));
+        return matches.Select(m => m.tag).ToList();
     }
 
     private void OnClose(object? s, RoutedEventArgs e) => Close();

@@ -36,6 +36,7 @@ public sealed class InstalledModRow
     public string DisabledAtText { get; set; } = "";
     public bool ShowDisable => !IsDisabled;
     public bool ShowEnable  =>  IsDisabled;
+    public string? FikaLabel { get; set; }
 
     public sealed class SourceButton
     {

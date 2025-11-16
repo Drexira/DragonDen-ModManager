@@ -24,7 +24,8 @@ public static class CacheDb
         var (items, total) = await App.Cache.QueryModsAsync(
             q.Text, q.Author, q.CategorySlug, q.SptConstraint, q.Sort,
             q.Page, q.PageSize, ct,
-            hideFeatured, hideAds, hideAi
+            hideFeatured, hideAds, hideAi,
+            q.FikaCompatibleOnly
         ).ConfigureAwait(false);
 
         return new QueryResult { items = items, total = total };
@@ -78,6 +79,7 @@ public static class CacheDb
         public bool FeaturedOnly { get; set; }
         public bool AdsOnly { get; set; }
         public bool AiOnly { get; set; }
+        public bool FikaCompatibleOnly { get; set; }
     }
 
     public sealed class QueryResult

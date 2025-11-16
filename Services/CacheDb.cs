@@ -70,6 +70,7 @@ PRAGMA foreign_keys=ON;";
       featured INTEGER,
       contains_ads INTEGER,
       contains_ai_content INTEGER,
+      fika_compatibility INTEGER,
       category_id INTEGER,
       category_slug TEXT,
       category_name TEXT,
@@ -90,7 +91,9 @@ PRAGMA foreign_keys=ON;";
       spt_version_constraint TEXT,
       downloads INTEGER,
       published_at TEXT,
-      spt_norm TEXT
+      spt_norm TEXT,
+      content_length INTEGER,
+      fika_compatibility TEXT
     );
     CREATE TABLE IF NOT EXISTS mod_sources(
       mod_id INTEGER,
@@ -114,9 +117,12 @@ PRAGMA foreign_keys=ON;";
         }
 
         EnsureColumn(c, "mods", "guid", "TEXT");
+        EnsureColumn(c, "mods", "fika_compatibility", "INTEGER");
         EnsureColumn(c, "categories", "color_class", "TEXT");
         EnsureColumn(c, "versions", "description", "TEXT");
         EnsureColumn(c, "versions", "spt_norm", "TEXT");
+        EnsureColumn(c, "versions", "content_length", "INTEGER");
+        EnsureColumn(c, "versions", "fika_compatibility", "TEXT");
 
         try
         {
@@ -166,9 +172,19 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
             }
     }
 
-    public async Task<(List<ForgeClient.ModSummary> items, int total)> QueryModsAsync(string? text, string? author, string? categorySlug,
-        string? sptConstraint, string sort, int page, int pageSize, CancellationToken ct = default, bool hideFeatured = false,
-        bool hideAds = false, bool hideAi = false)
+    public async Task<(List<ForgeClient.ModSummary> items, int total)> QueryModsAsync(
+        string? text,
+        string? author,
+        string? categorySlug,
+        string? sptConstraint,
+        string sort,
+        int page,
+        int pageSize,
+        CancellationToken ct = default,
+        bool hideFeatured = false,
+        bool hideAds = false,
+        bool hideAi = false,
+        bool onlyFikaCompatible = false)
     {
         text ??= "";
         author ??= "";
@@ -206,6 +222,11 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
         if (hideFeatured) where.Add("COALESCE(m.featured,0) = 0");
         if (hideAds) where.Add("COALESCE(m.contains_ads,0) = 0");
         if (hideAi) where.Add("COALESCE(m.contains_ai_content,0) = 0");
+
+        if (onlyFikaCompatible)
+        {
+            where.Add("COALESCE(m.fika_compatibility,0) = 1");
+        }
 
         if (!string.IsNullOrWhiteSpace(sptConstraint))
         {
@@ -267,6 +288,7 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
            COALESCE(m.featured,0)         AS featured,
            COALESCE(m.contains_ads,0)     AS contains_ads,
            COALESCE(m.contains_ai_content,0) AS contains_ai_content,
+           COALESCE(m.fika_compatibility,0)  AS fika_compatibility,
            COALESCE(m.category_slug,'')   AS category_slug,
            COALESCE(m.category_name,'')   AS category_name,
            COALESCE(m.updated_at,'')      AS updated_at,
@@ -283,8 +305,8 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
             while (await r.ReadAsync(ct).ConfigureAwait(false))
             {
                 DateTimeOffset? upd = null, pub = null;
-                var updStr = r.IsDBNull(13) ? "" : r.GetString(13);
-                var pubStr = r.IsDBNull(14) ? "" : r.GetString(14);
+                var updStr = r.IsDBNull(14) ? "" : r.GetString(14);
+                var pubStr = r.IsDBNull(15) ? "" : r.GetString(15);
                 if (DateTimeOffset.TryParse(updStr, out var u)) upd = u;
                 if (DateTimeOffset.TryParse(pubStr, out var p)) pub = p;
 
@@ -301,10 +323,11 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
                     featured = !r.IsDBNull(8) && r.GetInt32(8) != 0,
                     contains_ads = !r.IsDBNull(9) && r.GetInt32(9) != 0,
                     contains_ai_content = !r.IsDBNull(10) && r.GetInt32(10) != 0,
+                    fika_compatibility = !r.IsDBNull(11) && r.GetInt32(11) != 0,
                     category = new ForgeClient.CategoryInfo
                     {
-                        slug = r.IsDBNull(11) ? "" : r.GetString(11),
-                        name = r.IsDBNull(12) ? "" : r.GetString(12)
+                        slug = r.IsDBNull(12) ? "" : r.GetString(12),
+                        name = r.IsDBNull(13) ? "" : r.GetString(13)
                     },
                     updated_at = upd,
                     published_at = pub,
@@ -443,8 +466,8 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
         using var c = Conn();
         using var cmd = c.CreateCommand();
         cmd.CommandText = @"
-    INSERT INTO mods(id,guid,name,slug,teaser,thumbnail,downloads,detail_url,featured,contains_ads,contains_ai_content,category_id,category_slug,category_name,updated_at,published_at)
-    VALUES($id,$guid,$name,$slug,$teaser,$thumb,$dl,$detail,$feat,$ads,$ai,$catId,$catSlug,$catName,$upd,$pub)
+    INSERT INTO mods(id,guid,name,slug,teaser,thumbnail,downloads,detail_url,featured,contains_ads,contains_ai_content,fika_compatibility,category_id,category_slug,category_name,updated_at,published_at)
+    VALUES($id,$guid,$name,$slug,$teaser,$thumb,$dl,$detail,$feat,$ads,$ai,$fika,$catId,$catSlug,$catName,$upd,$pub)
     ON CONFLICT(id) DO UPDATE SET
      guid=excluded.guid,
      name=excluded.name,
@@ -456,6 +479,7 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
      featured=excluded.featured,
      contains_ads=excluded.contains_ads,
      contains_ai_content=excluded.contains_ai_content,
+     fika_compatibility=excluded.fika_compatibility,
      category_id=excluded.category_id,
      category_slug=excluded.category_slug,
      category_name=excluded.category_name,
@@ -472,6 +496,7 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
         cmd.Parameters.AddWithValue("$feat", m.featured ? 1 : 0);
         cmd.Parameters.AddWithValue("$ads", m.contains_ads ? 1 : 0);
         cmd.Parameters.AddWithValue("$ai", m.contains_ai_content ? 1 : 0);
+        cmd.Parameters.AddWithValue("$fika", m.fika_compatibility ? 1 : 0);
         cmd.Parameters.AddWithValue("$catId", m.category?.id ?? (object)DBNull.Value);
         cmd.Parameters.AddWithValue("$catSlug", m.category?.slug ?? "");
         cmd.Parameters.AddWithValue("$catName", m.category?.name ?? m.category?.title ?? m.category?.slug ?? "");
@@ -565,8 +590,8 @@ WHERE COALESCE(category_name,'') = '' AND COALESCE(category_slug,'') <> ''";
         using var c = Conn();
         using var cmd = c.CreateCommand();
         cmd.CommandText = @"
-INSERT INTO versions(id,mod_id,version,link,description,spt_version_constraint,downloads,published_at,spt_norm)
-VALUES($id,$m,$ver,$link,$desc,$spt,$dl,$pub,$sptn)
+INSERT INTO versions(id,mod_id,version,link,description,spt_version_constraint,downloads,published_at,spt_norm,content_length,fika_compatibility)
+VALUES($id,$m,$ver,$link,$desc,$spt,$dl,$pub,$sptn,$cl,$fika)
 ON CONFLICT(id) DO UPDATE SET
  version=excluded.version,
  link=excluded.link,
@@ -574,7 +599,9 @@ ON CONFLICT(id) DO UPDATE SET
  spt_version_constraint=excluded.spt_version_constraint,
  downloads=excluded.downloads,
  published_at=excluded.published_at,
- spt_norm=excluded.spt_norm";
+ spt_norm=excluded.spt_norm,
+ content_length=excluded.content_length,
+ fika_compatibility=excluded.fika_compatibility";
         cmd.Parameters.AddWithValue("$id", v.Id);
         cmd.Parameters.AddWithValue("$m", modId);
         cmd.Parameters.AddWithValue("$ver", v.Version ?? "");
@@ -584,6 +611,8 @@ ON CONFLICT(id) DO UPDATE SET
         cmd.Parameters.AddWithValue("$dl", v.Downloads);
         cmd.Parameters.AddWithValue("$pub", v.PublishedAt?.ToString("o", CultureInfo.InvariantCulture) ?? "");
         cmd.Parameters.AddWithValue("$sptn", string.IsNullOrWhiteSpace(sptNorm) ? DBNull.Value : sptNorm);
+        cmd.Parameters.AddWithValue("$cl", v.ContentLength);
+        cmd.Parameters.AddWithValue("$fika", v.FikaCompatibility ?? "");
         cmd.ExecuteNonQuery();
     }
 
@@ -651,7 +680,7 @@ ON CONFLICT(id) DO UPDATE SET
         var list = new List<ForgeClient.ModVersion>();
         using var cmd = c.CreateCommand();
         cmd.CommandText =
-            "SELECT id,version,link,description,spt_version_constraint,downloads,published_at FROM versions WHERE mod_id=$m ORDER BY COALESCE(published_at,'' ) DESC, id DESC";
+            "SELECT id,version,link,description,spt_version_constraint,downloads,published_at,content_length,fika_compatibility FROM versions WHERE mod_id=$m ORDER BY COALESCE(published_at,'' ) DESC, id DESC";
         cmd.Parameters.AddWithValue("$m", modId);
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -668,7 +697,9 @@ ON CONFLICT(id) DO UPDATE SET
                 Description = r.IsDBNull(3) ? "" : r.GetString(3),
                 SptVersionConstraint = r.IsDBNull(4) ? "" : r.GetString(4),
                 Downloads = r.IsDBNull(5) ? 0 : r.GetInt64(5),
-                PublishedAt = dto
+                PublishedAt = dto,
+                ContentLength = r.IsDBNull(7) ? 0L : r.GetInt64(7),
+                FikaCompatibility = r.IsDBNull(8) ? "" : r.GetString(8)
             });
         }
 
@@ -737,7 +768,6 @@ ON CONFLICT(id) DO UPDATE SET
         using var cmd = c.CreateCommand();
         cmd.CommandText = @"
 WITH v AS (
-  -- Keep distinct, well-formed A.B.C rows only
   SELECT DISTINCT spt_norm
   FROM versions
   WHERE spt_norm IS NOT NULL
@@ -745,18 +775,15 @@ WITH v AS (
     AND spt_norm GLOB '[0-9]*.[0-9]*.[0-9]*'
 ),
 p AS (
-  -- Find first dot (p1) and second dot relative to (p1+1) (p2rel)
   SELECT
     spt_norm,
     instr(spt_norm, '.') AS p1,
     instr(substr(spt_norm, instr(spt_norm, '.') + 1), '.') AS p2rel
   FROM v
-  -- safety: require a second dot
   WHERE instr(spt_norm, '.') > 0
     AND instr(substr(spt_norm, instr(spt_norm, '.') + 1), '.') > 0
 ),
 n AS (
-  -- Parse majors/minor/patch as integers
   SELECT
     spt_norm,
     CAST(substr(spt_norm, 1, p1 - 1) AS INT)               AS maj,

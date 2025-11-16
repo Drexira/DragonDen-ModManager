@@ -12,6 +12,7 @@ using Avalonia.Media;
 using DragonDen.ModManager.Services;
 using DragonDen.ModManager.Utils;
 using DragonDen.ModManager.ViewModels;
+using Semver;
 
 namespace DragonDen.ModManager.Views;
 
@@ -98,11 +99,21 @@ public partial class BrowseModInstallDialog : Window
     private Control BuildRow(ForgeClient.ModVersion v, bool isLatest)
     {
         var verText = string.IsNullOrWhiteSpace(v?.Version) ? "(unknown)" : v!.Version!;
-        var sptAB = string.IsNullOrWhiteSpace(v?.SptVersionConstraint) ? "" : ToABFromConstraint(v!.SptVersionConstraint);
         var hasDesc = !string.IsNullOrWhiteSpace(v?.Description);
         var descText = hasDesc ? HTMLUtils.HtmlToDisplay(v!.Description!) : "";
         var dlText = v?.Downloads is long d && d > 0 ? FormatDownloads(d) : null;
         var dateText = FormatDate(v?.PublishedAt);
+
+        var fikaKind = NormalizeFika(v?.FikaCompatibility);
+        var fikaText = fikaKind switch
+        {
+            "compatible" => "Fika compatible",
+            "incompatible" => "Fika incompatible",
+            "unknown" => "Fika unknown",
+            _ => ""
+        };
+
+        var supportedSpt = ResolveSupportedSptVersions(v?.SptVersionConstraint);
 
         var headerLeft = new StackPanel { Spacing = 6 };
         headerLeft.Children.Add(new TextBlock
@@ -112,23 +123,42 @@ public partial class BrowseModInstallDialog : Window
             FontSize = 16
         });
 
-        var chips = new StackPanel
+        var chipsTop = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Spacing = 6,
             VerticalAlignment = VerticalAlignment.Center
         };
 
         if (isLatest)
-            chips.Children.Add(MakeChip("Latest", primary: true));
-        if (!string.IsNullOrWhiteSpace(sptAB))
-            chips.Children.Add(MakeChip($"SPT {sptAB}"));
-        if (!string.IsNullOrWhiteSpace(dlText))
-            chips.Children.Add(MakeChip(dlText!));
-        if (!string.IsNullOrWhiteSpace(dateText))
-            chips.Children.Add(MakeChip(dateText!));
+            chipsTop.Children.Add(MakeChip("Latest", primary: true));
 
-        headerLeft.Children.Add(chips);
+        if (!string.IsNullOrWhiteSpace(fikaText))
+        {
+            var primaryFika = fikaKind == "compatible";
+            chipsTop.Children.Add(MakeChip(fikaText, primary: primaryFika));
+        }
+
+        if (!string.IsNullOrWhiteSpace(dlText))
+            chipsTop.Children.Add(MakeChip(dlText!));
+
+        if (!string.IsNullOrWhiteSpace(dateText))
+            chipsTop.Children.Add(MakeChip(dateText!));
+
+        headerLeft.Children.Add(chipsTop);
+
+        if (supportedSpt.Count > 0)
+        {
+            var chipsBottom = new WrapPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            foreach (var s in supportedSpt)
+                chipsBottom.Children.Add(MakeChip($"SPT {s}"));
+
+            headerLeft.Children.Add(chipsBottom);
+        }
 
         var installBtn = new Button
         {
@@ -202,7 +232,11 @@ public partial class BrowseModInstallDialog : Window
             ? br
             : new SolidColorBrush(Color.Parse("#9AA4AE"));
 
-        var b = new Border { Classes = { "chip" } };
+        var b = new Border
+        {
+            Classes = { "chip" },
+            Margin = new Thickness(0, 0, 6, 0)
+        };
         if (primary) b.Classes.Add("primary");
 
         b.Child = new TextBlock
@@ -250,6 +284,53 @@ public partial class BrowseModInstallDialog : Window
 
         var m2 = Regex.Match(first, @"(\d+)\.(\d+)");
         return m2.Success ? $"{m2.Groups[1].Value}.{m2.Groups[2].Value}" : "";
+    }
+
+    private static string NormalizeFika(string? value)
+    {
+        return (value ?? "").Trim().ToLowerInvariant();
+    }
+
+    private static IReadOnlyList<string> ResolveSupportedSptVersions(string? constraint)
+    {
+        if (string.IsNullOrWhiteSpace(constraint)) return Array.Empty<string>();
+        if (App.Cache == null) return Array.Empty<string>();
+
+        var (_, fulls) = App.Cache.GetAllSptTags();
+        if (fulls == null || fulls.Count == 0) return Array.Empty<string>();
+
+        SemVersionRange? range = null;
+        if (SemVersionRange.TryParse(constraint, SemVersionRangeOptions.Loose, out var parsed))
+        {
+            range = parsed;
+        }
+
+        var matches = new List<(SemVersion ver, string tag)>();
+
+        if (range != null)
+        {
+            foreach (var tag in fulls)
+            {
+                if (!SemverUtil.TryParseStrict(tag, out var sv)) continue;
+                if (range.Contains(sv)) matches.Add((sv, tag));
+            }
+        }
+        else
+        {
+            var normConstraint = SemverUtil.NormalizeToThreeParts(constraint);
+            if (string.IsNullOrWhiteSpace(normConstraint)) return Array.Empty<string>();
+
+            if (!SemverUtil.TryParseStrict(normConstraint, out var target)) return Array.Empty<string>();
+
+            foreach (var tag in fulls)
+            {
+                if (!SemverUtil.TryParseStrict(tag, out var sv)) continue;
+                if (sv.Equals(target)) matches.Add((sv, tag));
+            }
+        }
+
+        matches.Sort((a, b) => b.ver.CompareSortOrderTo(a.ver));
+        return matches.Select(m => m.tag).ToList();
     }
 
     private void OnClose(object? s, RoutedEventArgs e) => Close();

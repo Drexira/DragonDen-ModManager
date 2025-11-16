@@ -457,6 +457,13 @@
                                                 <TextBlock Text="{Binding FileCount}" />
                                             </StackPanel>
                                         </Border>
+                                        
+                                        <Border Classes="pill"
+                                                Padding="8,2"
+                                                HorizontalAlignment="Left"
+                                                IsVisible="{Binding FikaLabel, Converter={StaticResource StringHasTextConverter}}">
+                                            <TextBlock Text="{Binding FikaLabel}" />
+                                        </Border>
 
                                         <Border Classes="pill" Padding="8,2" HorizontalAlignment="Left"
                                                 IsVisible="{Binding InstalledAtText, Converter={StaticResource StringHasTextConverter}}">

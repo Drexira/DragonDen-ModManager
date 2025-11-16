@@ -247,6 +247,7 @@ public partial class BrowseModsPage : UserControl
         AdsChk.IsCheckedChanged += OnHideTogglesChanged;
         AiChk.IsCheckedChanged += OnHideTogglesChanged;
         HideInstalledChk.IsCheckedChanged += OnHideTogglesChanged;
+        FikaOnlyChk.IsCheckedChanged += OnHideTogglesChanged;
         App.InstallsChanged += OnInstallsChanged;
 
         PrevBtn.Click += async (_, __) =>
@@ -954,9 +955,15 @@ public partial class BrowseModsPage : UserControl
         var hideAds = AdsChk?.IsChecked ?? false;
         var hideAi = AiChk?.IsChecked ?? false;
         var hideInstalled = HideInstalledChk?.IsChecked ?? false;
+        var fikaOnly = FikaOnlyChk?.IsChecked ?? false;
 
         _lastPage = Math.Max(0, _lastPage);
         UpdatePagingUi();
+
+        static string NormalizeFika(string? value)
+        {
+            return (value ?? "").Trim().ToLowerInvariant();
+        }
 
         async Task<List<SearchResultRow>> BuildRowsAsync(IEnumerable<ForgeClient.ModSummary> mods)
         {
@@ -989,6 +996,34 @@ public partial class BrowseModsPage : UserControl
                 var versions = await CacheDb.GetVersionsAsync(m.id);
                 row.Versions = versions;
 
+                var hasSummaryFika = m.fika_compatibility;
+                var fikaCompatibleVer = versions.FirstOrDefault(v => NormalizeFika(v.FikaCompatibility) == "compatible");
+                var fikaIncompatibleVer = versions.FirstOrDefault(v => NormalizeFika(v.FikaCompatibility) == "incompatible");
+                var fikaUnknownVer = versions.FirstOrDefault(v => NormalizeFika(v.FikaCompatibility) == "unknown");
+
+                row.IsFikaCompatible = hasSummaryFika || fikaCompatibleVer != null;
+
+                if (fikaCompatibleVer != null || hasSummaryFika)
+                {
+                    row.FikaStatusKind = "compatible";
+                    row.FikaStatusText = "Fika Compatible";
+                }
+                else if (fikaIncompatibleVer != null)
+                {
+                    row.FikaStatusKind = "incompatible";
+                    row.FikaStatusText = "";
+                }
+                else if (fikaUnknownVer != null)
+                {
+                    row.FikaStatusKind = "unknown";
+                    row.FikaStatusText = "";
+                }
+                else
+                {
+                    row.FikaStatusKind = "";
+                    row.FikaStatusText = "";
+                }
+
                 row.IsInstalled = App.Db.HasRealInstall(row.Name);
 
                 var displays = new List<SearchResultRow.VersionDisplay>();
@@ -1009,22 +1044,23 @@ public partial class BrowseModsPage : UserControl
                 row.VersionsDisplay = displays;
 
                 var latest = versions.FirstOrDefault();
-                row.LatestVersionText = latest?.Version is string lv && !string.IsNullOrWhiteSpace(lv) ? $"Latest v{lv}" : "Latest v—";
+                row.LatestVersionText = latest?.Version is string lv && !string.IsNullOrWhiteSpace(lv) ? $"Latest v{lv}" : "Latest v-";
                 row.SptConstraintText = SemverUtil.NormalizeToThreeParts(latest?.SptVersionConstraint) is string txt && !string.IsNullOrWhiteSpace(txt) ? txt : "-";
 
-                var latestModSPTVersion = SemverUtil.NormalizeToThreeParts(latest?.SptVersionConstraint);
-                var latestSPTVersion = App.Cache.GetLatestSPTVersion();
-                if (string.Equals(latestModSPTVersion, latestSPTVersion, StringComparison.OrdinalIgnoreCase))
-                    row.IsLatestVersion = true;
-
                 if (m.source_code_links is { Length: > 0 })
+                {
                     foreach (var s in m.source_code_links)
+                    {
                         if (s is { url: { } u } && !string.IsNullOrWhiteSpace(u))
+                        {
                             row.SourceButtons.Add(new SearchResultRow.SourceButton
                             {
                                 Url = u,
                                 Label = string.IsNullOrWhiteSpace(s.label) ? "Source" : s.label!.Trim()
                             });
+                        }
+                    }
+                }
 
                 rows.Add(row);
             }
@@ -1074,8 +1110,15 @@ public partial class BrowseModsPage : UserControl
                 var considered = built;
                 if (hideInstalled)
                 {
-                    var before = built.Count;
-                    considered = built.Where(r => !r.IsInstalled).ToList();
+                    var before = considered.Count;
+                    considered = considered.Where(r => !r.IsInstalled).ToList();
+                    hiddenOnSeenPages += before - considered.Count;
+                }
+
+                if (fikaOnly)
+                {
+                    var before = considered.Count;
+                    considered = considered.Where(r => r.IsFikaCompatible).ToList();
                     hiddenOnSeenPages += before - considered.Count;
                 }
 
@@ -1087,16 +1130,22 @@ public partial class BrowseModsPage : UserControl
 
             ResultsList.ItemsSource = visibleForPage;
             PageInfo.Text = $"{_page} / {_lastPage}";
-            LoadedModsLabel.Text = "Loaded Mods: " + _totalMatches.ToString("N0", CultureInfo.InvariantCulture);
+            //LoadedModsLabel.Text = "Loaded Mods: " + _totalMatches.ToString("N0", CultureInfo.InvariantCulture);
 
             if (visibleForPage.Count == 0)
-                SearchStatusText.Text = hideInstalled
-                    ? (hiddenOnSeenPages > 0 ? "No visible results (installed hidden)." : "No results")
-                    : "No results";
+            {
+                if (hideInstalled || fikaOnly)
+                    SearchStatusText.Text = "No visible results with current filters.";
+                else
+                    SearchStatusText.Text = "No results";
+            }
             else
-                SearchStatusText.Text = hideInstalled
-                    ? $"Showing {visibleForPage.Count} of {_totalMatches:N0} (installed hidden)"
-                    : $"Showing {visibleForPage.Count} of {_totalMatches:N0}";
+            {
+                if (hideInstalled || fikaOnly)
+                    SearchStatusText.Text = $"Showing {visibleForPage.Count} of {_totalMatches:N0} (filters applied)";
+                else
+                    SearchStatusText.Text = $"Showing {visibleForPage.Count} of {_totalMatches:N0}";
+            }
 
             ScrollResultsToTop();
         }
@@ -1532,8 +1581,7 @@ public partial class BrowseModsPage : UserControl
                 SptConstraintText = row.SptConstraintText,
                 SourceButtons = row.SourceButtons,
                 IsInstalled = row.IsInstalled,
-                IsQueued = row.IsQueued,
-                IsLatestVersion = row.IsLatestVersion
+                IsQueued = row.IsQueued
             };
 
             row = hydrated;

@@ -320,12 +320,12 @@ public static class ForgeClient
             featured = el.GetPropertyAsBool("featured", false),
             contains_ads = el.GetPropertyAsBool("contains_ads", false),
             contains_ai_content = el.GetPropertyAsBool("contains_ai_content", false),
+            fika_compatibility = el.GetPropertyAsBool("fika_compatibility", false),
             versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
             owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
             authors = el.TryGetProperty("additional_authors", out var auNew)
                 ? ParsePersons(auNew)
                 : (el.TryGetProperty("authors", out var auOld) ? ParsePersons(auOld) : null),
-
             category = ParseCategory(el.TryGetProperty("category", out var cat) ? cat : default),
             updated_at = upd,
             published_at = pub,
@@ -346,7 +346,6 @@ public static class ForgeClient
         CancellationToken ct = default)
     {
         var includes = new List<string>();
-
         if (includeCategory) includes.Add("category");
         if (includeVersions) includes.Add("versions");
         if (includeSourceLinks) includes.Add("source_code_links");
@@ -360,7 +359,6 @@ public static class ForgeClient
         int currentPage = 1, lastPage = 1, total = 0;
 
         if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
-        {
             foreach (var el in data.EnumerateArray())
             {
                 ct.ThrowIfCancellationRequested();
@@ -388,12 +386,12 @@ public static class ForgeClient
                     featured = el.GetPropertyAsBool("featured", false),
                     contains_ads = el.GetPropertyAsBool("contains_ads", false),
                     contains_ai_content = el.GetPropertyAsBool("contains_ai_content", false),
+                    fika_compatibility = el.GetPropertyAsBool("fika_compatibility", false),
                     versions = ParseVersions(el.TryGetProperty("versions", out var vEl) ? vEl : default),
                     owner = ParsePerson(el.TryGetProperty("owner", out var ow) ? ow : default),
                     authors = el.TryGetProperty("additional_authors", out var auNew)
                         ? ParsePersons(auNew)
                         : (el.TryGetProperty("authors", out var auOld) ? ParsePersons(auOld) : null),
-
                     category = ParseCategory(el.TryGetProperty("category", out var cat) ? cat : default),
                     updated_at = upd,
                     published_at = pub,
@@ -401,7 +399,6 @@ public static class ForgeClient
                 };
                 list.Add(mod);
             }
-        }
 
         if (doc.RootElement.TryGetProperty("meta", out var meta) && meta.ValueKind == JsonValueKind.Object)
         {
@@ -557,6 +554,8 @@ public static class ForgeClient
                 SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null),
                 Downloads = v.GetPropertyOrDefault("downloads", 0L),
                 PublishedAt = dto,
+                ContentLength = v.GetPropertyOrDefault("content_length", 0L),
+                FikaCompatibility = v.GetPropertyOrDefault("fika_compatibility", (string?)null),
                 Dependencies = null
             };
 
@@ -603,19 +602,16 @@ public static class ForgeClient
         if (el.ValueKind != JsonValueKind.Array) return null;
         var list = new List<Person>();
         foreach (var c in el.EnumerateArray())
-        {
-            if (c.ValueKind != JsonValueKind.Object) continue;
+            if (c.ValueKind == JsonValueKind.Object)
+                list.Add(new Person
+                {
+                    id = c.GetPropertyOrDefault("id", 0),
+                    name = c.GetPropertyOrDefault("name", ""),
+                    profile_photo_url = c.GetPropertyOrDefault("profile_photo_url", (string?)null),
+                    cover_photo_url = c.GetPropertyOrDefault("cover_photo_url", (string?)null)
+                });
 
-            list.Add(new Person
-            {
-                id = c.GetPropertyOrDefault("id", 0),
-                name = c.GetPropertyOrDefault("name", ""),
-                profile_photo_url = c.GetPropertyOrDefault("profile_photo_url", (string?)null),
-                cover_photo_url = c.GetPropertyOrDefault("cover_photo_url", (string?)null)
-            });
-        }
-
-        return list.Count == 0 ? null : list.ToArray();
+        return list.ToArray();
     }
 
     private static CategoryInfo? ParseCategory(JsonElement el)
@@ -801,6 +797,8 @@ public static class ForgeClient
         public string? SptVersionConstraint { get; set; }
         public DateTimeOffset? PublishedAt { get; set; }
         public long Downloads { get; set; }
+        public long ContentLength { get; set; }
+        public string? FikaCompatibility { get; set; }
         public List<ModDependency>? Dependencies { get; set; }
     }
 
@@ -834,6 +832,7 @@ public static class ForgeClient
         public bool featured { get; set; }
         public bool contains_ads { get; set; }
         public bool contains_ai_content { get; set; }
+        public bool fika_compatibility { get; set; }
         public Person? owner { get; set; }
         public Person[]? authors { get; set; }
         public CategoryInfo? category { get; set; }

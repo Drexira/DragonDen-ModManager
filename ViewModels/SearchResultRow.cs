@@ -29,9 +29,13 @@ public sealed class SearchResultRow : INotifyPropertyChanged
     public List<SourceButton> SourceButtons { get; set; } = new();
     public string? ThumbnailOrPlaceholder => string.IsNullOrWhiteSpace(Thumbnail) ? null : Thumbnail;
     public bool HasAuthors => OwnerNames is { Count: > 0 };
-    public bool IsLatestVersion { get; set; } = false;
     public bool HasSources => SourceButtons is { Count: > 0 };
     public string DownloadsText => Downloads.ToString("N0", CultureInfo.InvariantCulture);
+
+    public bool IsFikaCompatible { get; set; }
+    public string FikaStatusText { get; set; } = "";
+    public string FikaStatusKind { get; set; } = "";
+    public bool ShowFikaStatus => !string.IsNullOrWhiteSpace(FikaStatusText);
 
     public bool IsInstalled
     {

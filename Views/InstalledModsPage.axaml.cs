@@ -779,11 +779,10 @@ public partial class InstalledModsPage : UserControl
                     ? sorted
                     : sorted.Where(v => string.Equals(ToABFromConstraint(v.SptVersionConstraint), detectedAB, StringComparison.OrdinalIgnoreCase))
                         .ToList();
-
                 var latestForAB = filtered.FirstOrDefault();
                 var latestVerText = latestForAB?.Version ?? "";
                 var canUpdate = latestForAB != null && !string.IsNullOrWhiteSpace(latestForAB.Version) && IsUpdate(installedVersion, latestForAB.Version!);
-
+                var fikaLabel = BuildFikaLabel(installedVersion, sorted, latestForAB);
                 var modIds = g.Select(x => x.mod_id).Distinct().ToList();
 
                 var isDisabled = false;
@@ -850,7 +849,8 @@ public partial class InstalledModsPage : UserControl
                     InstalledAtText = installedAt.HasValue ? installedAt.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm") : "",
                     LatestPublishedText = latestForAB?.PublishedAt.HasValue == true ? latestForAB!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd") : "",
                     HasEditableConfigs = hasEditableConfigs,
-                    IsDisabled = isDisabled
+                    IsDisabled = isDisabled,
+                    FikaLabel = fikaLabel
                 };
 
                 if (cacheRow != null && coldMap.ContainsKey(cacheRow.Id))
@@ -921,9 +921,9 @@ public partial class InstalledModsPage : UserControl
 
                 var latest = filtered.FirstOrDefault();
                 var row = coldMap[id];
-
                 var installedVersion = row.InstalledVersion ?? "0.0.0";
                 var canUpdate = latest != null && !string.IsNullOrWhiteSpace(latest.Version) && IsUpdate(installedVersion, latest.Version!);
+                var fikaLabel = BuildFikaLabel(installedVersion, sorted, latest);
 
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -935,7 +935,10 @@ public partial class InstalledModsPage : UserControl
                     row.LatestVersionText = latest?.Version ?? "";
                     row.IsOutdated = !row.IsDisabled && canUpdate;
                     row.CanUpdate = !row.IsDisabled && canUpdate;
-                    row.LatestPublishedText = latest?.PublishedAt.HasValue == true ? latest!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd") : "";
+                    row.LatestPublishedText = latest?.PublishedAt.HasValue == true
+                        ? latest!.PublishedAt!.Value.LocalDateTime.ToString("yyyy-MM-dd")
+                        : "";
+                    row.FikaLabel = fikaLabel;
 
                     InsertSorted(visible, row, comparer);
                 });
@@ -1249,5 +1252,49 @@ public partial class InstalledModsPage : UserControl
         var trimmed = string.Join(Path.DirectorySeparatorChar.ToString(), relSegs);
         var combined = Path.Combine(baseRoot, trimmed);
         return Path.GetFullPath(combined);
+    }
+    
+    private static string NormalizeFika(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "unknown";
+        var s = raw.Trim().ToLowerInvariant();
+        return s switch
+        {
+            "compatible" => "compatible",
+            "incompatible" => "incompatible",
+            "unknown" => "unknown",
+            _ => "unknown"
+        };
+    }
+
+    private static string BuildFikaLabel(string installedVersion, List<ForgeClient.ModVersion> allVersions, ForgeClient.ModVersion? abLatest)
+    {
+        string kindInstalled = "unknown";
+
+        if (!string.IsNullOrWhiteSpace(installedVersion))
+        {
+            var match = allVersions.FirstOrDefault(v =>
+                string.Equals(v.Version ?? "", installedVersion, StringComparison.OrdinalIgnoreCase));
+
+            if (match != null)
+                kindInstalled = NormalizeFika(match.FikaCompatibility);
+        }
+
+        if (kindInstalled == "compatible") return "Fika compatible (installed)";
+        if (kindInstalled == "incompatible") return "Fika incompatible (installed)";
+
+        if (abLatest != null)
+        {
+            var kindLatest = NormalizeFika(abLatest.FikaCompatibility);
+            if (kindLatest == "compatible") return "Fika compatible (latest version)";
+            if (kindLatest == "incompatible") return "Fika incompatible (latest version)";
+        }
+
+        var anyCompat = allVersions.Any(v => NormalizeFika(v.FikaCompatibility) == "compatible");
+        if (anyCompat) return "Fika compatible (other version)";
+
+        if (allVersions.Count > 0) return "Fika status unknown";
+
+        return "";
     }
 }

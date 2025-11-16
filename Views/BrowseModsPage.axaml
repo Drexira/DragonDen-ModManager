@@ -214,24 +214,26 @@
                             </ComboBox.SelectionBoxItemTemplate>
                         </ComboBox>
 
-                        <ComboBox x:Name="SptFilterBox" Width="170" />
+                        <ComboBox x:Name="SptFilterBox" Width="140" />
                         <ComboBox x:Name="SortBox" Width="160">
                             <ComboBoxItem Content="Most recent" Tag="recent" />
                             <ComboBoxItem Content="Newest published" Tag="newest" />
                             <ComboBoxItem Content="Most downloads" Tag="downloads" />
                         </ComboBox>
-                        <ComboBox x:Name="PageSizeBox" Width="90">
+                        <ComboBox x:Name="PageSizeBox" Width="70">
                             <ComboBoxItem Content="9" />
                             <ComboBoxItem Content="18" />
                             <ComboBoxItem Content="27" />
                             <ComboBoxItem Content="54" />
                         </ComboBox>
+
                         <CheckBox x:Name="HideInstalledChk" Content="Hide Installed" />
+                        <CheckBox x:Name="FikaOnlyChk" Content="Fika Comp Only" />
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Right" DockPanel.Dock="Right">
-                        <TextBlock x:Name="LoadedModsLabel" VerticalAlignment="Center" Foreground="{StaticResource Dd.Subtle}" />
-                        <Separator Width="1" Margin="5,0" Background="{StaticResource Dd.Border}" />
+                        <!--<TextBlock x:Name="LoadedModsLabel" VerticalAlignment="Center" Foreground="{StaticResource Dd.Subtle}" />
+                        <Separator Width="1" Margin="5,0" Background="{StaticResource Dd.Border}" />-->
                         <Button x:Name="PrevBtn" Content="◀ Prev" Classes="btn btn-neutral" MinWidth="70" />
                         <TextBlock Text="Page" VerticalAlignment="Center" Foreground="{StaticResource Dd.Subtle}" />
                         <TextBlock x:Name="PageInfo" Width="64" TextAlignment="Center" VerticalAlignment="Center" />
@@ -257,14 +259,18 @@
                                             <Grid>
                                                 <services:WebImage x:Name="Thumb" Url="{Binding ThumbnailOrPlaceholder}" Stretch="UniformToFill" />
                                                 <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="8,2"
-                                                        CornerRadius="10" Background="{StaticResource Dd.SptBadge}"
-                                                         IsVisible="{Binding IsLatestVersion}">
+                                                        CornerRadius="10" Background="{StaticResource Dd.SptBadge}">
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <Path Data="M12,2 L14.5,8.0 21,8.8 16.0,13.0 17.2,19.6 12,16.3 6.8,19.6 8.0,13.0 3,8.8 9.5,8.0 z"
                                                               Width="12" Height="12" Fill="#1E2329" Stretch="Uniform" />
                                                         <TextBlock Foreground="#1E2329" FontWeight="Bold" FontSize="11" 
                                                                    Text="{Binding SptConstraintText, StringFormat=SPT {0}}" />
                                                     </StackPanel>
+                                                </Border>
+                                                
+                                                <Border Classes="pill" Margin="6" Padding="10,2,10,2" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                        IsVisible="{Binding ShowFikaStatus}">
+                                                    <TextBlock Text="{Binding FikaStatusText}" FontSize="11" />
                                                 </Border>
                                             </Grid>
                                         </Border>
@@ -322,7 +328,7 @@
                                                     Spacing="8"
                                                     Margin="0,0,0,0"
                                                     VerticalAlignment="Bottom">
-                                            <WrapPanel Orientation="Horizontal" Margin="2,5,0,0" HorizontalAlignment="Right" IsVisible="{Binding IsLatestVersion}">
+                                            <WrapPanel Orientation="Horizontal" Margin="2,5,0,0" HorizontalAlignment="Right">
                                                 <ItemsControl ItemsSource="{Binding SourceButtons}">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
