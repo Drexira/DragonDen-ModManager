@@ -47,6 +47,19 @@ public partial class FirstRunDialog : Window
             return;
         }
 
+        var eftExe = Path.Combine(chosen, "EscapeFromTarkov.exe");
+        var bepin = Path.Combine(chosen, "BepInEx");
+        if (!File.Exists(eftExe) || !Directory.Exists(bepin))
+        {
+            VersionText.Text = "Invalid folder. EscapeFromTarkov.exe or BepInEx folder not found.";
+            Notifications.Current.ShowError(
+                "Invalid Folder",
+                "EscapeFromTarkov.exe and BepInEx folder must be in the selected folder."
+            );
+            Logger.Warn("[FirstRunDialog] Invalid folder selected (missing EFT exe or BepInEx): " + chosen);
+            return;
+        }
+
         var exe = Path.Combine(chosen, "SPT.Server.exe");
         if (!File.Exists(exe))
             exe = Path.Combine(chosen, "SPT", "SPT.Server.exe");

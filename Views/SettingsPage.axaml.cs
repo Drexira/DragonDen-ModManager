@@ -130,6 +130,18 @@ public partial class SettingsPage : UserControl
             return;
         }
 
+        var eftExe = Path.Combine(chosen, "EscapeFromTarkov.exe");
+        var bepin = Path.Combine(chosen, "BepInEx");
+        if (!File.Exists(eftExe) || !Directory.Exists(bepin))
+        {
+            Notifications.Current.ShowError(
+                "Invalid SPT Folder",
+                "EscapeFromTarkov.exe and BepInEx folder must be in the selected folder."
+            );
+            Logger.Error("[SettingsPage] Invalid SPT folder: missing EscapeFromTarkov.exe or BepInEx in " + chosen);
+            return;
+        }
+
         if (!TryFindSptExe(chosen, out var exePath))
         {
             Notifications.Current.ShowError("Invalid SPT Folder", "Could not locate SPT.Server.exe in selected directory.");
