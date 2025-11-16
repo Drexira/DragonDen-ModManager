@@ -1358,8 +1358,6 @@ public partial class BrowseModsPage : UserControl
                 var mod = await ForgeClient.GetModAsync(r.ModId,
                     false,
                     false,
-                    false,
-                    false,
                     true,
                     App.ShutdownToken);
 

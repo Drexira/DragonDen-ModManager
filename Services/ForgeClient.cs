@@ -275,8 +275,6 @@ public static class ForgeClient
 
     public static async Task<ModSummary?> GetModAsync(
         int modId,
-        bool includeOwner = false,
-        bool includeAuthors = false,
         bool includeCategory = true,
         bool includeVersions = false,
         bool includeSourceLinks = false,
@@ -337,8 +335,6 @@ public static class ForgeClient
         int page,
         int perPage,
         bool includeVersions,
-        bool includeOwner,
-        bool includeAuthors,
         bool includeCategory,
         string query,
         string sortApi,
