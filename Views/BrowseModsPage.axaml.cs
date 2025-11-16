@@ -1171,6 +1171,7 @@ public partial class BrowseModsPage : UserControl
             ?? ResultsList.SelectedItem as SearchResultRow;
 
         if (row is null || string.IsNullOrWhiteSpace(row.Name)) return;
+        if (SptProcessGuard.BlockIfRunning("Uninstalling mod")) return;
 
         App.Db.Uninstall(row.Name);
         App.NotifyInstallsChanged();
@@ -1545,6 +1546,7 @@ public partial class BrowseModsPage : UserControl
     private async void OnInstallSelected(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
+        if (SptProcessGuard.BlockIfRunning("Installing new mod")) return;
 
         var row =
             btn.DataContext as SearchResultRow

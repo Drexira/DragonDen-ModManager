@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -125,6 +126,7 @@ public partial class InstalledModsPage : UserControl
 
     private async Task UpdateAll()
     {
+        if (SptProcessGuard.BlockIfRunning("Update all mods")) return;
         var mods = App.Db.ListMods().ToList();
         var queued = 0;
 
@@ -187,6 +189,7 @@ public partial class InstalledModsPage : UserControl
 
     private async Task DisableAllAsync()
     {
+        if (SptProcessGuard.BlockIfRunning("Disable all mods")) return;
         var rows = (ModsList.ItemsSource as IEnumerable<InstalledModRow>)?.ToList() ?? new();
         var targets = rows.Where(r => !r.IsDisabled && r.Versions?.Count > 0).ToList();
         if (targets.Count == 0)
@@ -211,6 +214,7 @@ public partial class InstalledModsPage : UserControl
 
     private async Task EnableAllAsync()
     {
+        if (SptProcessGuard.BlockIfRunning("Enable all mods")) return;
         var rows = (ModsList.ItemsSource as IEnumerable<InstalledModRow>)?.ToList() ?? new();
         var targets = rows.Where(r => r.IsDisabled).ToList();
 
@@ -241,6 +245,7 @@ public partial class InstalledModsPage : UserControl
         {
             if (b.Classes?.Contains("btn-trash") == true && b.Tag is InstalledModRow rowDisabledTrash)
             {
+                if (SptProcessGuard.BlockIfRunning("Remove mod")) return;
                 var owner = (Window?)TopLevel.GetTopLevel(this);
                 var dlg = new ConfirmUninstallDialog(rowDisabledTrash.Name);
                 var doIt = owner != null ? await dlg.ShowDialog<bool>(owner) : false;
@@ -261,6 +266,7 @@ public partial class InstalledModsPage : UserControl
 
         if (b.Classes?.Contains("btn-trash") == true && b.Tag is InstalledModRow rowTrash)
         {
+            if (SptProcessGuard.BlockIfRunning("Remove mod")) return;
             var owner = (Window?)TopLevel.GetTopLevel(this);
             var dlg = new ConfirmUninstallDialog(rowTrash.Name);
             var doIt = owner != null ? await dlg.ShowDialog<bool>(owner) : false;
@@ -446,6 +452,7 @@ public partial class InstalledModsPage : UserControl
 
     private async Task UninstallAllAsync()
     {
+        if (SptProcessGuard.BlockIfRunning("Uninstall all mods")) return;
         var rows = (ModsList.ItemsSource as IEnumerable<InstalledModRow>)?.ToList() ?? new();
         var targets = rows.Where(r => r.ModIds is { Count: > 0 }).ToList();
         if (targets.Count == 0)
@@ -985,9 +992,16 @@ public partial class InstalledModsPage : UserControl
         });
     }
 
-    private void OnToggleEnabled(object? s, RoutedEventArgs e)
+    private async void OnToggleEnabled(object? s, RoutedEventArgs e)
     {
         if (s is not CheckBox { Tag: InstalledModRow row } cb) return;
+
+        if (SptProcessGuard.BlockIfRunning("Toggle mod state"))
+        {
+            e.Handled = true;
+            await RefreshRows();
+            return;
+        }
 
         var shouldEnable = cb.IsChecked == true;
 
@@ -1000,6 +1014,7 @@ public partial class InstalledModsPage : UserControl
     private void OnUpdateFromBadge(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button b || b.Tag is not InstalledModRow row) return;
+        if (SptProcessGuard.BlockIfRunning("Update mod")) return;
 
         if (row.IsDisabled)
         {
@@ -1025,6 +1040,7 @@ public partial class InstalledModsPage : UserControl
     private async void OnOpenVersionModal(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button b || b.Tag is not InstalledModRow row) return;
+        if (SptProcessGuard.BlockIfRunning("Change mod version")) return;
         if (row.IsDisabled)
         {
             Notifications.Current.ShowWarning("Mod Disabled", "Enable this mod before changing its version.");
