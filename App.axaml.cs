@@ -182,11 +182,14 @@ public class App : Application
                 const string discordInvite = "https://discord.gg/WelcomeToTarkov";
                 const string modPage = "https://forge.sp-tarkov.com/mod/2396/dragon-den-mod-manager";
 
-                var ok = await AlphaNoticeDialog.ShowAsync(desktop.MainWindow, githubIssues, discordInvite, modPage, CancellationToken.None);
-                if (!ok)
+                if (!Config.UI.ExpertMode)
                 {
-                    desktop.Shutdown();
-                    return;
+                    var ok = await AlphaNoticeDialog.ShowAsync(desktop.MainWindow, githubIssues, discordInvite, modPage, CancellationToken.None);
+                    if (!ok)
+                    {
+                        desktop.Shutdown();
+                        return;
+                    }
                 }
 
                 _warmCts = CancellationTokenSource.CreateLinkedTokenSource(ShutdownToken);

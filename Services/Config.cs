@@ -139,4 +139,5 @@ public sealed class UISection
 {
     public string SearchSort { get; set; } = "recent";
     public int SearchPageSize { get; set; } = 12;
+    public bool ExpertMode { get; set; } = false;
 }

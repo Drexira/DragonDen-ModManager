@@ -168,6 +168,18 @@
                     </Grid>
                 </StackPanel>
             </Border>
+            
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="h2" Text="UI" />
+                    <TextBlock Classes="note"
+                               Text="Expert mode. Only enable if you know what you are doing." />
+                    <ToggleButton x:Name="ExpertModeToggle"
+                                  Classes="ghost"
+                                  Content="Expert mode (skip startup and install warnings)"
+                                  HorizontalAlignment="Left" />
+                </StackPanel>
+            </Border>
 
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button x:Name="SaveBtn" Content="Save" Classes="btn" />

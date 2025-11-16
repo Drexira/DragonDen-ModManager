@@ -1597,8 +1597,11 @@ public partial class BrowseModsPage : UserControl
 
         if (owner is null) return;
 
-        var acknowledged = await ConfirmFirstInstallAsync(owner, row.Name, row.Guid, row.ModPageUrl, App.ShutdownToken);
-        if (!acknowledged) return;
+        if (!App.Config.UI.ExpertMode)
+        {
+            var acknowledged = await ConfirmFirstInstallAsync(owner, row.Name, row.Guid, row.ModPageUrl, App.ShutdownToken);
+            if (!acknowledged) return;
+        }
 
         ForgeClient.ModVersion? chosen = null;
         {
