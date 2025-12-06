@@ -7,7 +7,7 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
-        <Version>0.0.7</Version>
+        <Version>0.0.8</Version>
         <Authors>Drexira</Authors>
         <Copyright>Drexira</Copyright>
         <Title>Dragon Den Mod Manager</Title>
