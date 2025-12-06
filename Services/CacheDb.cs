@@ -882,7 +882,7 @@ LIMIT 1;";
 
                 var chunk = await ForgeClient.GetModsPageAsync(
                     page, pageSize,
-                    true, true, true, true,
+                    true, true,
                     "",
                     "-updated_at",
                     true,

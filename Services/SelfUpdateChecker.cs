@@ -32,7 +32,7 @@ public static class SelfUpdateChecker
                 return;
             }
 
-            var mod = await ForgeClient.GetModAsync(ModManagerForgeID, includeOwner: false, includeAuthors: false, includeCategory: false, includeVersions: false,
+            var mod = await ForgeClient.GetModAsync(ModManagerForgeID, includeCategory: false, includeVersions: false,
                 includeSourceLinks: false, ct: ct).ConfigureAwait(false);
 
             var pageUrl = mod?.detail_url ?? "";
