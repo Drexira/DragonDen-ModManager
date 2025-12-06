@@ -38,6 +38,7 @@
         </LinearGradientBrush>
 
         <services:StringHasTextConverter x:Key="StringHasTextConverter" />
+        <services:SptVersionBadgeConverter x:Key="SptVersionToBadgeBrushConverter" />
 
         <DataTemplate x:Key="VersionTemplate" DataType="vm:SearchResultRow+VersionDisplay">
             <TextBlock Text="{Binding Label}" />
@@ -259,7 +260,12 @@
                                             <Grid>
                                                 <services:WebImage x:Name="Thumb" Url="{Binding ThumbnailOrPlaceholder}" Stretch="UniformToFill" />
                                                 <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="8,2"
-                                                        CornerRadius="10" Background="{StaticResource Dd.SptBadge}">
+                                                        CornerRadius="10">
+                                                    <Border.Background>
+                                                        <Binding Path="SptConstraintText"
+                                                                 Converter="{StaticResource SptVersionToBadgeBrushConverter}" />
+                                                    </Border.Background>
+
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <Path Data="M12,2 L14.5,8.0 21,8.8 16.0,13.0 17.2,19.6 12,16.3 6.8,19.6 8.0,13.0 3,8.8 9.5,8.0 z"
                                                               Width="12" Height="12" Fill="#1E2329" Stretch="Uniform" />
