@@ -275,4 +275,19 @@ public class App : Application
     {
         return Spt.TryGetServerVersionThree(out _, out var ab) && !string.IsNullOrWhiteSpace(ab) ? ab : "";
     }
+    
+    public static int GetDetectedSptMajor()
+    {
+        try
+        {
+            var ab = GetDetectedSptAB();
+            if (string.IsNullOrWhiteSpace(ab)) return 0;
+            var parts = ab.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            return int.TryParse(parts[0], out var major) ? major : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
 }
