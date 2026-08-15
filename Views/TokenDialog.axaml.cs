@@ -17,6 +17,7 @@ public partial class TokenDialog : Window
     {
         None,
         Set,
+        Skip,
         CloseApp
     }
 
@@ -24,7 +25,7 @@ public partial class TokenDialog : Window
     {
         InitializeComponent();
         SetBtn.Click += OnSetAsync;
-        CloseBtn.Click += (_, __) => Close(Result.CloseApp);
+        CloseBtn.Click += (_, __) => Close(Result.Skip);
     }
 
     private async void OnSetAsync(object? s, RoutedEventArgs e)
@@ -32,8 +33,10 @@ public partial class TokenDialog : Window
         var token = (TokenBox.Text ?? "").Trim();
         if (string.IsNullOrWhiteSpace(token))
         {
-            Notifications.Current.ShowWarning("Missing Token", "Please enter your Forge API token before continuing.");
-            Logger.Warn("[TokenDialog] No token entered by user.");
+            // The new Forge API works unauthenticated, so a token is optional.
+            // Proceed without one instead of blocking the user.
+            Logger.Info("[TokenDialog] No token entered; continuing without a Forge token.");
+            Close(Result.Skip);
             return;
         }
 
@@ -75,7 +78,7 @@ public partial class TokenDialog : Window
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
             http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-            using var resp = await http.GetAsync("https://forge.sp-tarkov.com/api/v0/ping");
+            using var resp = await http.GetAsync($"{Base()}/api/v0/ping");
             if (!resp.IsSuccessStatusCode) return false;
 
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
@@ -100,7 +103,7 @@ public partial class TokenDialog : Window
             http.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", token);
 
-            using var resp = await http.GetAsync("https://forge.sp-tarkov.com/api/v0/mods?per_page=1&page=1");
+            using var resp = await http.GetAsync($"{Base()}/api/v0/mods?per_page=1&page=1");
             if (resp.StatusCode == HttpStatusCode.Unauthorized ||
                 resp.StatusCode == HttpStatusCode.Forbidden)
                 return false;
@@ -124,7 +127,7 @@ public partial class TokenDialog : Window
     {
         try
         {
-            var url = "https://forge.sp-tarkov.com/user/api-tokens";
+            var url = Base();
             _ = Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
         catch (Exception ex)
@@ -139,5 +142,11 @@ public partial class TokenDialog : Window
         var show = ShowToggle.IsChecked == true;
         TokenBox.PasswordChar = show ? '\0' : '•';
         ShowToggle.Content = show ? "Hide" : "Show";
+    }
+
+    private static string Base()
+    {
+        var b = App.Config.Forge.BaseUrl?.TrimEnd('/');
+        return string.IsNullOrWhiteSpace(b) ? "https://sp-mod.com" : b;
     }
 }

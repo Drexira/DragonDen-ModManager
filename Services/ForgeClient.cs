@@ -38,7 +38,7 @@ public static class ForgeClient
         Timeout = TimeSpan.FromSeconds(100)
     };
 
-    private static string BaseUrl => App.Config.Forge.BaseUrl?.TrimEnd('/') ?? "https://forge.sp-tarkov.com";
+    private static string BaseUrl => App.Config.Forge.BaseUrl?.TrimEnd('/') ?? "https://sp-mod.com";
     public static event Action<string>? StatusMessage;
 
     private static HttpRequestMessage NewGet(string url)
@@ -547,7 +547,7 @@ public static class ForgeClient
                 Version = v.GetPropertyOrDefault("version", (string?)null),
                 Link = v.GetPropertyOrDefault("link", (string?)null),
                 Description = v.GetPropertyOrDefault("description", (string?)null),
-                SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null),
+                SptVersionConstraint = v.GetPropertyOrDefault("spt_version_constraint", (string?)null)?.Trim(),
                 Downloads = v.GetPropertyOrDefault("downloads", 0L),
                 PublishedAt = dto,
                 ContentLength = v.GetPropertyOrDefault("content_length", 0L),

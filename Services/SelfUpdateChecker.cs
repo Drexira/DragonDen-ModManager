@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -15,6 +15,13 @@ public static class SelfUpdateChecker
 
     public static async Task CheckOnStartupAsync(Window owner, System.Threading.CancellationToken ct = default)
     {
+        // Fork note: the DragonDen Mod Manager listing (mod 2396) was not migrated to the
+        // new Forge (sp-mod.com), so this update channel is dead — querying it 404s and
+        // triggers the full retry/backoff path on every launch. Disabled until this fork
+        // has its own release channel (e.g. GitHub releases).
+        await Task.CompletedTask;
+        return;
+#pragma warning disable CS0162 // unreachable — kept for when an update channel returns
         try
         {
             var versions = await ForgeClient.GetAllVersionsAsync(ModManagerForgeID, ct).ConfigureAwait(false);
@@ -52,6 +59,7 @@ public static class SelfUpdateChecker
             Logger.Error($"[SelfUpdateChecker] CheckOnStartupAsync: {ex}");
         }
     }
+#pragma warning restore CS0162
 
     public static string GetCurrentAppVersion()
     {
