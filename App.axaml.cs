@@ -180,7 +180,7 @@ public class App : Application
             {
                 const string githubIssues = "https://github.com/Drexira/DragonDen-ModManager/issues";
                 const string discordInvite = "https://discord.gg/WelcomeToTarkov";
-                const string modPage = "https://forge.sp-tarkov.com/mod/2396/dragon-den-mod-manager";
+                const string modPage = "https://sp-mod.com";
 
                 if (!Config.UI.ExpertMode)
                 {

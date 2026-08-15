@@ -28,7 +28,7 @@ public sealed class Config
             },
             Forge = new ForgeSection
             {
-                BaseUrl = "https://forge.sp-tarkov.com",
+                BaseUrl = "https://sp-mod.com",
                 Token = ""
             },
             UI = new UISection
@@ -94,8 +94,9 @@ public sealed class Config
         if (string.IsNullOrWhiteSpace(Paths.ServerModsRelative))
             Paths.ServerModsRelative = "SPT/user/mods";
 
-        if (string.IsNullOrWhiteSpace(Forge.BaseUrl))
-            Forge.BaseUrl = "https://forge.sp-tarkov.com";
+        if (string.IsNullOrWhiteSpace(Forge.BaseUrl) ||
+            Forge.BaseUrl.Contains("sp-tarkov.com", StringComparison.OrdinalIgnoreCase))
+            Forge.BaseUrl = "https://sp-mod.com";
 
         Forge.Token ??= "";
 
@@ -131,7 +132,7 @@ public sealed class PathsSection
 
 public sealed class ForgeSection
 {
-    public string BaseUrl { get; set; } = "https://forge.sp-tarkov.com";
+    public string BaseUrl { get; set; } = "https://sp-mod.com";
     public string Token { get; set; } = "";
 }
 

@@ -6,7 +6,7 @@
         CanResize="False"
         SystemDecorations="None"
         WindowStartupLocation="CenterOwner"
-        Title="Forge Token Required">
+        Title="Forge Token (optional)">
 
     <Window.Resources>
         <SolidColorBrush x:Key="Dd.Panel" Color="#12161A" />
@@ -111,12 +111,12 @@
 
         <Grid Grid.Row="1" Margin="16" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
             <StackPanel Spacing="6">
-                <TextBlock Text="Forge API token required"
+                <TextBlock Text="Forge API token (optional)"
                            FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Dd.Text}" />
                 <TextBlock TextWrapping="Wrap"
                            Foreground="{StaticResource Dd.Subtle}">
-                    You can create a token on the Forge website.
-                    Make sure the token has only <Run Text="Read" Foreground="{StaticResource Dd.Warn}" /> permissions checked.
+                    The Forge works without a token, so this is optional. You can add one now or skip and continue.
+                    If you add a token, make sure it has only <Run Text="Read" Foreground="{StaticResource Dd.Warn}" /> permissions checked.
                 </TextBlock>
                 <Button Classes="link"
                         Content="Open Forge API Tokens page"
@@ -145,7 +145,7 @@
 
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                 <Button x:Name="SetBtn" Content="Save Token" Classes="btn success" />
-                <Button x:Name="CloseBtn" Content="Close" Classes="btn danger" />
+                <Button x:Name="CloseBtn" Content="Continue without token" Classes="btn" />
             </StackPanel>
         </Grid>
     </Grid>

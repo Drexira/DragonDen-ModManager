@@ -27,7 +27,7 @@ This readme is for developers who want to contribute.
 * .NET 9 SDK
 * Windows 10/11
     * Primary target: Windows 10/11
-* A valid Forge API token
+* A Forge API token (optional — the new sp-mod.com API works without one)
 * An SPT root folder (to detect SPT version and manage installs)
 
 ---

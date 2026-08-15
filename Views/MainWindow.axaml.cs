@@ -63,7 +63,11 @@ public partial class MainWindow : Window
 
     private async void OnOpenedAsync(object? s, EventArgs e)
     {
-        while (string.IsNullOrWhiteSpace(App.Config.Forge.Token))
+        // Token is optional (the Forge API works unauthenticated). Only offer the prompt
+        // once, on genuine first run (before the SPT folder is configured), and let the
+        // user skip it. Closing the dialog window exits the app; skipping continues.
+        if (string.IsNullOrWhiteSpace(App.Config.Paths.SptRoot) &&
+            string.IsNullOrWhiteSpace(App.Config.Forge.Token))
         {
             var dlg = new TokenDialog();
             var res = await dlg.ShowDialog<TokenDialog.Result?>(this) ?? TokenDialog.Result.CloseApp;
